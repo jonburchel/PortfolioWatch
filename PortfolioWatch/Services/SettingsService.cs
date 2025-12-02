@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using Microsoft.Win32;
+using System.Diagnostics;
 using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Services
@@ -55,5 +57,86 @@ namespace PortfolioWatch.Services
         }
 
         public AppSettings CurrentSettings => _currentSettings;
+
+        public void SetStartup(bool enable)
+        {
+            try
+            {
+                string runKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(runKey, true))
+                {
+                    if (key == null) return;
+
+                    if (enable)
+                    {
+                        string? location = Process.GetCurrentProcess().MainModule?.FileName;
+                        
+                        if (!string.IsNullOrEmpty(location))
+                        {
+                            key.SetValue("PortfolioWatch", $"\"{location}\"");
+                        }
+                    }
+                    else
+                    {
+                        key.DeleteValue("PortfolioWatch", false);
+                    }
+                }
+                
+                _currentSettings.StartWithWindows = enable;
+                SaveSettings(_currentSettings);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to set startup: {ex.Message}");
+            }
+        }
+
+        public bool IsStartupEnabled()
+        {
+            try
+            {
+                string runKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(runKey, false))
+                {
+                    if (key == null) return false;
+                    return key.GetValue("PortfolioWatch") != null;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public void ExportStocks(string filePath)
+        {
+            try
+            {
+                var json = JsonSerializer.Serialize(_currentSettings.Stocks, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(filePath, json);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to export stocks: {ex.Message}");
+            }
+        }
+
+        public void ImportStocks(string filePath)
+        {
+            try
+            {
+                var json = File.ReadAllText(filePath);
+                var stocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(json);
+                if (stocks != null)
+                {
+                    _currentSettings.Stocks = stocks;
+                    SaveSettings(_currentSettings);
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to import stocks: {ex.Message}");
+            }
+        }
     }
 }

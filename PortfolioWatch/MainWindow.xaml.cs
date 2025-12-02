@@ -19,7 +19,7 @@ namespace PortfolioWatch
             Loaded += MainWindow_Loaded;
             
             _autoHideTimer = new DispatcherTimer();
-            _autoHideTimer.Interval = TimeSpan.FromSeconds(0.5);
+            _autoHideTimer.Interval = TimeSpan.FromSeconds(2);
             _autoHideTimer.Tick += (s, e) => 
             {
                 if (!IsPinned)
@@ -71,11 +71,37 @@ namespace PortfolioWatch
             if (!IsPinned) _autoHideTimer.Start();
         }
 
+        public void ShowPinningTooltip()
+        {
+            PinningTooltip.IsOpen = true;
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+            timer.Tick += (s, e) =>
+            {
+                PinningTooltip.IsOpen = false;
+                timer.Stop();
+            };
+            timer.Start();
+        }
+
         private void TitleTextBox_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Enter)
             {
                 Keyboard.ClearFocus();
+            }
+        }
+
+        private void SharesBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                // Explicitly update source to ensure value is committed before clearing focus
+                if (sender is System.Windows.Controls.TextBox textBox)
+                {
+                    textBox.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+                }
+                Keyboard.ClearFocus();
+                e.Handled = true;
             }
         }
 

@@ -92,8 +92,11 @@ namespace PortfolioWatch
             var settings = _settingsService.LoadSettings();
 
             // Initialize Windows
-            _floatingWindow = new FloatingWindow();
             _mainWindow = new MainWindow();
+            _floatingWindow = new FloatingWindow();
+            
+            // Share DataContext
+            _floatingWindow.DataContext = _mainWindow.DataContext;
 
             // Apply Settings
             if (settings.WindowLeft != 0 && settings.WindowTop != 0)
@@ -137,7 +140,7 @@ namespace PortfolioWatch
                 if (_mainWindow.IsVisible)
                 {
                     _mainWindow.Left = _floatingWindow.Left;
-                    _mainWindow.Top = _floatingWindow.Top - _mainWindow.Height - 2;
+                    _mainWindow.Top = _floatingWindow.Top - _mainWindow.Height; // Removed gap
                 }
                 
                 _isSyncing = false;
@@ -150,7 +153,7 @@ namespace PortfolioWatch
 
                 // Move FloatingWindow to stay below MainWindow
                 _floatingWindow.Left = _mainWindow.Left;
-                _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height + 2;
+                _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height; // Removed gap
 
                 _isSyncing = false;
             };
@@ -162,7 +165,7 @@ namespace PortfolioWatch
                 if (args.HeightChanged)
                 {
                     _isSyncing = true;
-                    _mainWindow.Top = _floatingWindow.Top - _mainWindow.Height - 2;
+                    _mainWindow.Top = _floatingWindow.Top - _mainWindow.Height; // Removed gap
                     _isSyncing = false;
                 }
             };
@@ -178,7 +181,10 @@ namespace PortfolioWatch
             }
 
             // Ensure Start with Windows
-            SetStartup(true);
+            if (settings.StartWithWindows)
+            {
+                _settingsService.SetStartup(true);
+            }
         }
 
         private void FloatingWindow_OpenRequested(object? sender, OpenEventArgs e)
@@ -207,13 +213,18 @@ namespace PortfolioWatch
                         // Was transient, click -> Pin
                         _mainWindow.IsPinned = true;
                         _mainWindow.CancelAutoHide();
+                        _mainWindow.ShowPinningTooltip();
                     }
                 }
                 else
                 {
                     // Hover while visible.
                     // If pinned, do nothing.
-                    // If transient, do nothing (already shown).
+                    // If transient, ensure auto-hide is cancelled while hovering floating window
+                    if (!_mainWindow.IsPinned)
+                    {
+                        _mainWindow.CancelAutoHide();
+                    }
                 }
             }
             else
@@ -223,15 +234,17 @@ namespace PortfolioWatch
                 
                 // Position above floating window
                 _mainWindow.Left = _floatingWindow.Left;
-                _mainWindow.Top = _floatingWindow.Top - _mainWindow.Height - 2;
+                _mainWindow.Top = _floatingWindow.Top - _mainWindow.Height; // Removed gap
 
                 _mainWindow.Show();
                 _mainWindow.Activate();
 
-                if (!isPinned)
+                if (isPinned)
                 {
-                    _mainWindow.StartAutoHide();
+                    _mainWindow.ShowPinningTooltip();
                 }
+                // If not pinned (transient), do NOT start auto-hide yet. 
+                // It will be started when the mouse leaves the FloatingWindow.
             }
         }
 
@@ -251,36 +264,5 @@ namespace PortfolioWatch
             base.OnExit(e);
         }
 
-        private void SetStartup(bool enable)
-        {
-            try
-            {
-                string runKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
-                using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(runKey, true))
-                {
-                    if (key == null) return;
-
-                    if (enable)
-                    {
-                        // In single-file apps, Assembly.Location is empty. Use Process.MainModule.FileName instead.
-                        string? location = Process.GetCurrentProcess().MainModule?.FileName;
-                        
-                        if (!string.IsNullOrEmpty(location))
-                        {
-                            key.SetValue("PortfolioWatch", $"\"{location}\"");
-                        }
-                    }
-                    else
-                    {
-                        key.DeleteValue("PortfolioWatch", false);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // Handle permission errors or log
-                System.Diagnostics.Debug.WriteLine($"Failed to set startup: {ex.Message}");
-            }
-        }
     }
 }

@@ -15,5 +15,6 @@ namespace PortfolioWatch.Models
         public bool IsFirstRun { get; set; } = true;
         public bool IsIndexesVisible { get; set; } = true;
         public bool IsPortfolioMode { get; set; } = false;
+        public bool StartWithWindows { get; set; } = true;
     }
 }

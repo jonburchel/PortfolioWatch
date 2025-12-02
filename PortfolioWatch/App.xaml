@@ -3,6 +3,74 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:PortfolioWatch">
     <Application.Resources>
-         
+        <Style TargetType="{x:Type ContextMenu}">
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="Grid.IsSharedSizeScope" Value="true" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ContextMenu}">
+                        <Border x:Name="Border" Background="#252525" BorderThickness="1" BorderBrush="#404040" CornerRadius="4" Padding="2">
+                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasDropShadow" Value="true">
+                                <Setter TargetName="Border" Property="Padding" Value="0,3,0,3" />
+                                <Setter TargetName="Border" Property="CornerRadius" Value="4" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type MenuItem}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type MenuItem}">
+                        <Border x:Name="Border" Padding="10,5" Background="Transparent" BorderThickness="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Icon"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto" SharedSizeGroup="Shortcut"/>
+                                    <ColumnDefinition Width="13"/>
+                                </Grid.ColumnDefinitions>
+                                <ContentPresenter x:Name="Icon" ContentSource="Icon" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                <ContentPresenter x:Name="HeaderHost" Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" TextBlock.Foreground="White"/>
+                                <TextBlock x:Name="InputGestureText" Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="5,2,0,2" DockPanel.Dock="Right" Foreground="#808080"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#404040"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="HeaderHost" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Icon" Property="Content">
+                                    <Setter.Value>
+                                        <Path Data="M0,5 L3,8 L8,0" Stroke="White" StrokeThickness="2" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="{x:Type Separator}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Separator}">
+                        <Border Height="1" Background="#404040" Margin="5,2"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Application.Resources>
 </Application>

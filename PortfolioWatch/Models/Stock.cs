@@ -30,6 +30,7 @@ namespace PortfolioWatch.Models
                 {
                     OnPropertyChanged(nameof(IsUp));
                     OnPropertyChanged(nameof(MarketValue));
+                    OnPropertyChanged(nameof(DayChangeValue));
                 }
             }
         }
@@ -43,6 +44,7 @@ namespace PortfolioWatch.Models
                 if (SetProperty(ref _change, value))
                 {
                     OnPropertyChanged(nameof(IsUp));
+                    OnPropertyChanged(nameof(DayChangeValue));
                 }
             }
         }
@@ -79,10 +81,13 @@ namespace PortfolioWatch.Models
                 if (SetProperty(ref _shares, value))
                 {
                     OnPropertyChanged(nameof(MarketValue));
+                    OnPropertyChanged(nameof(DayChangeValue));
                 }
             }
         }
 
         public decimal MarketValue => (decimal)Shares * Price;
+
+        public decimal DayChangeValue => (decimal)Shares * Change;
     }
 }

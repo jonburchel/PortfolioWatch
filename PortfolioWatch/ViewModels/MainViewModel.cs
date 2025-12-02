@@ -61,6 +61,17 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _isPortfolioUp;
 
+        [ObservableProperty]
+        private bool _startWithWindows;
+
+        partial void OnStartWithWindowsChanged(bool value)
+        {
+            if (!IsBusy)
+            {
+                _settingsService.SetStartup(value);
+            }
+        }
+
         partial void OnWindowTitleChanged(string value)
         {
             if (!IsBusy) SaveStocks();
@@ -99,6 +110,7 @@ namespace PortfolioWatch.ViewModels
         public string SymbolSortIcon => SortProperty == "Symbol" ? (IsAscending ? "▲" : "▼") : "";
         public string NameSortIcon => SortProperty == "Name" ? (IsAscending ? "▲" : "▼") : "";
         public string ChangeSortIcon => SortProperty == "Change" ? (IsAscending ? "▲" : "▼") : "";
+        public string DayChangeValueSortIcon => SortProperty == "DayChangeValue" ? (IsAscending ? "▲" : "▼") : "";
         public string MarketValueSortIcon => SortProperty == "MarketValue" ? (IsAscending ? "▲" : "▼") : "";
 
         public MainViewModel()
@@ -157,6 +169,7 @@ namespace PortfolioWatch.ViewModels
             // Restore IsIndexesVisible after stocks are loaded to prevent overwriting with empty list
             IsIndexesVisible = settings.IsIndexesVisible;
             IsPortfolioMode = settings.IsPortfolioMode;
+            StartWithWindows = settings.StartWithWindows;
 
             // Apply sort
             ApplySortInternal();
@@ -319,6 +332,12 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
+        private void SortByDayChangeValue()
+        {
+            ApplySort("DayChangeValue");
+        }
+
+        [RelayCommand]
         private void SortByMarketValue()
         {
             ApplySort("MarketValue");
@@ -331,41 +350,94 @@ namespace PortfolioWatch.ViewModels
             CalculatePortfolioTotals();
         }
 
+        [RelayCommand]
+        private void ExportData()
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = "PortfolioWatch_Export",
+                DefaultExt = ".json",
+                Filter = "JSON Files (*.json)|*.json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    _settingsService.ExportStocks(dialog.FileName);
+                    System.Windows.MessageBox.Show("Export successful!", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show($"Export failed: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                }
+            }
+        }
+
+        [RelayCommand]
+        private void ImportData()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                DefaultExt = ".json",
+                Filter = "JSON Files (*.json)|*.json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    _settingsService.ImportStocks(dialog.FileName);
+                    
+                    // Reload data
+                    var settings = _settingsService.LoadSettings();
+                    _stockService.SetStocks(settings.Stocks);
+                    Stocks = new ObservableCollection<Stock>(settings.Stocks);
+                    
+                    // Re-subscribe
+                    foreach (var stock in Stocks)
+                    {
+                        stock.PropertyChanged += Stock_PropertyChanged;
+                    }
+                    
+                    CalculatePortfolioTotals();
+                    ApplySortInternal();
+                    
+                    System.Windows.MessageBox.Show("Import successful!", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
+                catch (Exception ex)
+                {
+                    System.Windows.MessageBox.Show($"Import failed: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                }
+            }
+        }
+
         private void CalculatePortfolioTotals()
         {
             if (!IsPortfolioMode) return;
 
             decimal totalValue = 0;
-            decimal previousTotalValue = 0;
+            decimal totalDayChangeValue = 0;
 
             foreach (var stock in Stocks)
             {
-                var marketValue = stock.MarketValue;
-                totalValue += marketValue;
-                
-                // Calculate previous day's value for this stock to get total change
-                // Current Price = Previous Price * (1 + ChangePercent/100)
-                // Previous Price = Current Price / (1 + ChangePercent/100)
-                // Change Value = Market Value - (Shares * Previous Price)
-                
-                if (stock.Price != 0)
-                {
-                    decimal previousPrice = stock.Price - stock.Change;
-                    decimal previousMarketValue = (decimal)stock.Shares * previousPrice;
-                    previousTotalValue += previousMarketValue;
-                }
+                totalValue += stock.MarketValue;
+                totalDayChangeValue += stock.DayChangeValue;
             }
 
             TotalPortfolioValue = totalValue;
+            TotalPortfolioChange = totalDayChangeValue;
+            
+            // Calculate percent change based on previous day's total value
+            // Previous Total = Current Total - Total Change
+            decimal previousTotalValue = totalValue - totalDayChangeValue;
             
             if (previousTotalValue != 0)
             {
-                TotalPortfolioChange = totalValue - previousTotalValue;
-                TotalPortfolioChangePercent = (double)((totalValue - previousTotalValue) / previousTotalValue) * 100;
+                TotalPortfolioChangePercent = (double)(totalDayChangeValue / previousTotalValue) * 100;
             }
             else
             {
-                TotalPortfolioChange = 0;
                 TotalPortfolioChangePercent = 0;
             }
 
@@ -424,7 +496,7 @@ namespace PortfolioWatch.ViewModels
             {
                 SortProperty = property;
                 IsAscending = true;
-                if (property == "Change") IsAscending = false;
+                if (property == "Change" || property == "DayChangeValue" || property == "MarketValue") IsAscending = false;
             }
 
             ApplySortInternal();
@@ -438,6 +510,7 @@ namespace PortfolioWatch.ViewModels
                 "Name" => s => s.Name,
                 "Change" => s => s.ChangePercent,
                 "MarketValue" => s => s.MarketValue,
+                "DayChangeValue" => s => s.DayChangeValue,
                 _ => s => s.Symbol
             };
 
@@ -453,6 +526,7 @@ namespace PortfolioWatch.ViewModels
             OnPropertyChanged(nameof(SymbolSortIcon));
             OnPropertyChanged(nameof(NameSortIcon));
             OnPropertyChanged(nameof(ChangeSortIcon));
+            OnPropertyChanged(nameof(DayChangeValueSortIcon));
             OnPropertyChanged(nameof(MarketValueSortIcon));
         }
 
