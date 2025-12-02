@@ -116,9 +116,23 @@ namespace PortfolioWatch
             {
                 _mainWindow.Height = settings.WindowHeight;
             }
+            if (settings.WindowWidth > 0)
+            {
+                _mainWindow.Width = settings.WindowWidth;
+            }
 
             // Wire up events
             _floatingWindow.OpenRequested += FloatingWindow_OpenRequested;
+            
+            // Ensure pinning state is reset when main window is hidden
+            _mainWindow.IsVisibleChanged += (s, args) =>
+            {
+                if (!_mainWindow.IsVisible)
+                {
+                    _mainWindow.IsPinned = false;
+                    _floatingWindow.IsPinned = false;
+                }
+            };
             _notifyIcon.TrayLeftMouseUp += (s, args) => ShowMainWindow(true);
 
             // Handle FloatingWindow MouseLeave to trigger MainWindow auto-hide
@@ -260,6 +274,7 @@ namespace PortfolioWatch
                 settings.WindowLeft = _floatingWindow.Left;
                 settings.WindowTop = _floatingWindow.Top;
                 settings.WindowHeight = _mainWindow.Height;
+                settings.WindowWidth = _mainWindow.Width;
                 _settingsService.SaveSettings(settings);
             }
 

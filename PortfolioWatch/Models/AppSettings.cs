@@ -8,6 +8,7 @@ namespace PortfolioWatch.Models
         public List<Stock> Stocks { get; set; } = new List<Stock>();
         public double WindowLeft { get; set; }
         public double WindowTop { get; set; }
+        public double WindowWidth { get; set; } = 450;
         public double WindowHeight { get; set; } = 600;
         public string WindowTitle { get; set; } = "Watchlist";
         public string SortColumn { get; set; } = "Symbol";

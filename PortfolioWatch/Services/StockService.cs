@@ -206,6 +206,37 @@ namespace PortfolioWatch.Services
                         }
                     }
                     stock.History = history;
+
+                    // Calculate Day Progress
+                    // Market hours: 9:30 AM - 4:00 PM ET
+                    try
+                    {
+                        var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+                        var now = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
+                        var today = now.Date;
+                        var marketOpen = today.AddHours(9).AddMinutes(30);
+                        var marketClose = today.AddHours(16);
+
+                        if (now < marketOpen)
+                        {
+                            stock.DayProgress = 0;
+                        }
+                        else if (now > marketClose)
+                        {
+                            stock.DayProgress = 1.0;
+                        }
+                        else
+                        {
+                            var totalMinutes = (marketClose - marketOpen).TotalMinutes;
+                            var elapsedMinutes = (now - marketOpen).TotalMinutes;
+                            stock.DayProgress = Math.Max(0, Math.Min(1.0, elapsedMinutes / totalMinutes));
+                        }
+                    }
+                    catch
+                    {
+                        // Fallback to 1.0 if timezone not found or other error
+                        stock.DayProgress = 1.0;
+                    }
                 }
             }
             catch (Exception ex)

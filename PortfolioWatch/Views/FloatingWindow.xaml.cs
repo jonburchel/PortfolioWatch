@@ -72,6 +72,11 @@ namespace PortfolioWatch.Views
             }
         }
 
+        private void Border_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _hoverTimer.Stop();
+        }
+
         private void Exit_Click(object sender, RoutedEventArgs e)
         {
             Application.Current.Shutdown();

@@ -11,6 +11,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <EnableCompressionInSingleFileBundle>true</EnableCompressionInSingleFileBundle>
+    <ApplicationIcon>pyramid.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

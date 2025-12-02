@@ -9,7 +9,8 @@
         Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize">
     <Grid>
         <Border CornerRadius="30" Background="#01000000" BorderBrush="Transparent" BorderThickness="0"
-                MouseEnter="Border_MouseEnter" MouseLeave="Border_MouseLeave" MouseLeftButtonDown="Border_MouseLeftButtonDown">
+                MouseEnter="Border_MouseEnter" MouseLeave="Border_MouseLeave" MouseLeftButtonDown="Border_MouseLeftButtonDown"
+                MouseRightButtonDown="Border_MouseRightButtonDown">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Effect">
@@ -21,7 +22,7 @@
                         <DataTrigger Binding="{Binding IsPinned, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
                             <Setter Property="Effect">
                                 <Setter.Value>
-                                    <DropShadowEffect BlurRadius="15" ShadowDepth="0" Color="#007ACC" Opacity="0.8"/>
+                                    <DropShadowEffect BlurRadius="15" ShadowDepth="0" Color="#00CC6A" Opacity="0.8"/>
                                 </Setter.Value>
                             </Setter>
                         </DataTrigger>

@@ -64,6 +64,9 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _startWithWindows;
 
+        private string _lastTopLevelSort = "Symbol";
+        private bool _lastTopLevelSortAscending = true;
+
         partial void OnStartWithWindowsChanged(bool value)
         {
             if (!IsBusy)
@@ -137,6 +140,13 @@ namespace PortfolioWatch.ViewModels
             // Restore sort settings
             SortProperty = settings.SortColumn;
             IsAscending = settings.SortAscending;
+            
+            if (SortProperty == "Symbol" || SortProperty == "Name" || SortProperty == "Change")
+            {
+                _lastTopLevelSort = SortProperty;
+                _lastTopLevelSortAscending = IsAscending;
+            }
+
             WindowTitle = settings.WindowTitle;
             
             // Load Indexes
@@ -506,26 +516,59 @@ namespace PortfolioWatch.ViewModels
                 if (property == "Change" || property == "DayChangeValue" || property == "MarketValue") IsAscending = false;
             }
 
+            if (property == "Symbol" || property == "Name" || property == "Change")
+            {
+                _lastTopLevelSort = property;
+                _lastTopLevelSortAscending = IsAscending;
+            }
+
             ApplySortInternal();
             SaveStocks();
         }
 
         private void ApplySortInternal()
         {
-            Func<Stock, object> keySelector = SortProperty switch
+            if (SortProperty == "DayChangeValue" || SortProperty == "MarketValue")
             {
-                "Name" => s => s.Name,
-                "Change" => s => s.ChangePercent,
-                "MarketValue" => s => s.MarketValue,
-                "DayChangeValue" => s => s.DayChangeValue,
-                _ => s => s.Symbol
-            };
+                var withShares = Stocks.Where(s => s.Shares > 0);
+                var withoutShares = Stocks.Where(s => s.Shares == 0);
 
-            var sorted = IsAscending 
-                ? Stocks.OrderBy(keySelector).ToList() 
-                : Stocks.OrderByDescending(keySelector).ToList();
-            
-            Stocks = new ObservableCollection<Stock>(sorted);
+                Func<Stock, object> keySelector = SortProperty == "DayChangeValue"
+                    ? s => s.DayChangeValue
+                    : s => s.MarketValue;
+
+                var sortedWithShares = IsAscending
+                    ? withShares.OrderBy(keySelector)
+                    : withShares.OrderByDescending(keySelector);
+
+                Func<Stock, object> secondaryKeySelector = _lastTopLevelSort switch
+                {
+                    "Name" => s => s.Name,
+                    "Change" => s => s.ChangePercent,
+                    _ => s => s.Symbol
+                };
+
+                var sortedWithoutShares = _lastTopLevelSortAscending
+                    ? withoutShares.OrderBy(secondaryKeySelector)
+                    : withoutShares.OrderByDescending(secondaryKeySelector);
+
+                Stocks = new ObservableCollection<Stock>(sortedWithShares.Concat(sortedWithoutShares));
+            }
+            else
+            {
+                Func<Stock, object> keySelector = SortProperty switch
+                {
+                    "Name" => s => s.Name,
+                    "Change" => s => s.ChangePercent,
+                    _ => s => s.Symbol
+                };
+
+                var sorted = IsAscending
+                    ? Stocks.OrderBy(keySelector).ToList()
+                    : Stocks.OrderByDescending(keySelector).ToList();
+
+                Stocks = new ObservableCollection<Stock>(sorted);
+            }
             
             // Sync service so updates happen on sorted list (order doesn't matter for updates but good for consistency)
             _stockService.SetStocks(Stocks.ToList());
