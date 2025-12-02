@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using PortfolioWatch.Models;
 using PortfolioWatch.Services;
+using PortfolioWatch.Views;
 
 namespace PortfolioWatch.ViewModels
 {
@@ -64,6 +65,16 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _startWithWindows;
 
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IsSystemTheme))]
+        [NotifyPropertyChangedFor(nameof(IsLightTheme))]
+        [NotifyPropertyChangedFor(nameof(IsDarkTheme))]
+        private AppTheme _currentTheme = AppTheme.System;
+
+        public bool IsSystemTheme => CurrentTheme == AppTheme.System;
+        public bool IsLightTheme => CurrentTheme == AppTheme.Light;
+        public bool IsDarkTheme => CurrentTheme == AppTheme.Dark;
+
         private string _lastTopLevelSort = "Symbol";
         private bool _lastTopLevelSortAscending = true;
 
@@ -72,6 +83,15 @@ namespace PortfolioWatch.ViewModels
             if (!IsBusy)
             {
                 _settingsService.SetStartup(value);
+            }
+        }
+
+        partial void OnCurrentThemeChanged(AppTheme value)
+        {
+            if (!IsBusy)
+            {
+                App.CurrentApp.ApplyTheme(value);
+                SaveStocks();
             }
         }
 
@@ -179,7 +199,8 @@ namespace PortfolioWatch.ViewModels
             // Restore IsIndexesVisible after stocks are loaded to prevent overwriting with empty list
             IsIndexesVisible = settings.IsIndexesVisible;
             IsPortfolioMode = settings.IsPortfolioMode;
-            StartWithWindows = settings.StartWithWindows;
+            StartWithWindows = _settingsService.IsStartupEnabled();
+            CurrentTheme = settings.Theme;
 
             // Apply sort
             ApplySortInternal();
@@ -234,6 +255,7 @@ namespace PortfolioWatch.ViewModels
             settings.WindowTitle = WindowTitle;
             settings.IsIndexesVisible = IsIndexesVisible;
             settings.IsPortfolioMode = IsPortfolioMode;
+            settings.Theme = CurrentTheme;
             settings.IsFirstRun = false;
             _settingsService.SaveSettings(settings);
         }
@@ -324,6 +346,100 @@ namespace PortfolioWatch.ViewModels
                     });
                 }
                 catch { }
+            }
+        }
+
+        [RelayCommand]
+        private void OpenAbout()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/jonburchel/PortfolioWatch",
+                    UseShellExecute = true
+                });
+            }
+            catch { }
+        }
+
+        [RelayCommand]
+        private void RequestFeature()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/jonburchel/PortfolioWatch/issues/new",
+                    UseShellExecute = true
+                });
+            }
+            catch { }
+        }
+
+        [RelayCommand]
+        private void SetTheme(string themeName)
+        {
+            if (Enum.TryParse<AppTheme>(themeName, out var theme))
+            {
+                CurrentTheme = theme;
+            }
+        }
+
+        [RelayCommand]
+        private void BuyCoffee(string amountStr)
+        {
+            // Handle "Say thanks - $0"
+            if (amountStr == "0")
+            {
+                // Send email
+                try
+                {
+                    var url = "mailto:jonburchel@gmail.com?subject=Thank%20you%20for%20PortfolioWatch!";
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+                return;
+            }
+
+            string amount = amountStr;
+            if (amountStr == "Custom")
+            {
+                var inputWindow = new InputWindow("Enter amount ($):", "Buy me anything you want", "5");
+                if (inputWindow.ShowDialog() == true)
+                {
+                    amount = inputWindow.InputText;
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            // Validate amount is integer > 1
+            if (decimal.TryParse(amount, out decimal val) && val >= 1)
+            {
+                int intVal = (int)val;
+                if (intVal < 1) intVal = 1;
+
+                try
+                {
+                    var url = $"https://venmo.com/?txn=pay&recipients=Jon-Burchel&amount={intVal}&note=Buy%20me%20a%20coffee";
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+            }
+            else if (amountStr == "Custom" || !string.IsNullOrWhiteSpace(amount))
+            {
+                System.Windows.MessageBox.Show("Please enter a valid whole number amount greater than or equal to 1.", "Invalid Amount", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
             }
         }
 
@@ -459,13 +575,19 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
+        private void Exit()
+        {
+            System.Windows.Application.Current.Shutdown();
+        }
+
+        [RelayCommand]
         public async System.Threading.Tasks.Task Reset()
         {
-            if (System.Windows.MessageBox.Show(
-                "Are you sure you want to reset all settings and portfolios to default? This action cannot be undone.",
+            var confirmationWindow = new ConfirmationWindow(
                 "Confirm Reset",
-                System.Windows.MessageBoxButton.YesNo,
-                System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.Yes)
+                "Are you sure you want to reset all settings and portfolios to default? This action cannot be undone.");
+
+            if (confirmationWindow.ShowDialog() != true)
             {
                 return;
             }
@@ -480,6 +602,7 @@ namespace PortfolioWatch.ViewModels
             IsAscending = true;
             IsIndexesVisible = true;
             IsPortfolioMode = false;
+            CurrentTheme = AppTheme.System;
 
             // Load default stocks
             var defaultStocks = _stockService.GetDefaultStocks();

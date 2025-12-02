@@ -6,6 +6,7 @@
         xmlns:vm="clr-namespace:PortfolioWatch.ViewModels"
         xmlns:models="clr-namespace:PortfolioWatch.Models"
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
+        xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
         mc:Ignorable="d"
         Title="Portfolio Watchlist" Height="600" Width="450"
         MinHeight="200" MinWidth="450"
@@ -22,6 +23,7 @@
     </Window.DataContext>
 
     <Window.Resources>
+        <helpers:BindingProxy x:Key="Proxy" Data="{Binding}"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:DoubleToVisibilityConverter x:Key="DoubleToVis"/>
         <converters:InverseDoubleToVisibilityConverter x:Key="InverseDoubleToVis"/>
@@ -29,86 +31,10 @@
         <converters:SparklineBaselineConverter x:Key="SparklineBaselineConverter"/>
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
         <converters:ZeroToEmptyStringConverter x:Key="ZeroToEmptyStringConverter"/>
-        
-        <Style x:Key="StockItemStyle" TargetType="ListViewItem">
-            <Setter Property="Background" Value="#E6252525"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListViewItem">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Margin="0,2" Padding="8,4">
-                            <ContentPresenter/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#E6353535"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Scrollbar Theme -->
-        <Style x:Key="ScrollBarThumb" TargetType="{x:Type Thumb}">
-            <Setter Property="OverridesDefaultStyle" Value="true"/>
-            <Setter Property="IsTabStop" Value="false"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type Thumb}">
-                        <Border x:Name="rectangle" Background="#505050" CornerRadius="4" Height="{TemplateBinding Height}" SnapsToDevicePixels="True" Width="{TemplateBinding Width}"/>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="true">
-                                <Setter Property="Background" TargetName="rectangle" Value="#808080"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-        <Style TargetType="{x:Type ScrollBar}">
-            <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
-            <Setter Property="Stylus.IsFlicksEnabled" Value="false"/>
-            <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Width" Value="8"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ScrollBar}">
-                        <Grid x:Name="Bg" SnapsToDevicePixels="true">
-                            <Track x:Name="PART_Track" IsDirectionReversed="true" IsEnabled="{TemplateBinding IsEnabled}">
-                                <Track.Thumb>
-                                    <Thumb Style="{StaticResource ScrollBarThumb}"/>
-                                </Track.Thumb>
-                            </Track>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="ToggleSwitchStyle" TargetType="ToggleButton">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ToggleButton">
-                        <Grid Background="Transparent" Height="14" Width="26">
-                            <Border x:Name="Track" Background="#404040" CornerRadius="7" BorderThickness="0"/>
-                            <Ellipse x:Name="Thumb" Fill="#A0A0A0" Width="10" Height="10" HorizontalAlignment="Left" Margin="2,0,0,0"/>
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Track" Property="Background" Value="#007ACC"/>
-                                <Setter TargetName="Thumb" Property="Fill" Value="White"/>
-                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/>
-                                <Setter TargetName="Thumb" Property="Margin" Value="0,0,2,0"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
     </Window.Resources>
 
     <Grid Grid.IsSharedSizeScope="True">
-        <Border Background="#CC1E1E1E" CornerRadius="12" BorderBrush="#404040" BorderThickness="1" Margin="5" MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        <Border Background="{DynamicResource WindowBackgroundBrush}" CornerRadius="12" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1" Margin="5" MouseLeftButtonDown="Window_MouseLeftButtonDown">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
             </Border.Effect>
@@ -128,13 +54,14 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
                 <TextBox Text="{Binding WindowTitle, UpdateSourceTrigger=LostFocus}" 
-                         FontSize="20" FontWeight="SemiBold" Foreground="White" 
+                         FontSize="20" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}" 
                          VerticalAlignment="Center" HorizontalAlignment="Left"
                          Background="Transparent" BorderThickness="0"
-                         CaretBrush="White"
+                         CaretBrush="{DynamicResource PrimaryForegroundBrush}"
                          KeyDown="TitleTextBox_KeyDown">
                     <TextBox.Style>
                         <Style TargetType="TextBox">
@@ -146,10 +73,10 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsFocused" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#404040"/>
+                                                <Setter TargetName="border" Property="Background" Value="{DynamicResource TextBoxFocusedBackgroundBrush}"/>
                                             </Trigger>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="border" Property="Background" Value="#20404040"/>
+                                                <Setter TargetName="border" Property="Background" Value="{DynamicResource TextBoxMouseOverBackgroundBrush}"/>
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -161,10 +88,16 @@
                 
                 <Button Grid.Column="1" Command="{Binding RefreshCommand}" Background="Transparent" BorderThickness="0" Margin="0,0,10,0" ToolTip="Refresh">
                     <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" 
-                          Fill="#A0A0A0" Width="14" Height="14" Stretch="Uniform"/>
+                          Fill="{DynamicResource SecondaryForegroundBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                </Button>
+
+                <Button Grid.Column="2" Background="Transparent" BorderThickness="0" Margin="0,0,10,0" ToolTip="Menu" Click="MenuButton_Click" ContextMenu="{StaticResource SharedContextMenu}">
+                    <Button.Content>
+                        <Path Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Fill="{DynamicResource SecondaryForegroundBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                    </Button.Content>
                 </Button>
                 
-                <Button Grid.Column="2" Content="✕" Background="Transparent" Foreground="#808080" BorderThickness="0" Click="CloseButton_Click" FontSize="14" VerticalAlignment="Center"/>
+                <Button Grid.Column="3" Content="✕" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0" Click="CloseButton_Click" FontSize="14" VerticalAlignment="Center"/>
             </Grid>
 
             <!-- Portfolio Summary -->
@@ -174,25 +107,36 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="Total Value" Foreground="#808080" FontSize="11"/>
-                    <TextBlock Text="{Binding TotalPortfolioValue, StringFormat=C2}" Foreground="White" FontSize="24" FontWeight="Bold"/>
+                    <TextBlock Text="Total Value" Foreground="{DynamicResource TertiaryForegroundBrush}" FontSize="11"/>
+                    <TextBlock Text="{Binding TotalPortfolioValue, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="24" FontWeight="Bold"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Right">
                     <TextBlock Text="{Binding TotalPortfolioChangePercent, StringFormat={}{0:+#.00;-#.00;0.00}%}" 
                                FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Right">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Foreground" Value="#FF4D4D"/>
+                                <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsPortfolioUp}" Value="True">
-                                        <Setter Property="Foreground" Value="#00CC6A"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <TextBlock Text="{Binding TotalPortfolioChange, StringFormat={}{0:+#.00;-#.00;0.00}}" 
-                               Foreground="#808080" FontSize="11" HorizontalAlignment="Right"/>
+                    <TextBlock Text="{Binding TotalPortfolioChange, StringFormat={}{0:+$#.00;-$#.00;$0.00}}" 
+                               FontSize="11" HorizontalAlignment="Right">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPortfolioUp}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Grid>
 
@@ -200,12 +144,12 @@
             <Grid Grid.Row="2" Margin="15,0,15,5">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel Orientation="Horizontal" Margin="0,0,15,0" ToolTip="Toggle Portfolio Mode">
-                        <TextBlock Text="Portfolio" Foreground="#C0C0C0" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">
+                        <TextBlock Text="Portfolio" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsPortfolioMode}" Value="True">
-                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -214,13 +158,13 @@
                         <ToggleButton IsChecked="{Binding IsPortfolioMode}" Style="{StaticResource ToggleSwitchStyle}"/>
                     </StackPanel>
 
-                    <ToggleButton IsChecked="{Binding IsIndexesVisible}" Background="Transparent" BorderThickness="0" Foreground="#A0A0A0" FontSize="11">
+                    <ToggleButton IsChecked="{Binding IsIndexesVisible}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11">
                     <ToggleButton.Template>
                         <ControlTemplate TargetType="ToggleButton">
                             <Border Background="Transparent">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Indexes"/>
-                                    <Path x:Name="Arrow" Data="M0,0 L4,4 L8,0" Stroke="#A0A0A0" StrokeThickness="1" Margin="5,0,0,0" VerticalAlignment="Center"/>
+                                    <Path x:Name="Arrow" Data="M0,0 L4,4 L8,0" Stroke="{DynamicResource SecondaryForegroundBrush}" StrokeThickness="1" Margin="5,0,0,0" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -249,7 +193,7 @@
                             <DataTemplate DataType="{x:Type models:Stock}">
                                 <Grid Background="Transparent">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="12"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="PriceColumn"/>
@@ -258,14 +202,14 @@
                                     <!-- No Delete Button for Indexes -->
                                     
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
-                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="White" FontSize="14"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="#A0A0A0" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
                                     </StackPanel>
 
                                     <!-- Center Column (Sparkline) -->
                                     <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center" Height="20">
                                         <Path Data="{Binding History, Converter={StaticResource SparklineBaselineConverter}}"
-                                              Stroke="#40FFFFFF" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
+                                              Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
                                         <Path StrokeThickness="1.5" Stretch="Fill">
                                             <Path.Data>
                                                 <MultiBinding Converter="{StaticResource SparklineConverter}">
@@ -275,10 +219,10 @@
                                             </Path.Data>
                                             <Path.Style>
                                                 <Style TargetType="Path">
-                                                    <Setter Property="Stroke" Value="#FF4D4D"/>
+                                                    <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                            <Setter Property="Stroke" Value="#00CC6A"/>
+                                                            <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -287,15 +231,15 @@
                                     </Grid>
 
                                     <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="White" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"/>
+                                        <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"/>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                             <Border CornerRadius="3" Padding="3,0">
                                                 <Border.Style>
                                                     <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="#30FF4D4D"/>
+                                                        <Setter Property="Background" Value="{DynamicResource NegativeBackgroundBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                <Setter Property="Background" Value="#3000CC6A"/>
+                                                                <Setter Property="Background" Value="{DynamicResource PositiveBackgroundBrush}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -303,10 +247,10 @@
                                                 <TextBlock Text="{Binding ChangePercent, StringFormat={}{0:+#.00;-#.00;0.00}%}" FontSize="10" FontWeight="Bold">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#FF4D4D"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#00CC6A"/>
+                                                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -321,13 +265,13 @@
                     </ListView>
 
                     <!-- Separator -->
-                    <Border Height="1" Background="#404040" Margin="5,5,5,5" 
+                    <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="5,5,5,5" 
                             Visibility="{Binding IsIndexesVisible, Converter={StaticResource BoolToVis}}"/>
 
                     <!-- Headers -->
                     <Grid Margin="0,0,0,2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="20"/>
+                            <ColumnDefinition Width="12"/>
                             <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto" SharedSizeGroup="PriceColumn"/>
@@ -337,14 +281,14 @@
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,10,0">
                             <Button Command="{Binding SortBySymbolCommand}" Background="Transparent" BorderThickness="0" Margin="0,0,5,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Symbol" FontSize="9" Foreground="#606060"/>
-                                    <TextBlock Text="{Binding SymbolSortIcon}" FontSize="9" Foreground="#606060" Margin="2,0,0,0"/>
+                                    <TextBlock Text="Symbol" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                    <TextBlock Text="{Binding SymbolSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
                                 </StackPanel>
                             </Button>
                             <Button Command="{Binding SortByNameCommand}" Background="Transparent" BorderThickness="0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Name" FontSize="9" Foreground="#606060"/>
-                                    <TextBlock Text="{Binding NameSortIcon}" FontSize="9" Foreground="#606060" Margin="2,0,0,0"/>
+                                    <TextBlock Text="Name" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                    <TextBlock Text="{Binding NameSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -358,19 +302,19 @@
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock Grid.Column="1" Text="Shares" FontSize="9" Foreground="#606060" HorizontalAlignment="Center" Width="60" Margin="10,0,0,0"/>
+                            <TextBlock Grid.Column="1" Text="Shares" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" HorizontalAlignment="Center" Width="60" Margin="10,0,0,0"/>
                             
                             <Button Grid.Column="2" Command="{Binding SortByDayChangeValueCommand}" Background="Transparent" BorderThickness="0" Margin="10,0,0,0" HorizontalAlignment="Right">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Day $" FontSize="9" Foreground="#606060"/>
-                                    <TextBlock Text="{Binding DayChangeValueSortIcon}" FontSize="9" Foreground="#606060" Margin="2,0,0,0"/>
+                                    <TextBlock Text="Day $" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                    <TextBlock Text="{Binding DayChangeValueSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
                                 </StackPanel>
                             </Button>
                             
                             <Button Grid.Column="3" Command="{Binding SortByMarketValueCommand}" Background="Transparent" BorderThickness="0" Margin="10,0,0,0" HorizontalAlignment="Right">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Value" FontSize="9" Foreground="#606060"/>
-                                    <TextBlock Text="{Binding MarketValueSortIcon}" FontSize="9" Foreground="#606060" Margin="2,0,0,0"/>
+                                    <TextBlock Text="Value" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                    <TextBlock Text="{Binding MarketValueSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -379,8 +323,8 @@
                         <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
                             <Button Command="{Binding SortByChangeCommand}" Background="Transparent" BorderThickness="0">
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Day %" FontSize="9" Foreground="#606060"/>
-                                    <TextBlock Text="{Binding ChangeSortIcon}" FontSize="9" Foreground="#606060" Margin="2,0,0,0"/>
+                                    <TextBlock Text="Day %" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                    <TextBlock Text="{Binding ChangeSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
@@ -400,7 +344,7 @@
                                         <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Symbol}"/>
                                     </Grid.InputBindings>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="20"/>
+                                        <ColumnDefinition Width="12"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="PriceColumn"/>
@@ -410,8 +354,8 @@
                                     <Button Command="{Binding DataContext.RemoveStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
                                             CommandParameter="{Binding}"
                                             Background="Transparent" BorderThickness="0" Opacity="0" x:Name="DeleteBtn"
-                                            VerticalAlignment="Center" HorizontalAlignment="Center" Width="20" Height="20"
-                                            Margin="-10,-5,0,0">
+                                            VerticalAlignment="Center" HorizontalAlignment="Center" Width="16" Height="16"
+                                            Margin="-2,0,0,0">
                                         <Button.Template>
                                             <ControlTemplate TargetType="Button">
                                                 <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="3">
@@ -419,17 +363,17 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="BtnBorder" Property="Background" Value="#40FF4D4D"/>
+                                                        <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource DeleteButtonHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
                                         </Button.Template>
-                                        <TextBlock Text="✕" Foreground="#FF4D4D" FontSize="10" FontWeight="Bold"/>
+                                        <TextBlock Text="✕" Foreground="{DynamicResource NegativeColorBrush}" FontSize="9" FontWeight="Bold"/>
                                     </Button>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
-                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="White" FontSize="14"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="#A0A0A0" FontSize="11" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
                                     </StackPanel>
 
                                     <!-- Center Column (Sparkline or Portfolio Data) -->
@@ -444,7 +388,7 @@
                                         <!-- Sparkline Graph -->
                                         <Grid Grid.Column="0" Height="20">
                                             <Path Data="{Binding History, Converter={StaticResource SparklineBaselineConverter}}"
-                                                  Stroke="#40FFFFFF" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
+                                                  Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
                                             <Path StrokeThickness="1.5" Stretch="Fill">
                                                 <Path.Data>
                                                     <MultiBinding Converter="{StaticResource SparklineConverter}">
@@ -454,10 +398,10 @@
                                                 </Path.Data>
                                                 <Path.Style>
                                                     <Style TargetType="Path">
-                                                        <Setter Property="Stroke" Value="#FF4D4D"/>
+                                                        <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                <Setter Property="Stroke" Value="#00CC6A"/>
+                                                                <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -469,7 +413,7 @@
                                         <Grid Grid.Column="1" Width="60" Margin="10,0,0,0" Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                             <TextBox x:Name="SharesBox"
                                                      Text="{Binding Shares, Converter={StaticResource ZeroToEmptyStringConverter}, UpdateSourceTrigger=LostFocus}"
-                                                     Background="#202020" Foreground="White" BorderThickness="0"
+                                                     Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
                                                      HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                                      Padding="2"
                                                      KeyDown="SharesBox_KeyDown">
@@ -481,7 +425,7 @@
                                             </TextBox>
                                             
                                             <!-- Overlay Button for "+" -->
-                                            <Button Content="+" Background="Transparent" Foreground="#606060" BorderThickness="0"
+                                            <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
                                                     IsHitTestVisible="False" FontSize="16" FontWeight="Bold">
                                                 <Button.Style>
                                                     <Style TargetType="Button">
@@ -497,15 +441,15 @@
                                         </Grid>
 
                                         <!-- Day Change Value -->
-                                        <TextBlock Grid.Column="2" Margin="10,0,0,0" Text="{Binding DayChangeValue, StringFormat={}{0:+#.00;-#.00;0.00}}" 
+                                        <TextBlock Grid.Column="2" Margin="10,0,0,0" Text="{Binding DayChangeValue, StringFormat={}{0:+$#.00;-$#.00;$0.00}}" 
                                                    FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"
                                                    Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="#FF4D4D"/>
+                                                    <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                            <Setter Property="Foreground" Value="#00CC6A"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -514,20 +458,20 @@
 
                                         <!-- Market Value -->
                                         <TextBlock Grid.Column="3" Margin="10,0,0,0" Text="{Binding MarketValue, StringFormat=C2}" 
-                                                   Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" VerticalAlignment="Center"
                                                    Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
                                     </Grid>
 
                                     <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="White" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"/>
+                                        <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"/>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                             <Border CornerRadius="3" Padding="3,0">
                                                 <Border.Style>
                                                     <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="#30FF4D4D"/>
+                                                        <Setter Property="Background" Value="{DynamicResource NegativeBackgroundBrush}"/>
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                <Setter Property="Background" Value="#3000CC6A"/>
+                                                                <Setter Property="Background" Value="{DynamicResource PositiveBackgroundBrush}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
@@ -535,10 +479,10 @@
                                                 <TextBlock Text="{Binding ChangePercent, StringFormat={}{0:+#.00;-#.00;0.00}%}" FontSize="10" FontWeight="Bold">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="#FF4D4D"/>
+                                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
                                                             <Style.Triggers>
                                                                 <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                    <Setter Property="Foreground" Value="#00CC6A"/>
+                                                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
                                                         </Style>
@@ -561,11 +505,11 @@
 
             <!-- Pinning Tooltip -->
             <Popup x:Name="PinningTooltip" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">
-                <Border Background="#252525" BorderBrush="#404040" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,5,0,0">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,5,0,0">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="5" ShadowDepth="2" Opacity="0.3"/>
                     </Border.Effect>
-                    <TextBlock Text="Window Pinned" Foreground="White" FontSize="12"/>
+                    <TextBlock Text="Window Pinned" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="12"/>
                 </Border>
             </Popup>
 
@@ -577,16 +521,16 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBox x:Name="SearchBox" Text="{Binding NewSymbol, UpdateSourceTrigger=PropertyChanged}" 
-                         Background="#303030" Foreground="White" BorderThickness="0" Padding="5" 
+                         Background="{DynamicResource SearchBoxBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0" Padding="5" 
                          VerticalContentAlignment="Center" Tag="Add Symbol..."/>
                 
                 <Popup IsOpen="{Binding IsSearchPopupOpen}" PlacementTarget="{Binding ElementName=SearchBox}" 
                        StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide">
-                    <Border Background="#252525" BorderBrush="#404040" BorderThickness="1" CornerRadius="4" MaxHeight="200" Width="{Binding ElementName=SearchBox, Path=ActualWidth}">
+                    <Border Background="{DynamicResource SearchPopupBackgroundBrush}" BorderBrush="{DynamicResource SearchPopupBorderBrush}" BorderThickness="1" CornerRadius="4" MaxHeight="200" Width="{Binding ElementName=SearchBox, Path=ActualWidth}">
                         <ListView ItemsSource="{Binding SearchResults}" Background="Transparent" BorderThickness="0">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayText}" Foreground="White" Padding="5"/>
+                                    <TextBlock Text="{Binding DisplayText}" Foreground="{DynamicResource PrimaryForegroundBrush}" Padding="5"/>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                             <ListView.ItemContainerStyle>
@@ -600,7 +544,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="#404040"/>
+                                                        <Setter Property="Background" Value="{DynamicResource ControlMouseOverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -614,7 +558,7 @@
                 </Popup>
 
                 <Button Grid.Column="1" Command="{Binding AddStockCommand}" Content="+" 
-                        Background="#404040" Foreground="White" BorderThickness="0" Width="30" Margin="5,0,0,0"/>
+                        Background="{DynamicResource ControlBorderBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0" Width="30" Margin="5,0,0,0"/>
             </Grid>
             </Grid>
         </Border>

@@ -3,6 +3,13 @@ using System.Windows;
 
 namespace PortfolioWatch.Models
 {
+    public enum AppTheme
+    {
+        System,
+        Light,
+        Dark
+    }
+
     public class AppSettings
     {
         public List<Stock> Stocks { get; set; } = new List<Stock>();
@@ -17,5 +24,6 @@ namespace PortfolioWatch.Models
         public bool IsIndexesVisible { get; set; } = true;
         public bool IsPortfolioMode { get; set; } = false;
         public bool StartWithWindows { get; set; } = true;
+        public AppTheme Theme { get; set; } = AppTheme.System;
     }
 }

@@ -32,7 +32,22 @@ namespace PortfolioWatch
             this.MouseEnter += (s, e) => _autoHideTimer.Stop();
             this.MouseLeave += (s, e) => 
             {
-                if (!IsPinned) _autoHideTimer.Start();
+                if (!IsPinned && !this.IsKeyboardFocusWithin) _autoHideTimer.Start();
+            };
+
+            this.IsKeyboardFocusWithinChanged += (s, e) =>
+            {
+                if ((bool)e.NewValue)
+                {
+                    _autoHideTimer.Stop();
+                }
+                else
+                {
+                    if (!IsPinned && !this.IsMouseOver)
+                    {
+                        _autoHideTimer.Start();
+                    }
+                }
             };
         }
 
@@ -51,6 +66,36 @@ namespace PortfolioWatch
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             this.Hide();
+        }
+
+        private void MenuButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
+            {
+                // Ensure DataContext is set
+                btn.ContextMenu.DataContext = this.DataContext;
+
+                // Ensure handlers are attached
+                btn.ContextMenu.Opened -= ContextMenu_Opened;
+                btn.ContextMenu.Opened += ContextMenu_Opened;
+                btn.ContextMenu.Closed -= ContextMenu_Closed;
+                btn.ContextMenu.Closed += ContextMenu_Closed;
+
+                btn.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void ContextMenu_Opened(object sender, RoutedEventArgs e)
+        {
+            _autoHideTimer.Stop();
+        }
+
+        private void ContextMenu_Closed(object sender, RoutedEventArgs e)
+        {
+            if (!IsPinned && !this.IsMouseOver)
+            {
+                _autoHideTimer.Start();
+            }
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -112,6 +157,7 @@ namespace PortfolioWatch
                 if (DataContext is ViewModels.MainViewModel vm)
                 {
                     vm.SelectSearchResultCommand.Execute(result);
+                    e.Handled = true;
                 }
             }
         }

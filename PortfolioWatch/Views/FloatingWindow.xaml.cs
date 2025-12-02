@@ -42,6 +42,10 @@ namespace PortfolioWatch.Views
         private void FloatingWindow_Loaded(object sender, RoutedEventArgs e)
         {
             this.Opacity = 0.3;
+            if (MainBorder.ContextMenu != null)
+            {
+                MainBorder.ContextMenu.DataContext = this.DataContext;
+            }
         }
 
         private void Border_MouseEnter(object sender, MouseEventArgs e)

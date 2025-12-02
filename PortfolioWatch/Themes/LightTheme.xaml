@@ -1,0 +1,49 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    
+    <!-- Window -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#CCF5F5F5"/>
+    <SolidColorBrush x:Key="WindowBorderBrush" Color="#CCCCCC"/>
+    
+    <!-- Text -->
+    <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="Black"/>
+    <SolidColorBrush x:Key="SecondaryForegroundBrush" Color="#606060"/>
+    <SolidColorBrush x:Key="TertiaryForegroundBrush" Color="#808080"/>
+    <SolidColorBrush x:Key="InputGestureTextBrush" Color="#808080"/>
+    
+    <!-- Controls (General) -->
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="ControlMouseOverBrush" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="SeparatorBrush" Color="#E0E0E0"/>
+    
+    <!-- Accent / Status -->
+    <SolidColorBrush x:Key="AccentColorBrush" Color="#007ACC"/>
+    <SolidColorBrush x:Key="PositiveColorBrush" Color="#009950"/>
+    <SolidColorBrush x:Key="NegativeColorBrush" Color="#D00000"/>
+    <SolidColorBrush x:Key="PositiveBackgroundBrush" Color="#3000CC6A"/>
+    <SolidColorBrush x:Key="NegativeBackgroundBrush" Color="#30FF4D4D"/>
+    
+    <!-- Stock List -->
+    <SolidColorBrush x:Key="StockItemBackgroundBrush" Color="#E6FFFFFF"/>
+    <SolidColorBrush x:Key="StockItemMouseOverBrush" Color="#E6F0F0F0"/>
+    <SolidColorBrush x:Key="DeleteButtonHoverBrush" Color="#40FF4D4D"/>
+    
+    <!-- ScrollBar -->
+    <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#C0C0C0"/>
+    <SolidColorBrush x:Key="ScrollBarThumbMouseOverBrush" Color="#A0A0A0"/>
+    
+    <!-- Inputs -->
+    <SolidColorBrush x:Key="SearchBoxBackgroundBrush" Color="#F0F0F0"/>
+    <SolidColorBrush x:Key="SearchPopupBackgroundBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="SearchPopupBorderBrush" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="TextBoxFocusedBackgroundBrush" Color="#E0E0E0"/>
+    <SolidColorBrush x:Key="TextBoxMouseOverBackgroundBrush" Color="#20E0E0E0"/>
+    
+    <!-- Toggle Switch -->
+    <SolidColorBrush x:Key="ToggleSwitchTrackBrush" Color="#CCCCCC"/>
+    <SolidColorBrush x:Key="ToggleSwitchThumbBrush" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="ToggleSwitchCheckedTrackBrush" Color="#007ACC"/>
+    <SolidColorBrush x:Key="ToggleSwitchCheckedThumbBrush" Color="#FFFFFF"/>
+
+</ResourceDictionary>
