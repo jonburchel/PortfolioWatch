@@ -46,7 +46,7 @@ dotnet publish -c Release
 
 ## Authorship
 
-Gemini 3 Pro with Cline wrote all of this code based on specifications provided by [Jon Burchel](https://github.com/jonburchel).
+[Gemini 3 Pro](https://gemini.google.com/) with [Cline](https://cline.bot) in [VS Code](https://code.visualstudio.com/) wrote all of this code based on specifications provided by [Jon Burchel](https://github.com/jonburchel).
 
 ## License
 
