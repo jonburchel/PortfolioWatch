@@ -21,7 +21,7 @@ PortfolioWatch is a modern, lightweight desktop widget for tracking stock prices
 ## Building from Source
 
 Requirements:
-*   .NET 9.0 SDK
+*   [.NET 9.0 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 
 ```bash
 # Clone the repository
