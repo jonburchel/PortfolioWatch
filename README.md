@@ -15,9 +15,8 @@ PortfolioWatch is a modern, lightweight desktop widget for tracking stock prices
 
 ## Installation
 
-1.  Download the latest release from the [Releases](https://github.com/yourusername/portfolio-watch/releases) page.
-2.  Extract the zip file.
-3.  Run `PortfolioWatch.exe`.
+1.  Download the latest release from the [Releases](https://github.com/jonburchel/PortfolioWatch/releases/tag/release) page.
+3.  Run `PortfolioWatch.exe` (or `PortfolioWatch_with_.NET_full.exe`, if you don't already have the .NET 9 runtime installed).
 
 ## Building from Source
 
