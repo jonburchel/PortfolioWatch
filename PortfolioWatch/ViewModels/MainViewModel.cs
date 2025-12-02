@@ -572,6 +572,19 @@ namespace PortfolioWatch.ViewModels
             }
 
             IsPortfolioUp = TotalPortfolioChange >= 0;
+
+            // Calculate individual stock percentages
+            foreach (var stock in Stocks)
+            {
+                if (totalValue > 0)
+                {
+                    stock.PortfolioPercentage = (double)(stock.MarketValue / totalValue);
+                }
+                else
+                {
+                    stock.PortfolioPercentage = 0;
+                }
+            }
         }
 
         [RelayCommand]

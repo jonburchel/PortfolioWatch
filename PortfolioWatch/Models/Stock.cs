@@ -89,5 +89,12 @@ namespace PortfolioWatch.Models
         public decimal MarketValue => (decimal)Shares * Price;
 
         public decimal DayChangeValue => (decimal)Shares * Change;
+
+        private double _portfolioPercentage;
+        public double PortfolioPercentage
+        {
+            get => _portfolioPercentage;
+            set => SetProperty(ref _portfolioPercentage, value);
+        }
     }
 }

@@ -31,6 +31,7 @@
         <converters:SparklineBaselineConverter x:Key="SparklineBaselineConverter"/>
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
         <converters:ZeroToEmptyStringConverter x:Key="ZeroToEmptyStringConverter"/>
+        <converters:PieSliceConverter x:Key="PieSliceConverter"/>
     </Window.Resources>
 
     <Grid Grid.IsSharedSizeScope="True">
@@ -371,10 +372,24 @@
                                         <TextBlock Text="✕" Foreground="{DynamicResource NegativeColorBrush}" FontSize="9" FontWeight="Bold"/>
                                     </Button>
 
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
-                                        <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
-                                    </StackPanel>
+                                    <Grid Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                                        </StackPanel>
+                                        
+                                        <!-- Pie Chart -->
+                                        <Grid Grid.Column="1" Width="22" Height="22" Margin="5,0,0,0" 
+                                              Visibility="{Binding Shares, Converter={StaticResource DoubleToVis}}">
+                                            <Ellipse Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                                     Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" />
+                                            <Path Fill="{DynamicResource PositiveColorBrush}" Data="{Binding PortfolioPercentage, Converter={StaticResource PieSliceConverter}}" />
+                                        </Grid>
+                                    </Grid>
 
                                     <!-- Center Column (Sparkline or Portfolio Data) -->
                                     <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center">
