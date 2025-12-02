@@ -1,0 +1,50 @@
+# PortfolioWatch
+
+PortfolioWatch is a modern, lightweight desktop widget for tracking stock prices and portfolio performance in real-time. Built with .NET 9 and WPF, it features a clean, unobtrusive UI that sits on your desktop.
+
+![PortfolioWatch Screenshot](PortfolioWatch/pyramid.png)
+
+## Features
+
+*   **Real-time Tracking:** Monitor stock prices and daily changes.
+*   **Portfolio Mode:** Track your total portfolio value and performance.
+*   **Interactive Charts:** View intraday price movements with sparkline charts.
+*   **Search:** Easily find and add stocks by symbol or name.
+*   **Customizable:** Toggle index visibility, sort by various metrics, and more.
+*   **Always on Top:** Keep an eye on the market while you work (optional).
+
+## Installation
+
+1.  Download the latest release from the [Releases](https://github.com/yourusername/portfolio-watch/releases) page.
+2.  Extract the zip file.
+3.  Run `PortfolioWatch.exe`.
+
+## Building from Source
+
+Requirements:
+*   .NET 9.0 SDK
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/portfolio-watch.git
+
+# Navigate to the project directory
+cd portfolio-watch
+
+# Build the project
+dotnet build -c Release
+
+# Publish (Self-contained single file)
+dotnet publish -c Release
+```
+
+## Technologies Used
+
+*   **C# / .NET 9**
+*   **WPF (Windows Presentation Foundation)**
+*   **CommunityToolkit.Mvvm** for MVVM pattern implementation
+*   **Hardcodet.NotifyIcon.Wpf** for system tray integration
+
+## License
+
+This project is licensed under the MIT License.

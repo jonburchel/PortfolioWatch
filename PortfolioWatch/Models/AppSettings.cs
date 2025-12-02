@@ -1,0 +1,19 @@
+using System.Collections.Generic;
+using System.Windows;
+
+namespace PortfolioWatch.Models
+{
+    public class AppSettings
+    {
+        public List<Stock> Stocks { get; set; } = new List<Stock>();
+        public double WindowLeft { get; set; }
+        public double WindowTop { get; set; }
+        public double WindowHeight { get; set; } = 600;
+        public string WindowTitle { get; set; } = "Watchlist";
+        public string SortColumn { get; set; } = "Symbol";
+        public bool SortAscending { get; set; } = true;
+        public bool IsFirstRun { get; set; } = true;
+        public bool IsIndexesVisible { get; set; } = true;
+        public bool IsPortfolioMode { get; set; } = false;
+    }
+}

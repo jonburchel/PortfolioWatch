@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PortfolioWatch", "PortfolioWatch\PortfolioWatch.csproj", "{2EFA0A36-F9FF-B3C3-8D20-C1DB413A7B0D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2EFA0A36-F9FF-B3C3-8D20-C1DB413A7B0D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2EFA0A36-F9FF-B3C3-8D20-C1DB413A7B0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2EFA0A36-F9FF-B3C3-8D20-C1DB413A7B0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2EFA0A36-F9FF-B3C3-8D20-C1DB413A7B0D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B8539BA8-9D6F-47AC-8B35-5167CC173580}
+	EndGlobalSection
+EndGlobal
