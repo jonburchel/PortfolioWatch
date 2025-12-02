@@ -44,6 +44,10 @@ dotnet publish -c Release
 *   **CommunityToolkit.Mvvm** for MVVM pattern implementation
 *   **Hardcodet.NotifyIcon.Wpf** for system tray integration
 
+## Authorship
+
+Gemini 3 Pro with Cline wrote all of this code based on specifications provided by [Jon Burchel](https://github.com/jonburchel).
+
 ## License
 
 This project is licensed under the MIT License.
