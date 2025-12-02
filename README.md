@@ -35,6 +35,9 @@ dotnet build -c Release
 
 # Publish (Self-contained single file)
 dotnet publish -c Release
+
+# Alternately, you can run a publish script that publishes a fully self-contained, large .exe, and a small one that is dependent on the .NET Framework 9.0 being locally installed
+powershell -ExecutionPolicy Bypass -File publish.ps1 
 ```
 
 ## Technologies Used
