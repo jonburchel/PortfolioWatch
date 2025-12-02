@@ -2,7 +2,7 @@
 
 PortfolioWatch is a modern, lightweight desktop widget for tracking stock prices and portfolio performance in real-time. Built with .NET 9 and WPF, it features a clean, unobtrusive UI that sits on your desktop.
 
-![PortfolioWatch Screenshot](PortfolioWatch/pyramid.png)
+<img src="PortfolioWatch/pyramid.png" width="600" alt="PortfolioWatch Screenshot">
 
 ## Features
 
