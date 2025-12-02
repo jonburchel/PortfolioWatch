@@ -173,6 +173,10 @@ namespace PortfolioWatch.ViewModels
 
             // Apply sort
             ApplySortInternal();
+            
+            // Initial fetch
+            await _stockService.UpdatePricesAsync();
+            
             CalculatePortfolioTotals();
 
             IsBusy = false;
@@ -224,16 +228,16 @@ namespace PortfolioWatch.ViewModels
             _settingsService.SaveSettings(settings);
         }
 
-        private void Timer_Tick(object? sender, EventArgs e)
+        private async void Timer_Tick(object? sender, EventArgs e)
         {
-            _stockService.UpdatePrices();
+            await _stockService.UpdatePricesAsync();
             CalculatePortfolioTotals();
         }
 
         [RelayCommand]
-        private void Refresh()
+        private async System.Threading.Tasks.Task Refresh()
         {
-            _stockService.UpdatePrices();
+            await _stockService.UpdatePricesAsync();
         }
 
         [RelayCommand]
@@ -445,7 +449,7 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
-        public void Reset()
+        public async System.Threading.Tasks.Task Reset()
         {
             if (System.Windows.MessageBox.Show(
                 "Are you sure you want to reset all settings and portfolios to default? This action cannot be undone.",
@@ -484,6 +488,9 @@ namespace PortfolioWatch.ViewModels
             
             // Re-apply sort (default)
             ApplySortInternal();
+            
+            // Fetch fresh data
+            await _stockService.UpdatePricesAsync();
         }
 
         private void ApplySort(string property)

@@ -17,6 +17,15 @@ namespace PortfolioWatch.Views
 
     public partial class FloatingWindow : Window
     {
+        public static readonly DependencyProperty IsPinnedProperty =
+            DependencyProperty.Register("IsPinned", typeof(bool), typeof(FloatingWindow), new PropertyMetadata(false));
+
+        public bool IsPinned
+        {
+            get { return (bool)GetValue(IsPinnedProperty); }
+            set { SetValue(IsPinnedProperty, value); }
+        }
+
         public event EventHandler<OpenEventArgs>? OpenRequested;
         private DispatcherTimer _hoverTimer;
 

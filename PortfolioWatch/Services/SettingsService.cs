@@ -112,7 +112,22 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                var json = JsonSerializer.Serialize(_currentSettings.Stocks, new JsonSerializerOptions { WriteIndented = true });
+                // Export only details, not history
+                var exportData = new System.Collections.Generic.List<object>();
+                foreach (var stock in _currentSettings.Stocks)
+                {
+                    exportData.Add(new
+                    {
+                        stock.Symbol,
+                        stock.Name,
+                        stock.Price,
+                        stock.Change,
+                        stock.ChangePercent,
+                        stock.Shares
+                    });
+                }
+
+                var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(filePath, json);
             }
             catch (Exception ex)

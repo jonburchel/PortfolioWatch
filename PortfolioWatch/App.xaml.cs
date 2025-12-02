@@ -207,11 +207,13 @@ namespace PortfolioWatch
                         // Was pinned, click again -> Hide
                         _mainWindow.Hide();
                         _mainWindow.IsPinned = false;
+                        _floatingWindow.IsPinned = false;
                     }
                     else
                     {
                         // Was transient, click -> Pin
                         _mainWindow.IsPinned = true;
+                        _floatingWindow.IsPinned = true;
                         _mainWindow.CancelAutoHide();
                         _mainWindow.ShowPinningTooltip();
                     }
@@ -231,6 +233,7 @@ namespace PortfolioWatch
             {
                 // Not visible -> Show
                 _mainWindow.IsPinned = isPinned;
+                _floatingWindow.IsPinned = isPinned;
                 
                 // Position above floating window
                 _mainWindow.Left = _floatingWindow.Left;

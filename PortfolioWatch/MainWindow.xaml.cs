@@ -19,7 +19,7 @@ namespace PortfolioWatch
             Loaded += MainWindow_Loaded;
             
             _autoHideTimer = new DispatcherTimer();
-            _autoHideTimer.Interval = TimeSpan.FromSeconds(2);
+            _autoHideTimer.Interval = TimeSpan.FromMilliseconds(100);
             _autoHideTimer.Tick += (s, e) => 
             {
                 if (!IsPinned)
