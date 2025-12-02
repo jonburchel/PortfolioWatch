@@ -25,7 +25,7 @@ Requirements:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/portfolio-watch.git
+git clone https://github.com/jonburchel/portfolio-watch.git
 
 # Navigate to the project directory
 cd portfolio-watch
