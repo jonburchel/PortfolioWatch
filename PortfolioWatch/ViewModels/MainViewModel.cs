@@ -66,6 +66,9 @@ namespace PortfolioWatch.ViewModels
         private bool _startWithWindows;
 
         [ObservableProperty]
+        private double _windowOpacity = 1.0;
+
+        [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsSystemTheme))]
         [NotifyPropertyChangedFor(nameof(IsLightTheme))]
         [NotifyPropertyChangedFor(nameof(IsDarkTheme))]
@@ -84,6 +87,11 @@ namespace PortfolioWatch.ViewModels
             {
                 _settingsService.SetStartup(value);
             }
+        }
+
+        partial void OnWindowOpacityChanged(double value)
+        {
+            if (!IsBusy) SaveStocks();
         }
 
         partial void OnCurrentThemeChanged(AppTheme value)
@@ -201,6 +209,7 @@ namespace PortfolioWatch.ViewModels
             IsPortfolioMode = settings.IsPortfolioMode;
             StartWithWindows = _settingsService.IsStartupEnabled();
             CurrentTheme = settings.Theme;
+            WindowOpacity = settings.WindowOpacity;
 
             // Apply sort
             ApplySortInternal();
@@ -256,6 +265,7 @@ namespace PortfolioWatch.ViewModels
             settings.IsIndexesVisible = IsIndexesVisible;
             settings.IsPortfolioMode = IsPortfolioMode;
             settings.Theme = CurrentTheme;
+            settings.WindowOpacity = WindowOpacity;
             settings.IsFirstRun = false;
             _settingsService.SaveSettings(settings);
         }
@@ -620,6 +630,7 @@ namespace PortfolioWatch.ViewModels
             IsIndexesVisible = true;
             IsPortfolioMode = false;
             CurrentTheme = AppTheme.System;
+            WindowOpacity = 1.0;
 
             // Load default stocks
             var defaultStocks = _stockService.GetDefaultStocks();

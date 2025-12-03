@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -28,6 +29,7 @@ namespace PortfolioWatch.Views
 
         public event EventHandler<OpenEventArgs>? OpenRequested;
         private DispatcherTimer _hoverTimer;
+        private bool _isHovering;
 
         public FloatingWindow()
         {
@@ -41,22 +43,49 @@ namespace PortfolioWatch.Views
 
         private void FloatingWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            this.Opacity = 0.3;
+            if (DataContext is MainViewModel vm)
+            {
+                vm.PropertyChanged += ViewModel_PropertyChanged;
+                UpdateOpacity();
+            }
+            else
+            {
+                this.Opacity = 0.3;
+            }
+
             if (MainBorder.ContextMenu != null)
             {
                 MainBorder.ContextMenu.DataContext = this.DataContext;
             }
         }
 
+        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainViewModel.WindowOpacity))
+            {
+                UpdateOpacity();
+            }
+        }
+
+        private void UpdateOpacity()
+        {
+            if (DataContext is MainViewModel vm)
+            {
+                this.Opacity = _isHovering ? vm.WindowOpacity : vm.WindowOpacity * 0.3;
+            }
+        }
+
         private void Border_MouseEnter(object sender, MouseEventArgs e)
         {
-            this.Opacity = 1.0;
+            _isHovering = true;
+            UpdateOpacity();
             _hoverTimer.Start();
         }
 
         private void Border_MouseLeave(object sender, MouseEventArgs e)
         {
-            this.Opacity = 0.3;
+            _isHovering = false;
+            UpdateOpacity();
             _hoverTimer.Stop();
         }
 

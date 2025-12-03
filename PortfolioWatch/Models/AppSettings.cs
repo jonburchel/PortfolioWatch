@@ -25,5 +25,6 @@ namespace PortfolioWatch.Models
         public bool IsPortfolioMode { get; set; } = false;
         public bool StartWithWindows { get; set; } = true;
         public AppTheme Theme { get; set; } = AppTheme.System;
+        public double WindowOpacity { get; set; } = 1.0;
     }
 }
