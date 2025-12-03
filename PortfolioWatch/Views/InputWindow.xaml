@@ -54,10 +54,19 @@
                 <TextBlock Text="{Binding Message, RelativeSource={RelativeSource AncestorType=Window}}" 
                            Foreground="#A0A0A0" Margin="0,0,0,5"/>
                 <TextBox x:Name="InputBox" 
+                         Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged, ValidatesOnNotifyDataErrors=True}"
                          Background="#303030" Foreground="White" 
                          BorderThickness="0" Padding="8" FontSize="14"
                          CaretBrush="White"
                          KeyDown="InputBox_KeyDown">
+                    <Validation.ErrorTemplate>
+                        <ControlTemplate>
+                            <StackPanel>
+                                <AdornedElementPlaceholder x:Name="textBox"/>
+                                <TextBlock Text="{Binding [0].ErrorContent}" Foreground="#FF6B6B" FontSize="12" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </ControlTemplate>
+                    </Validation.ErrorTemplate>
                     <TextBox.Resources>
                         <Style TargetType="Border">
                             <Setter Property="CornerRadius" Value="4"/>
@@ -68,7 +77,37 @@
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
                 <Button Content="Cancel" Click="CancelButton_Click" Margin="0,0,10,0" Background="Transparent"/>
-                <Button Content="OK" Click="OkButton_Click" Background="#007ACC"/>
+                <Button Content="OK" Click="OkButton_Click" IsEnabled="{Binding IsInputValid}" Background="#007ACC">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Background" Value="#007ACC"/>
+                            <Setter Property="Foreground" Value="White"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Padding" Value="15,8"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="#008BE6"/>
+                                            </Trigger>
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="border" Property="Background" Value="#005A96"/>
+                                            </Trigger>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter TargetName="border" Property="Background" Value="#404040"/>
+                                                <Setter Property="Foreground" Value="#808080"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </Button.Style>
+                </Button>
             </StackPanel>
         </Grid>
     </Border>

@@ -409,7 +409,15 @@ namespace PortfolioWatch.ViewModels
             string amount = amountStr;
             if (amountStr == "Custom")
             {
-                var inputWindow = new InputWindow("Enter amount ($):", "Buy me anything you want", "1000000000000");
+                var inputWindow = new InputWindow("Enter amount ($):", "Buy me anything you want", "1000000", (input) =>
+                {
+                    if (string.IsNullOrWhiteSpace(input)) return "Amount is required.";
+                    if (!decimal.TryParse(input, out decimal v)) return "Please enter a valid number.";
+                    if (v < 1) return "Amount must be at least $1.";
+                    if (v > int.MaxValue) return $"Amount must be less than {int.MaxValue:N0}.";
+                    return null;
+                });
+
                 if (inputWindow.ShowDialog() == true)
                 {
                     amount = inputWindow.InputText;
@@ -421,7 +429,7 @@ namespace PortfolioWatch.ViewModels
             }
 
             // Validate amount is integer > 1
-            if (decimal.TryParse(amount, out decimal val) && val >= 1)
+            if (decimal.TryParse(amount, out decimal val) && val >= 1 && val <= int.MaxValue)
             {
                 int intVal = (int)val;
                 if (intVal < 1) intVal = 1;
@@ -436,10 +444,6 @@ namespace PortfolioWatch.ViewModels
                     });
                 }
                 catch { }
-            }
-            else if (amountStr == "Custom" || !string.IsNullOrWhiteSpace(amount))
-            {
-                System.Windows.MessageBox.Show("Please enter a valid whole number amount greater than or equal to 1.", "Invalid Amount", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
             }
         }
 

@@ -1,10 +1,20 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
 
 namespace PortfolioWatch.Views
 {
-    public partial class InputWindow : Window
+    public partial class InputWindow : Window, INotifyPropertyChanged, INotifyDataErrorInfo
     {
+        private string _inputText;
+        private readonly Func<string, string> _validator;
+        private readonly Dictionary<string, List<string>> _errors = new Dictionary<string, List<string>>();
+
         public string Message
         {
             get { return (string)GetValue(MessageProperty); }
@@ -16,23 +26,81 @@ namespace PortfolioWatch.Views
 
         public string InputText
         {
-            get { return InputBox.Text; }
-            set { InputBox.Text = value; InputBox.SelectAll(); }
+            get => _inputText;
+            set
+            {
+                if (_inputText != value)
+                {
+                    _inputText = value;
+                    OnPropertyChanged();
+                    ValidateInput();
+                }
+            }
         }
 
-        public InputWindow(string message, string title, string defaultText = "")
+        public bool HasErrors => _errors.Any();
+        public bool IsInputValid => !HasErrors;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        public event EventHandler<DataErrorsChangedEventArgs> ErrorsChanged;
+
+        public InputWindow(string message, string title, string defaultText = "", Func<string, string> validator = null)
         {
             InitializeComponent();
+            DataContext = this;
             Message = message;
             Title = title;
+            _validator = validator;
             InputText = defaultText;
+            
+            // Initial validation
+            ValidateInput();
+            
             InputBox.Focus();
+            InputBox.SelectAll();
+        }
+
+        private void ValidateInput()
+        {
+            _errors.Clear();
+            if (_validator != null)
+            {
+                var error = _validator(InputText);
+                if (!string.IsNullOrEmpty(error))
+                {
+                    _errors[nameof(InputText)] = new List<string> { error };
+                }
+            }
+            
+            OnErrorsChanged(nameof(InputText));
+            OnPropertyChanged(nameof(HasErrors));
+            OnPropertyChanged(nameof(IsInputValid));
+        }
+
+        public IEnumerable GetErrors(string propertyName)
+        {
+            if (string.IsNullOrEmpty(propertyName) || !_errors.ContainsKey(propertyName))
+                return null;
+            return _errors[propertyName];
+        }
+
+        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected void OnErrorsChanged(string propertyName)
+        {
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(propertyName));
         }
 
         private void OkButton_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = true;
-            Close();
+            if (IsInputValid)
+            {
+                DialogResult = true;
+                Close();
+            }
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
@@ -45,8 +113,11 @@ namespace PortfolioWatch.Views
         {
             if (e.Key == Key.Enter)
             {
-                DialogResult = true;
-                Close();
+                if (IsInputValid)
+                {
+                    DialogResult = true;
+                    Close();
+                }
             }
             else if (e.Key == Key.Escape)
             {
