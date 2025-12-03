@@ -396,8 +396,6 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
-                                            <ColumnDefinition Width="Auto" SharedSizeGroup="DayChangeColumn"/>
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Sparkline Graph -->
@@ -424,57 +422,64 @@
                                             </Path>
                                         </Grid>
 
-                                        <!-- Shares Input -->
-                                        <Grid Grid.Column="1" Width="60" Margin="10,0,0,0" Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                            <TextBox x:Name="SharesBox"
-                                                     Text="{Binding Shares, Converter={StaticResource ZeroToEmptyStringConverter}, StringFormat={}{0:#,##0.###}, UpdateSourceTrigger=LostFocus}"
-                                                     Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
-                                                     HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
-                                                     Padding="2"
-                                                     KeyDown="SharesBox_KeyDown">
-                                                <TextBox.Resources>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="CornerRadius" Value="3"/>
-                                                    </Style>
-                                                </TextBox.Resources>
-                                            </TextBox>
-                                            
-                                            <!-- Overlay Button for "+" -->
-                                            <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
-                                                    IsHitTestVisible="False" FontSize="16" FontWeight="Bold">
-                                                <Button.Style>
-                                                    <Style TargetType="Button">
-                                                        <Setter Property="Visibility" Value="{Binding Shares, Converter={StaticResource InverseDoubleToVis}}"/>
+                                        <!-- Portfolio Data -->
+                                        <Grid Grid.Column="1" Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="DayChangeColumn"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Shares Input -->
+                                            <Grid Grid.Column="0" Width="60" Margin="10,0,0,0">
+                                                <TextBox x:Name="SharesBox"
+                                                         Text="{Binding Shares, Converter={StaticResource ZeroToEmptyStringConverter}, StringFormat={}{0:#,##0.###}, UpdateSourceTrigger=LostFocus}"
+                                                         Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
+                                                         HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
+                                                         Padding="2"
+                                                         KeyDown="SharesBox_KeyDown">
+                                                    <TextBox.Resources>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="CornerRadius" Value="3"/>
+                                                        </Style>
+                                                    </TextBox.Resources>
+                                                </TextBox>
+                                                
+                                                <!-- Overlay Button for "+" -->
+                                                <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
+                                                        IsHitTestVisible="False" FontSize="16" FontWeight="Bold">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Visibility" Value="{Binding Shares, Converter={StaticResource InverseDoubleToVis}}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ElementName=SharesBox, Path=IsFocused}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                            </Grid>
+
+                                            <!-- Market Value -->
+                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{Binding MarketValue, StringFormat=C2}" 
+                                                       Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+
+                                            <!-- Day Change Value -->
+                                            <TextBlock Grid.Column="2" Margin="10,0,0,0" Text="{Binding DayChangeValue, StringFormat={}{0:+$#,##0.00;-$#,##0.00;$0.00}}" 
+                                                       FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
                                                         <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding ElementName=SharesBox, Path=IsFocused}" Value="True">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
-                                                </Button.Style>
-                                            </Button>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </Grid>
-
-                                        <!-- Market Value -->
-                                        <TextBlock Grid.Column="2" Margin="10,0,0,0" Text="{Binding MarketValue, StringFormat=C2}" 
-                                                   Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Right"
-                                                   Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}"/>
-
-                                        <!-- Day Change Value -->
-                                        <TextBlock Grid.Column="3" Margin="10,0,0,0" Text="{Binding DayChangeValue, StringFormat={}{0:+$#,##0.00;-$#,##0.00;$0.00}}" 
-                                                   FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right"
-                                                   Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                            <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
                                     </Grid>
 
                                     <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
