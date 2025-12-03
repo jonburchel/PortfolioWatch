@@ -409,7 +409,7 @@ namespace PortfolioWatch.ViewModels
             string amount = amountStr;
             if (amountStr == "Custom")
             {
-                var inputWindow = new InputWindow("Enter amount ($):", "Buy me anything you want", "5");
+                var inputWindow = new InputWindow("Enter amount ($):", "Buy me anything you want", "1000000000000");
                 if (inputWindow.ShowDialog() == true)
                 {
                     amount = inputWindow.InputText;
