@@ -296,6 +296,7 @@ namespace PortfolioWatch.ViewModels
         {
             await _stockService.UpdatePricesAsync();
             CalculatePortfolioTotals();
+            ApplySortInternal();
         }
 
         private async void EarningsTimer_Tick(object? sender, EventArgs e)
@@ -307,6 +308,7 @@ namespace PortfolioWatch.ViewModels
         private async System.Threading.Tasks.Task Refresh()
         {
             await _stockService.UpdatePricesAsync();
+            ApplySortInternal();
             _ = _stockService.UpdateEarningsAsync();
         }
 
@@ -759,14 +761,10 @@ namespace PortfolioWatch.ViewModels
                     ? withShares.OrderBy(keySelector)
                     : withShares.OrderByDescending(keySelector);
 
-                Func<Stock, object> secondaryKeySelector = _lastTopLevelSort switch
-                {
-                    "Name" => s => s.Name,
-                    "Change" => s => s.ChangePercent,
-                    _ => s => s.Symbol
-                };
+                // For portfolio sorts, 0-share rows sort by Day % in the same direction
+                Func<Stock, object> secondaryKeySelector = s => s.ChangePercent;
 
-                var sortedWithoutShares = _lastTopLevelSortAscending
+                var sortedWithoutShares = IsAscending
                     ? withoutShares.OrderBy(secondaryKeySelector)
                     : withoutShares.OrderByDescending(secondaryKeySelector);
 
