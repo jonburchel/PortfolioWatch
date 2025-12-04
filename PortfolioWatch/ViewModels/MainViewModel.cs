@@ -2,6 +2,8 @@ using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +19,7 @@ namespace PortfolioWatch.ViewModels
         private readonly SettingsService _settingsService;
         private readonly DispatcherTimer _timer;
         private readonly DispatcherTimer _earningsTimer;
+        private CancellationTokenSource? _searchCts;
 
         [ObservableProperty]
         private ObservableCollection<Stock> _stocks = new ObservableCollection<Stock>();
@@ -130,20 +133,79 @@ namespace PortfolioWatch.ViewModels
 
         async partial void OnNewSymbolChanged(string value)
         {
+            // Cancel previous search
+            _searchCts?.Cancel();
+            _searchCts = new CancellationTokenSource();
+            var token = _searchCts.Token;
+
             if (string.IsNullOrWhiteSpace(value))
             {
                 IsSearchPopupOpen = false;
                 SearchResults.Clear();
+                return;
             }
-            else
+
+            try
             {
+                // Debounce
+                await Task.Delay(300, token);
+                if (token.IsCancellationRequested) return;
+
                 var results = await _stockService.SearchStocksAsync(value);
+                if (token.IsCancellationRequested) return;
+
                 SearchResults.Clear();
+                var searchResultsList = new System.Collections.Generic.List<StockSearchResult>();
+
                 foreach (var result in results)
                 {
-                    SearchResults.Add(new StockSearchResult { Symbol = result.Symbol, Name = result.Name });
+                    searchResultsList.Add(new StockSearchResult { Symbol = result.Symbol, Name = result.Name });
+                }
+
+                // Initial display without quotes
+                foreach (var item in searchResultsList)
+                {
+                    SearchResults.Add(item);
                 }
                 IsSearchPopupOpen = SearchResults.Count > 0;
+
+                if (SearchResults.Count > 0)
+                {
+                    // Fetch quotes asynchronously
+                    var symbols = searchResultsList.Select(r => r.Symbol).Take(10); // Limit to top 10
+                    var quotes = await _stockService.GetQuotesAsync(symbols);
+                    
+                    if (token.IsCancellationRequested) return;
+
+                    // Update existing results with quote data
+                    foreach (var quote in quotes)
+                    {
+                        var existing = SearchResults.FirstOrDefault(r => r.Symbol == quote.Symbol);
+                        if (existing != null)
+                        {
+                            existing.Price = quote.Price;
+                            existing.Change = quote.Change;
+                            existing.ChangePercent = quote.ChangePercent;
+                            
+                            // Force UI update if needed (ObservableCollection handles add/remove, but property changes on items need INotifyPropertyChanged if bound directly)
+                            // Since StockSearchResult doesn't implement INotifyPropertyChanged, we might need to replace the item
+                            // But let's see if we can just replace the item in the collection
+                            var index = SearchResults.IndexOf(existing);
+                            if (index >= 0)
+                            {
+                                SearchResults[index] = existing; // Triggers collection change event for item replacement
+                            }
+                        }
+                    }
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // Ignore
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Search error: {ex.Message}");
             }
         }
 
@@ -796,11 +858,5 @@ namespace PortfolioWatch.ViewModels
             OnPropertyChanged(nameof(MarketValueSortIcon));
         }
 
-    public class StockSearchResult
-    {
-        public string Symbol { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
-        public string DisplayText => $"{Symbol} - {Name}";
-    }
 }
 }

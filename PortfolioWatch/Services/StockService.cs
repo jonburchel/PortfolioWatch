@@ -118,6 +118,58 @@ namespace PortfolioWatch.Services
             return match;
         }
 
+        public async Task<List<StockSearchResult>> GetQuotesAsync(IEnumerable<string> symbols)
+        {
+            var symbolList = symbols.ToList();
+            if (!symbolList.Any()) return new List<StockSearchResult>();
+
+            // Use chart endpoint concurrently as quote endpoint is often blocked
+            var tasks = symbolList.Select(async symbol =>
+            {
+                try
+                {
+                    var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(symbol)}?interval=1d&range=1d";
+                    var response = await _httpClient.GetStringAsync(url);
+                    
+                    using var doc = JsonDocument.Parse(response);
+                    var chart = doc.RootElement.GetProperty("chart");
+                    
+                    if (chart.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
+                        return null;
+
+                    var result = chart.GetProperty("result")[0];
+                    var meta = result.GetProperty("meta");
+
+                    var quote = new StockSearchResult { Symbol = symbol };
+
+                    if (meta.TryGetProperty("regularMarketPrice", out var priceProp))
+                        quote.Price = priceProp.GetDouble();
+
+                    double previousClose = 0;
+                    if (meta.TryGetProperty("chartPreviousClose", out var prevCloseProp))
+                        previousClose = prevCloseProp.GetDouble();
+                    else if (meta.TryGetProperty("previousClose", out var prevCloseProp2))
+                        previousClose = prevCloseProp2.GetDouble();
+
+                    if (previousClose > 0 && quote.Price.HasValue)
+                    {
+                        quote.Change = quote.Price.Value - previousClose;
+                        quote.ChangePercent = (quote.Price.Value - previousClose) / previousClose * 100;
+                    }
+
+                    return quote;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to get quote for {symbol}: {ex.Message}");
+                    return null;
+                }
+            });
+
+            var results = await Task.WhenAll(tasks);
+            return results.Where(r => r != null).Cast<StockSearchResult>().ToList();
+        }
+
         public void SetStocks(List<Stock> stocks)
         {
             _stocks.Clear();

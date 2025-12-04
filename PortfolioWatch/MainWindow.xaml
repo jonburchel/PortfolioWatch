@@ -612,7 +612,32 @@
                         <ListView ItemsSource="{Binding SearchResults}" Background="Transparent" BorderThickness="0">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding DisplayText}" Foreground="{DynamicResource PrimaryForegroundBrush}" Padding="5"/>
+                                    <Border Padding="5">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding DisplayText}" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0" 
+                                                        Visibility="{Binding Price, Converter={StaticResource DoubleToVis}}">
+                                                <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,5,0"/>
+                                                <TextBlock Text="{Binding ChangePercent, StringFormat={}{0:+#.00;-#.00;0.00}%}" FontWeight="Bold">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                             <ListView.ItemContainerStyle>

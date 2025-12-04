@@ -152,7 +152,7 @@ namespace PortfolioWatch
 
         private void ListViewItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is FrameworkElement element && element.DataContext is ViewModels.MainViewModel.StockSearchResult result)
+            if (sender is FrameworkElement element && element.DataContext is Models.StockSearchResult result)
             {
                 if (DataContext is ViewModels.MainViewModel vm)
                 {
