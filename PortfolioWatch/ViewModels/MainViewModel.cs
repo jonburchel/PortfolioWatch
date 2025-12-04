@@ -63,6 +63,12 @@ namespace PortfolioWatch.ViewModels
         private bool _isPortfolioUp;
 
         [ObservableProperty]
+        private System.Collections.Generic.List<double> _portfolioHistory = new();
+
+        [ObservableProperty]
+        private double _portfolioDayProgress;
+
+        [ObservableProperty]
         private bool _startWithWindows;
 
         [ObservableProperty]
@@ -562,12 +568,50 @@ namespace PortfolioWatch.ViewModels
 
             decimal totalValue = 0;
             decimal totalDayChangeValue = 0;
+            
+            var portfolioHistory = new System.Collections.Generic.List<double>();
+            int maxHistoryCount = 0;
+            double maxDayProgress = 0;
 
             foreach (var stock in Stocks)
             {
                 totalValue += stock.MarketValue;
                 totalDayChangeValue += stock.DayChangeValue;
+
+                if (stock.Shares > 0 && stock.History != null)
+                {
+                    maxHistoryCount = Math.Max(maxHistoryCount, stock.History.Count);
+                    maxDayProgress = Math.Max(maxDayProgress, stock.DayProgress);
+                }
             }
+
+            // Aggregate history
+            if (maxHistoryCount > 0)
+            {
+                for (int i = 0; i < maxHistoryCount; i++)
+                {
+                    double pointValue = 0;
+                    foreach (var stock in Stocks)
+                    {
+                        if (stock.Shares > 0 && stock.History != null && stock.History.Count > 0)
+                        {
+                            if (i < stock.History.Count)
+                            {
+                                pointValue += stock.History[i] * (double)stock.Shares;
+                            }
+                            else
+                            {
+                                // Use last known value if history is shorter
+                                pointValue += stock.History.Last() * (double)stock.Shares;
+                            }
+                        }
+                    }
+                    portfolioHistory.Add(pointValue);
+                }
+            }
+
+            PortfolioHistory = portfolioHistory;
+            PortfolioDayProgress = maxDayProgress;
 
             TotalPortfolioValue = totalValue;
             TotalPortfolioChange = totalDayChangeValue;

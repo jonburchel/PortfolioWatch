@@ -108,14 +108,41 @@
             <!-- Portfolio Summary -->
             <Grid Grid.Row="1" Margin="15,0,15,10" Visibility="{Binding IsPortfolioMode, Converter={StaticResource BoolToVis}}">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel>
+                
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="Total Value" Foreground="{DynamicResource TertiaryForegroundBrush}" FontSize="11"/>
                     <TextBlock Text="{Binding TotalPortfolioValue, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="24" FontWeight="Bold"/>
                 </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" HorizontalAlignment="Right">
+
+                <!-- Portfolio Graph -->
+                <Grid Grid.Column="1" Margin="20,0" VerticalAlignment="Center" Height="30">
+                    <Path Data="{Binding PortfolioHistory, Converter={StaticResource SparklineBaselineConverter}}"
+                          Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
+                    <Path StrokeThickness="2" Stretch="Fill">
+                        <Path.Data>
+                            <MultiBinding Converter="{StaticResource SparklineConverter}">
+                                <Binding Path="PortfolioHistory"/>
+                                <Binding Path="PortfolioDayProgress"/>
+                            </MultiBinding>
+                        </Path.Data>
+                        <Path.Style>
+                            <Style TargetType="Path">
+                                <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPortfolioUp}" Value="True">
+                                        <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Path.Style>
+                    </Path>
+                </Grid>
+
+                <StackPanel Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Right">
                     <TextBlock Text="{Binding TotalPortfolioChangePercent, StringFormat={}{0:+#.00;-#.00;0.00}%}" 
                                FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Right">
                         <TextBlock.Style>
