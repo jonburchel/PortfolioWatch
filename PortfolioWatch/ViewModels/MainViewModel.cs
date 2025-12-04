@@ -60,6 +60,8 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private double _totalPortfolioChangePercent;
 
+        public double PortfolioPreviousClose => (double)(TotalPortfolioValue - TotalPortfolioChange);
+
         [ObservableProperty]
         private bool _isPortfolioUp;
 
@@ -635,6 +637,7 @@ namespace PortfolioWatch.ViewModels
 
             TotalPortfolioValue = totalValue;
             TotalPortfolioChange = totalDayChangeValue;
+            OnPropertyChanged(nameof(PortfolioPreviousClose));
             
             // Calculate percent change based on previous day's total value
             // Previous Total = Current Total - Total Change

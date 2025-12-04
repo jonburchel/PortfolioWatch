@@ -120,13 +120,20 @@
 
                 <!-- Portfolio Graph -->
                 <Grid Grid.Column="1" Margin="20,0" VerticalAlignment="Center" Height="30">
-                    <Path Data="{Binding PortfolioHistory, Converter={StaticResource SparklineBaselineConverter}}"
-                          Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
+                    <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill">
+                        <Path.Data>
+                            <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
+                                <Binding Path="PortfolioHistory"/>
+                                <Binding Path="PortfolioPreviousClose"/>
+                            </MultiBinding>
+                        </Path.Data>
+                    </Path>
                     <Path StrokeThickness="2" Stretch="Fill">
                         <Path.Data>
                             <MultiBinding Converter="{StaticResource SparklineConverter}">
                                 <Binding Path="PortfolioHistory"/>
                                 <Binding Path="PortfolioDayProgress"/>
+                                <Binding Path="PortfolioPreviousClose"/>
                             </MultiBinding>
                         </Path.Data>
                         <Path.Style>
@@ -240,13 +247,20 @@
 
                                     <!-- Center Column (Sparkline) -->
                                     <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center" Height="20">
-                                        <Path Data="{Binding History, Converter={StaticResource SparklineBaselineConverter}}"
-                                              Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
+                                        <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill">
+                                            <Path.Data>
+                                                <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
+                                                    <Binding Path="History"/>
+                                                    <Binding Path="PreviousClose"/>
+                                                </MultiBinding>
+                                            </Path.Data>
+                                        </Path>
                                         <Path StrokeThickness="1.5" Stretch="Fill">
                                             <Path.Data>
                                                 <MultiBinding Converter="{StaticResource SparklineConverter}">
                                                     <Binding Path="History"/>
                                                     <Binding Path="DayProgress"/>
+                                                    <Binding Path="PreviousClose"/>
                                                 </MultiBinding>
                                             </Path.Data>
                                             <Path.Style>
@@ -441,13 +455,20 @@
 
                                         <!-- Sparkline Graph -->
                                         <Grid Grid.Column="0" Height="20">
-                                            <Path Data="{Binding History, Converter={StaticResource SparklineBaselineConverter}}"
-                                                  Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill"/>
+                                            <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill">
+                                                <Path.Data>
+                                                    <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
+                                                        <Binding Path="History"/>
+                                                        <Binding Path="PreviousClose"/>
+                                                    </MultiBinding>
+                                                </Path.Data>
+                                            </Path>
                                             <Path StrokeThickness="1.5" Stretch="Fill">
                                                 <Path.Data>
                                                     <MultiBinding Converter="{StaticResource SparklineConverter}">
                                                         <Binding Path="History"/>
                                                         <Binding Path="DayProgress"/>
+                                                        <Binding Path="PreviousClose"/>
                                                     </MultiBinding>
                                                 </Path.Data>
                                                 <Path.Style>

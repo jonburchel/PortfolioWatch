@@ -12,39 +12,26 @@ namespace PortfolioWatch.Converters
     {
         public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            if (values.Length >= 2 && values[0] is List<double> history && values[1] is double dayProgress && history.Count > 1)
+            // values[0]: History (List<double>)
+            // values[1]: DayProgress (double)
+            // values[2]: PreviousClose (double)
+            if (values.Length >= 3 && values[0] is List<double> history && values[1] is double dayProgress && values[2] is double previousClose && history.Count > 0)
             {
-                double min = history.Min();
-                double max = history.Max();
+                double min = Math.Min(history.Min(), previousClose);
+                double max = Math.Max(history.Max(), previousClose);
                 double range = max - min;
                 if (range == 0) range = 1;
 
                 double width = 60;
                 double height = 20;
                 
-                // Calculate step based on full day width
-                // If dayProgress is 1.0, we use full width.
-                // If dayProgress is 0.5, the current history should span 50% of width.
-                // So the step size should be: width * dayProgress / (history.Count - 1)
-                // Wait, if history.Count represents "points so far", then:
-                // X_last = width * dayProgress.
-                // X_i = i * (width * dayProgress) / (history.Count - 1).
-                
-                // However, if history.Count is small (e.g. 2 points at start of day), step is large?
-                // Yes, but the total width covered is small.
-                // Example: 2 points, progress 0.01. Width covered = 0.6px. Step = 0.6px.
-                // Example: 390 points, progress 1.0. Width covered = 60px. Step = 60/389 = 0.15px.
-                
-                // Edge case: history.Count = 1. Handled by check > 1.
-                
                 double totalWidth = width * dayProgress;
-                double step = totalWidth / (history.Count - 1);
+                double step = history.Count > 1 ? totalWidth / (history.Count - 1) : 0;
 
                 StreamGeometry geometry = new StreamGeometry();
                 using (StreamGeometryContext ctx = geometry.Open())
                 {
                     // Force bounds to match the full width/height (0,0 to 60,20)
-                    // This ensures Stretch="Fill" works correctly even for partial days
                     ctx.BeginFigure(new Point(0, 0), false, false);
                     ctx.BeginFigure(new Point(width, height), false, false);
 
@@ -68,21 +55,27 @@ namespace PortfolioWatch.Converters
         }
     }
 
-    public class SparklineBaselineConverter : IValueConverter
+    public class SparklineBaselineConverter : IMultiValueConverter
     {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is List<double> history && history.Count > 0)
+            // values[0]: History (List<double>)
+            // values[1]: PreviousClose (double)
+            if (values.Length >= 2 && values[0] is List<double> history && values[1] is double previousClose && history.Count > 0)
             {
-                double min = history.Min();
-                double max = history.Max();
+                double min = Math.Min(history.Min(), previousClose);
+                double max = Math.Max(history.Max(), previousClose);
                 double range = max - min;
                 if (range == 0) range = 1;
 
                 double width = 60;
                 double height = 20;
                 
-                double baselineY = height - ((history[0] - min) / range * height);
+                double baselineY = height - ((previousClose - min) / range * height);
+                
+                // Clamp baselineY to be within bounds (0 to height) just in case
+                baselineY = Math.Max(0, Math.Min(height, baselineY));
+
                 LineGeometry baseline = new LineGeometry(new Point(0, baselineY), new Point(width, baselineY));
                 baseline.Freeze();
                 return baseline;
@@ -90,7 +83,7 @@ namespace PortfolioWatch.Converters
             return Geometry.Empty;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
         {
             throw new NotImplementedException();
         }

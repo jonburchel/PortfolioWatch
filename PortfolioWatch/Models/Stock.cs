@@ -65,6 +65,8 @@ namespace PortfolioWatch.Models
 
         public bool IsUp => Change >= 0;
 
+        public double PreviousClose => (double)(Price - Change);
+
         private List<double> _history = new List<double>();
         public List<double> History
         {
