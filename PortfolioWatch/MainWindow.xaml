@@ -409,7 +409,17 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                                
+                                                <!-- Earnings Flag -->
+                                                <Grid Margin="5,0,0,0" Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}" 
+                                                      ToolTip="{Binding EarningsMessage}" Background="Transparent">
+                                                    <Path Data="M14.4,6L14,4H5V21H7V14H12.6L13,16H20V6H14.4Z" 
+                                                          Fill="{Binding EarningsFlagColor}" 
+                                                          Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center"/>
+                                                </Grid>
+                                            </StackPanel>
                                             <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
                                         </StackPanel>
                                         

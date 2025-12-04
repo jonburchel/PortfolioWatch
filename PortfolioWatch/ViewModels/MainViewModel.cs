@@ -16,6 +16,7 @@ namespace PortfolioWatch.ViewModels
         private readonly StockService _stockService;
         private readonly SettingsService _settingsService;
         private readonly DispatcherTimer _timer;
+        private readonly DispatcherTimer _earningsTimer;
 
         [ObservableProperty]
         private ObservableCollection<Stock> _stocks = new ObservableCollection<Stock>();
@@ -160,9 +161,16 @@ namespace PortfolioWatch.ViewModels
                 Interval = TimeSpan.FromSeconds(60)
             };
             _timer.Tick += Timer_Tick;
+
+            _earningsTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromHours(4)
+            };
+            _earningsTimer.Tick += EarningsTimer_Tick;
             
             LoadData();
             _timer.Start();
+            _earningsTimer.Start();
         }
 
         private async void LoadData()
@@ -226,6 +234,11 @@ namespace PortfolioWatch.ViewModels
             CalculatePortfolioTotals();
 
             IsBusy = false;
+
+            // Trigger earnings update in background after a short delay
+            // to allow UI to be responsive first
+            await System.Threading.Tasks.Task.Delay(2000);
+            _ = _stockService.UpdateEarningsAsync();
         }
 
         private void Stocks_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -257,6 +270,7 @@ namespace PortfolioWatch.ViewModels
                 if (e.PropertyName == nameof(Stock.Shares))
                 {
                     SaveStocks();
+                    ApplySortInternal();
                 }
             }
         }
@@ -282,10 +296,16 @@ namespace PortfolioWatch.ViewModels
             CalculatePortfolioTotals();
         }
 
+        private async void EarningsTimer_Tick(object? sender, EventArgs e)
+        {
+            await _stockService.UpdateEarningsAsync();
+        }
+
         [RelayCommand]
         private async System.Threading.Tasks.Task Refresh()
         {
             await _stockService.UpdatePricesAsync();
+            _ = _stockService.UpdateEarningsAsync();
         }
 
         [RelayCommand]

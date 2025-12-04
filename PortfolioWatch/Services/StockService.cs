@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Globalization;
 using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Services
@@ -16,8 +17,14 @@ namespace PortfolioWatch.Services
 
         public StockService()
         {
-            _httpClient = new HttpClient();
+            var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+            };
+            _httpClient = new HttpClient(handler);
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            _httpClient.DefaultRequestHeaders.Add("Accept", "application/json, text/plain, */*");
+            _httpClient.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
 
             _indexes = new List<Stock>
             {
@@ -130,6 +137,7 @@ namespace PortfolioWatch.Services
             
             // Fire and forget update
             _ = UpdateStockDataAsync(stock);
+            _ = UpdateStockEarningsAsync(stock);
 
             return stock;
         }
@@ -149,6 +157,128 @@ namespace PortfolioWatch.Services
         {
             var tasks = _stocks.Concat(_indexes).Select(UpdateStockDataAsync);
             await Task.WhenAll(tasks);
+        }
+
+        public async Task UpdateEarningsAsync()
+        {
+            // Process sequentially or in small batches to avoid rate limits
+            foreach (var stock in _stocks)
+            {
+                await UpdateStockEarningsAsync(stock);
+                // Small delay to be nice to the API
+                await Task.Delay(500);
+            }
+        }
+
+        private async Task UpdateStockEarningsAsync(Stock stock)
+        {
+            try
+            {
+                double ParseDouble(JsonElement element, string propName)
+                {
+                    if (element.TryGetProperty(propName, out var prop))
+                    {
+                        if (prop.ValueKind == JsonValueKind.Number) return prop.GetDouble();
+                        if (prop.ValueKind == JsonValueKind.String && double.TryParse(prop.GetString(), out var val)) return val;
+                    }
+                    return 0;
+                }
+
+                // 1. Check for recent earnings (Beat/Miss)
+                var surpriseUrl = $"https://api.nasdaq.com/api/company/{stock.Symbol}/earnings-surprise";
+                var surpriseResponse = await _httpClient.GetStringAsync(surpriseUrl);
+                
+                using var surpriseDoc = JsonDocument.Parse(surpriseResponse);
+                
+                if (surpriseDoc.RootElement.TryGetProperty("data", out var data) &&
+                    data.ValueKind != JsonValueKind.Null &&
+                    data.TryGetProperty("earningsSurpriseTable", out var table) &&
+                    table.ValueKind != JsonValueKind.Null &&
+                    table.TryGetProperty("rows", out var rows) &&
+                    rows.ValueKind == JsonValueKind.Array &&
+                    rows.GetArrayLength() > 0)
+                {
+                    var lastReport = rows[0];
+                    if (lastReport.TryGetProperty("dateReported", out var dateProp) && dateProp.GetString() is string dateReportedStr)
+                    {
+                        if (DateTime.TryParse(dateReportedStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateReported))
+                        {
+                            // Check if reported within last 3 days
+                            if ((DateTime.Now.Date - dateReported.Date).TotalDays <= 3 && (DateTime.Now.Date - dateReported.Date).TotalDays >= 0)
+                            {
+                                var eps = ParseDouble(lastReport, "eps");
+                                var forecast = ParseDouble(lastReport, "consensusForecast");
+                                var percentSurprise = ParseDouble(lastReport, "percentageSurprise");
+                                
+                                if (percentSurprise > 0)
+                                {
+                                    stock.EarningsStatus = "Beat";
+                                    stock.EarningsMessage = $"Earnings Beat!\nReported: {dateReported:d}\nActual: {eps}\nForecast: {forecast}\nBeat by: {percentSurprise}%";
+                                }
+                                else
+                                {
+                                    stock.EarningsStatus = "Miss";
+                                    stock.EarningsMessage = $"Earnings Miss.\nReported: {dateReported:d}\nActual: {eps}\nForecast: {forecast}\nMissed by: {Math.Abs(percentSurprise)}%";
+                                }
+                                return; // Found recent earnings, no need to check upcoming
+                            }
+                        }
+                    }
+                }
+
+                // If we haven't returned by now, it means no recent earnings beat/miss was found.
+                // Reset status to None before checking upcoming, so we don't keep stale flags.
+                stock.EarningsStatus = "None";
+
+                // 2. Check for upcoming earnings
+                // Use analyst endpoint as company endpoint often returns 404
+                var dateUrl = $"https://api.nasdaq.com/api/analyst/{stock.Symbol}/earnings-date";
+                var dateResponse = await _httpClient.GetStringAsync(dateUrl);
+                
+                using var dateDoc = JsonDocument.Parse(dateResponse);
+                
+                if (dateDoc.RootElement.TryGetProperty("data", out var dateData) &&
+                    dateData.ValueKind != JsonValueKind.Null)
+                {
+                    // Try to parse from announcement string: "Earnings announcement* for LULU: Dec 11, 2025"
+                    if (dateData.TryGetProperty("announcement", out var announcementProp) && 
+                        announcementProp.GetString() is string announcement)
+                    {
+                        var parts = announcement.Split(':');
+                        if (parts.Length > 1)
+                        {
+                            var dateStr = parts[1].Trim();
+                            // Try parsing "Dec 11, 2025"
+                            if (DateTime.TryParse(dateStr, new CultureInfo("en-US"), DateTimeStyles.None, out var earningsDate))
+                            {
+                                // Check if upcoming in next 7 days (approx 5 business days)
+                                if (earningsDate >= DateTime.Now.Date && (earningsDate - DateTime.Now.Date).TotalDays <= 7)
+                                {
+                                    stock.EarningsStatus = "Upcoming";
+                                    stock.EarningsDate = earningsDate;
+                                    stock.EarningsMessage = $"Earnings Upcoming\nDate: {earningsDate:d}";
+                                }
+                                else
+                                {
+                                    stock.EarningsStatus = "None";
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // No upcoming earnings data found, and no recent earnings found (or we wouldn't be here)
+                    stock.EarningsStatus = "None";
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to update earnings for {stock.Symbol}: {ex.Message}");
+                // Expose error in UI for debugging
+                stock.EarningsMessage = $"Error: {ex.Message}";
+                if (stock.EarningsStatus == null) stock.EarningsStatus = "None";
+            }
         }
 
         private async Task UpdateStockDataAsync(Stock stock)

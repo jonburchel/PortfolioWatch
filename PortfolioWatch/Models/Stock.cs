@@ -96,5 +96,44 @@ namespace PortfolioWatch.Models
             get => _portfolioPercentage;
             set => SetProperty(ref _portfolioPercentage, value);
         }
+
+        // Earnings Properties
+        private DateTime? _earningsDate;
+        public DateTime? EarningsDate
+        {
+            get => _earningsDate;
+            set => SetProperty(ref _earningsDate, value);
+        }
+
+        private string _earningsStatus = "None"; // None, Upcoming, Beat, Miss
+        public string EarningsStatus
+        {
+            get => _earningsStatus;
+            set
+            {
+                if (SetProperty(ref _earningsStatus, value))
+                {
+                    OnPropertyChanged(nameof(HasEarningsFlag));
+                    OnPropertyChanged(nameof(EarningsFlagColor));
+                }
+            }
+        }
+
+        private string _earningsMessage = string.Empty;
+        public string EarningsMessage
+        {
+            get => _earningsMessage;
+            set => SetProperty(ref _earningsMessage, value);
+        }
+
+        public bool HasEarningsFlag => EarningsStatus != "None";
+
+        public string EarningsFlagColor => EarningsStatus switch
+        {
+            "Upcoming" => "#3498db", // Blue
+            "Beat" => "#2ecc71",     // Green
+            "Miss" => "#e74c3c",     // Red
+            _ => "Transparent"
+        };
     }
 }
