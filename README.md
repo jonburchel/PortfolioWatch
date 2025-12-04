@@ -6,12 +6,9 @@ PortfolioWatch is a modern, lightweight desktop widget for tracking stock prices
 
 ## Features
 
-*   **Real-time Tracking:** Monitor stock prices and daily changes.
-*   **Portfolio Mode:** Track your total portfolio value and performance.
-*   **Interactive Charts:** View intraday price movements with sparkline charts.
-*   **Search:** Easily find and add stocks by symbol or name.
-*   **Customizable:** Toggle index visibility, sort by various metrics, and more.
-*   **Always on Top:** Keep an eye on the market while you work (optional).
+PortfolioWatch offers a comprehensive set of tools for tracking the market and your personal holdings, including real-time updates, portfolio performance tracking, and extensive customization options.
+
+👉 **[View Full Feature Breakdown](FEATURES.md)**
 
 ## Installation
 
