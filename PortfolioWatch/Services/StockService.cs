@@ -9,7 +9,7 @@ using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Services
 {
-    public class StockService
+    public class StockService : IStockService
     {
         private readonly List<Stock> _stocks;
         private readonly List<Stock> _indexes;
@@ -53,19 +53,20 @@ namespace PortfolioWatch.Services
             };
         }
 
-        public Task<List<Stock>> GetStocksAsync()
+        public Task<ServiceResult<List<Stock>>> GetStocksAsync()
         {
-            return Task.FromResult(_stocks);
+            return Task.FromResult(ServiceResult<List<Stock>>.Ok(_stocks));
         }
 
-        public Task<List<Stock>> GetIndexesAsync()
+        public Task<ServiceResult<List<Stock>>> GetIndexesAsync()
         {
-            return Task.FromResult(_indexes);
+            return Task.FromResult(ServiceResult<List<Stock>>.Ok(_indexes));
         }
 
-        public async Task<List<(string Symbol, string Name)>> SearchStocksAsync(string query)
+        public async Task<ServiceResult<List<(string Symbol, string Name)>>> SearchStocksAsync(string query)
         {
-            if (string.IsNullOrWhiteSpace(query)) return new List<(string, string)>();
+            if (string.IsNullOrWhiteSpace(query)) 
+                return ServiceResult<List<(string, string)>>.Ok(new List<(string, string)>());
 
             try
             {
@@ -96,17 +97,23 @@ namespace PortfolioWatch.Services
                     }
                 }
                 
-                return results;
+                return ServiceResult<List<(string, string)>>.Ok(results);
             }
-            catch
+            catch (Exception ex)
             {
-                return new List<(string, string)>();
+                return ServiceResult<List<(string, string)>>.Fail($"Search failed: {ex.Message}");
             }
         }
 
-        public async Task<(string Symbol, string Name)> GetStockDetailsAsync(string query)
+        public async Task<ServiceResult<(string Symbol, string Name)>> GetStockDetailsAsync(string query)
         {
-            var results = await SearchStocksAsync(query);
+            var searchResult = await SearchStocksAsync(query);
+            if (!searchResult.Success)
+            {
+                return ServiceResult<(string, string)>.Fail(searchResult.ErrorMessage);
+            }
+
+            var results = searchResult.Data;
             var match = results.FirstOrDefault(r => r.Symbol.Equals(query, StringComparison.OrdinalIgnoreCase));
             
             if (match.Symbol == null && results.Count > 0)
@@ -115,59 +122,72 @@ namespace PortfolioWatch.Services
                 match = results[0];
             }
             
-            return match;
+            if (string.IsNullOrEmpty(match.Symbol))
+            {
+                 return ServiceResult<(string, string)>.Fail("Stock not found");
+            }
+
+            return ServiceResult<(string, string)>.Ok(match);
         }
 
-        public async Task<List<StockSearchResult>> GetQuotesAsync(IEnumerable<string> symbols)
+        public async Task<ServiceResult<List<StockSearchResult>>> GetQuotesAsync(IEnumerable<string> symbols)
         {
             var symbolList = symbols.ToList();
-            if (!symbolList.Any()) return new List<StockSearchResult>();
+            if (!symbolList.Any()) 
+                return ServiceResult<List<StockSearchResult>>.Ok(new List<StockSearchResult>());
 
-            // Use chart endpoint concurrently as quote endpoint is often blocked
-            var tasks = symbolList.Select(async symbol =>
+            try 
             {
-                try
+                // Use chart endpoint concurrently as quote endpoint is often blocked
+                var tasks = symbolList.Select(async symbol =>
                 {
-                    var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(symbol)}?interval=1d&range=1d";
-                    var response = await _httpClient.GetStringAsync(url);
-                    
-                    using var doc = JsonDocument.Parse(response);
-                    var chart = doc.RootElement.GetProperty("chart");
-                    
-                    if (chart.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
-                        return null;
-
-                    var result = chart.GetProperty("result")[0];
-                    var meta = result.GetProperty("meta");
-
-                    var quote = new StockSearchResult { Symbol = symbol };
-
-                    if (meta.TryGetProperty("regularMarketPrice", out var priceProp))
-                        quote.Price = priceProp.GetDouble();
-
-                    double previousClose = 0;
-                    if (meta.TryGetProperty("chartPreviousClose", out var prevCloseProp))
-                        previousClose = prevCloseProp.GetDouble();
-                    else if (meta.TryGetProperty("previousClose", out var prevCloseProp2))
-                        previousClose = prevCloseProp2.GetDouble();
-
-                    if (previousClose > 0 && quote.Price.HasValue)
+                    try
                     {
-                        quote.Change = quote.Price.Value - previousClose;
-                        quote.ChangePercent = (quote.Price.Value - previousClose) / previousClose * 100;
+                        var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(symbol)}?interval=1d&range=1d";
+                        var response = await _httpClient.GetStringAsync(url);
+                        
+                        using var doc = JsonDocument.Parse(response);
+                        var chart = doc.RootElement.GetProperty("chart");
+                        
+                        if (chart.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
+                            return null;
+
+                        var result = chart.GetProperty("result")[0];
+                        var meta = result.GetProperty("meta");
+
+                        var quote = new StockSearchResult { Symbol = symbol };
+
+                        if (meta.TryGetProperty("regularMarketPrice", out var priceProp))
+                            quote.Price = priceProp.GetDouble();
+
+                        double previousClose = 0;
+                        if (meta.TryGetProperty("chartPreviousClose", out var prevCloseProp))
+                            previousClose = prevCloseProp.GetDouble();
+                        else if (meta.TryGetProperty("previousClose", out var prevCloseProp2))
+                            previousClose = prevCloseProp2.GetDouble();
+
+                        if (previousClose > 0 && quote.Price.HasValue)
+                        {
+                            quote.Change = quote.Price.Value - previousClose;
+                            quote.ChangePercent = (quote.Price.Value - previousClose) / previousClose * 100;
+                        }
+
+                        return quote;
                     }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Failed to get quote for {symbol}: {ex.Message}");
+                        return null;
+                    }
+                });
 
-                    return quote;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to get quote for {symbol}: {ex.Message}");
-                    return null;
-                }
-            });
-
-            var results = await Task.WhenAll(tasks);
-            return results.Where(r => r != null).Cast<StockSearchResult>().ToList();
+                var results = await Task.WhenAll(tasks);
+                return ServiceResult<List<StockSearchResult>>.Ok(results.Where(r => r != null).Cast<StockSearchResult>().ToList());
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<List<StockSearchResult>>.Fail($"Failed to get quotes: {ex.Message}");
+            }
         }
 
         public void SetStocks(List<Stock> stocks)
@@ -205,20 +225,36 @@ namespace PortfolioWatch.Services
             _stocks.Remove(stock);
         }
 
-        public async Task UpdatePricesAsync()
+        public async Task<ServiceResult<bool>> UpdatePricesAsync()
         {
-            var tasks = _stocks.Concat(_indexes).Select(UpdateStockDataAsync);
-            await Task.WhenAll(tasks);
+            try
+            {
+                var tasks = _stocks.Concat(_indexes).Select(UpdateStockDataAsync);
+                await Task.WhenAll(tasks);
+                return ServiceResult<bool>.Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<bool>.Fail($"Failed to update prices: {ex.Message}");
+            }
         }
 
-        public async Task UpdateEarningsAsync()
+        public async Task<ServiceResult<bool>> UpdateEarningsAsync()
         {
-            // Process sequentially or in small batches to avoid rate limits
-            foreach (var stock in _stocks)
+            try
             {
-                await UpdateStockEarningsAsync(stock);
-                // Small delay to be nice to the API
-                await Task.Delay(500);
+                // Process sequentially or in small batches to avoid rate limits
+                foreach (var stock in _stocks)
+                {
+                    await UpdateStockEarningsAsync(stock);
+                    // Small delay to be nice to the API
+                    await Task.Delay(500);
+                }
+                return ServiceResult<bool>.Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<bool>.Fail($"Failed to update earnings: {ex.Message}");
             }
         }
 

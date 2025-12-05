@@ -15,7 +15,7 @@ namespace PortfolioWatch.ViewModels
 {
     public partial class MainViewModel : ObservableObject
     {
-        private readonly StockService _stockService;
+        private readonly IStockService _stockService;
         private readonly SettingsService _settingsService;
         private readonly DispatcherTimer _timer;
         private readonly DispatcherTimer _earningsTimer;
@@ -86,6 +86,9 @@ namespace PortfolioWatch.ViewModels
         [NotifyPropertyChangedFor(nameof(IsDarkTheme))]
         private AppTheme _currentTheme = AppTheme.System;
 
+        [ObservableProperty]
+        private string _statusMessage = string.Empty;
+
         public bool IsSystemTheme => CurrentTheme == AppTheme.System;
         public bool IsLightTheme => CurrentTheme == AppTheme.Light;
         public bool IsDarkTheme => CurrentTheme == AppTheme.Dark;
@@ -151,13 +154,19 @@ namespace PortfolioWatch.ViewModels
                 await Task.Delay(300, token);
                 if (token.IsCancellationRequested) return;
 
-                var results = await _stockService.SearchStocksAsync(value);
+                var searchResult = await _stockService.SearchStocksAsync(value);
                 if (token.IsCancellationRequested) return;
+
+                if (!searchResult.Success)
+                {
+                    StatusMessage = searchResult.ErrorMessage;
+                    return;
+                }
 
                 SearchResults.Clear();
                 var searchResultsList = new System.Collections.Generic.List<StockSearchResult>();
 
-                foreach (var result in results)
+                foreach (var result in searchResult.Data)
                 {
                     searchResultsList.Add(new StockSearchResult { Symbol = result.Symbol, Name = result.Name });
                 }
@@ -173,27 +182,28 @@ namespace PortfolioWatch.ViewModels
                 {
                     // Fetch quotes asynchronously
                     var symbols = searchResultsList.Select(r => r.Symbol).Take(10); // Limit to top 10
-                    var quotes = await _stockService.GetQuotesAsync(symbols);
+                    var quotesResult = await _stockService.GetQuotesAsync(symbols);
                     
                     if (token.IsCancellationRequested) return;
 
-                    // Update existing results with quote data
-                    foreach (var quote in quotes)
+                    if (quotesResult.Success)
                     {
-                        var existing = SearchResults.FirstOrDefault(r => r.Symbol == quote.Symbol);
-                        if (existing != null)
+                        // Update existing results with quote data
+                        foreach (var quote in quotesResult.Data)
                         {
-                            existing.Price = quote.Price;
-                            existing.Change = quote.Change;
-                            existing.ChangePercent = quote.ChangePercent;
-                            
-                            // Force UI update if needed (ObservableCollection handles add/remove, but property changes on items need INotifyPropertyChanged if bound directly)
-                            // Since StockSearchResult doesn't implement INotifyPropertyChanged, we might need to replace the item
-                            // But let's see if we can just replace the item in the collection
-                            var index = SearchResults.IndexOf(existing);
-                            if (index >= 0)
+                            var existing = SearchResults.FirstOrDefault(r => r.Symbol == quote.Symbol);
+                            if (existing != null)
                             {
-                                SearchResults[index] = existing; // Triggers collection change event for item replacement
+                                existing.Price = quote.Price;
+                                existing.Change = quote.Change;
+                                existing.ChangePercent = quote.ChangePercent;
+                                
+                                // Force UI update if needed
+                                var index = SearchResults.IndexOf(existing);
+                                if (index >= 0)
+                                {
+                                    SearchResults[index] = existing;
+                                }
                             }
                         }
                     }
@@ -206,6 +216,7 @@ namespace PortfolioWatch.ViewModels
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Search error: {ex.Message}");
+                StatusMessage = $"Search error: {ex.Message}";
             }
         }
 
@@ -240,6 +251,7 @@ namespace PortfolioWatch.ViewModels
         private async void LoadData()
         {
             IsBusy = true;
+            StatusMessage = "Loading data...";
             
             var settings = _settingsService.LoadSettings();
             
@@ -256,8 +268,15 @@ namespace PortfolioWatch.ViewModels
             WindowTitle = settings.WindowTitle;
             
             // Load Indexes
-            var indexes = await _stockService.GetIndexesAsync();
-            Indexes = new ObservableCollection<Stock>(indexes);
+            var indexesResult = await _stockService.GetIndexesAsync();
+            if (indexesResult.Success)
+            {
+                Indexes = new ObservableCollection<Stock>(indexesResult.Data);
+            }
+            else
+            {
+                StatusMessage = $"Failed to load indexes: {indexesResult.ErrorMessage}";
+            }
 
             if (!settings.IsFirstRun && settings.Stocks != null)
             {
@@ -268,11 +287,18 @@ namespace PortfolioWatch.ViewModels
             else
             {
                 // First run or invalid settings: Use default stocks from service
-                var defaultStocks = await _stockService.GetStocksAsync();
-                Stocks = new ObservableCollection<Stock>(defaultStocks);
-                
-                // Save defaults
-                SaveStocks();
+                var defaultStocksResult = await _stockService.GetStocksAsync();
+                if (defaultStocksResult.Success)
+                {
+                    Stocks = new ObservableCollection<Stock>(defaultStocksResult.Data);
+                    // Save defaults
+                    SaveStocks();
+                }
+                else
+                {
+                    StatusMessage = $"Failed to load default stocks: {defaultStocksResult.ErrorMessage}";
+                    Stocks = new ObservableCollection<Stock>();
+                }
             }
 
             // Subscribe to property changes for existing stocks
@@ -293,7 +319,15 @@ namespace PortfolioWatch.ViewModels
             ApplySortInternal();
             
             // Initial fetch
-            await _stockService.UpdatePricesAsync();
+            var updateResult = await _stockService.UpdatePricesAsync();
+            if (!updateResult.Success)
+            {
+                StatusMessage = $"Update failed: {updateResult.ErrorMessage}";
+            }
+            else
+            {
+                StatusMessage = $"Last updated: {DateTime.Now:T}";
+            }
             
             CalculatePortfolioTotals();
 
@@ -356,7 +390,15 @@ namespace PortfolioWatch.ViewModels
 
         private async void Timer_Tick(object? sender, EventArgs e)
         {
-            await _stockService.UpdatePricesAsync();
+            var result = await _stockService.UpdatePricesAsync();
+            if (result.Success)
+            {
+                StatusMessage = $"Last updated: {DateTime.Now:T}";
+            }
+            else
+            {
+                StatusMessage = $"Update failed: {result.ErrorMessage}";
+            }
             CalculatePortfolioTotals();
             ApplySortInternal();
         }
@@ -369,7 +411,16 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private async System.Threading.Tasks.Task Refresh()
         {
-            await _stockService.UpdatePricesAsync();
+            StatusMessage = "Refreshing...";
+            var result = await _stockService.UpdatePricesAsync();
+            if (result.Success)
+            {
+                StatusMessage = $"Last updated: {DateTime.Now:T}";
+            }
+            else
+            {
+                StatusMessage = $"Update failed: {result.ErrorMessage}";
+            }
             ApplySortInternal();
             _ = _stockService.UpdateEarningsAsync();
         }
@@ -381,10 +432,14 @@ namespace PortfolioWatch.ViewModels
             {
                 // If user typed "GOOG" and hit enter without selecting from popup
                 // We need to fetch the name.
-                var (symbol, name) = await _stockService.GetStockDetailsAsync(NewSymbol);
-                if (!string.IsNullOrEmpty(symbol))
+                var result = await _stockService.GetStockDetailsAsync(NewSymbol);
+                if (result.Success)
                 {
-                    AddStockInternal(symbol, name);
+                    AddStockInternal(result.Data.Symbol, result.Data.Name);
+                }
+                else
+                {
+                    StatusMessage = result.ErrorMessage;
                 }
             }
         }
@@ -405,6 +460,7 @@ namespace PortfolioWatch.ViewModels
             {
                 NewSymbol = string.Empty;
                 IsSearchPopupOpen = false;
+                StatusMessage = $"Stock {symbol} already exists in watchlist.";
                 return;
             }
 
@@ -417,6 +473,7 @@ namespace PortfolioWatch.ViewModels
             SaveStocks();
             NewSymbol = string.Empty;
             IsSearchPopupOpen = false;
+            StatusMessage = $"Added {symbol}";
             
             // Re-sort
             ApplySortInternal();
@@ -430,6 +487,7 @@ namespace PortfolioWatch.ViewModels
                 Stocks.Remove(stock);
                 _stockService.SetStocks(Stocks.ToList());
                 SaveStocks();
+                StatusMessage = $"Removed {stock.Symbol}";
             }
         }
 
@@ -764,25 +822,32 @@ namespace PortfolioWatch.ViewModels
             WindowOpacity = 1.0;
 
             // Load default stocks
-            var defaultStocks = _stockService.GetDefaultStocks();
-            
-            // Force UI update by clearing and adding
-            Stocks.Clear();
-            foreach (var stock in defaultStocks)
+            var defaultStocksResult = await _stockService.GetStocksAsync();
+            if (defaultStocksResult.Success)
             {
-                Stocks.Add(stock);
-            }
-            
-            _stockService.SetStocks(Stocks.ToList());
+                // Force UI update by clearing and adding
+                Stocks.Clear();
+                foreach (var stock in defaultStocksResult.Data)
+                {
+                    Stocks.Add(stock);
+                }
+                
+                _stockService.SetStocks(Stocks.ToList());
 
-            // Save defaults
-            SaveStocks();
-            
-            // Re-apply sort (default)
-            ApplySortInternal();
-            
-            // Fetch fresh data
-            await _stockService.UpdatePricesAsync();
+                // Save defaults
+                SaveStocks();
+                
+                // Re-apply sort (default)
+                ApplySortInternal();
+                
+                // Fetch fresh data
+                await _stockService.UpdatePricesAsync();
+                StatusMessage = "Reset complete.";
+            }
+            else
+            {
+                StatusMessage = $"Reset failed: {defaultStocksResult.ErrorMessage}";
+            }
         }
 
         private void ApplySort(string property)
@@ -858,5 +923,5 @@ namespace PortfolioWatch.ViewModels
             OnPropertyChanged(nameof(MarketValueSortIcon));
         }
 
-}
+    }
 }
