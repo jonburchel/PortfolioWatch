@@ -95,6 +95,47 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private string _selectedRange = "1d";
 
+        [ObservableProperty]
+        private string _dayChangeLabel = "Day $";
+
+        [ObservableProperty]
+        private string _changePercentLabel = "Day %";
+
+        partial void OnSelectedRangeChanged(string value)
+        {
+            switch (value)
+            {
+                case "1d":
+                    DayChangeLabel = "Day $";
+                    ChangePercentLabel = "Day %";
+                    break;
+                case "5d":
+                    DayChangeLabel = "5D $";
+                    ChangePercentLabel = "5D %";
+                    break;
+                case "1mo":
+                    DayChangeLabel = "30D $";
+                    ChangePercentLabel = "30D %";
+                    break;
+                case "1y":
+                    DayChangeLabel = "1Y $";
+                    ChangePercentLabel = "1Y %";
+                    break;
+                case "5y":
+                    DayChangeLabel = "5Y $";
+                    ChangePercentLabel = "5Y %";
+                    break;
+                case "10y":
+                    DayChangeLabel = "10Y $";
+                    ChangePercentLabel = "10Y %";
+                    break;
+                default:
+                    DayChangeLabel = "Day $";
+                    ChangePercentLabel = "Day %";
+                    break;
+            }
+        }
+
         public bool IsSystemTheme => CurrentTheme == AppTheme.System;
         public bool IsLightTheme => CurrentTheme == AppTheme.Light;
         public bool IsDarkTheme => CurrentTheme == AppTheme.Dark;
@@ -569,6 +610,21 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private void BuyCoffee(string amount)
         {
+            if (amount == "Custom")
+            {
+                var inputWindow = new InputWindow("Enter the amount you'd like to contribute:", "Enter Amount", "$1,000,000");
+                if (inputWindow.ShowDialog() == true && !string.IsNullOrWhiteSpace(inputWindow.InputText))
+                {
+                    // Strip currency symbol and commas
+                    var cleanAmount = inputWindow.InputText.Replace("$", "").Replace(",", "");
+                    if (decimal.TryParse(cleanAmount, out decimal customVal))
+                    {
+                        BuyCoffee(customVal.ToString());
+                    }
+                }
+                return;
+            }
+
             // Validate amount is integer > 1
             if (decimal.TryParse(amount, out decimal val) && val >= 1 && val <= int.MaxValue)
             {
@@ -585,6 +641,15 @@ namespace PortfolioWatch.ViewModels
                     });
                 }
                 catch { }
+            }
+        }
+
+        [RelayCommand]
+        private void SetTheme(string theme)
+        {
+            if (Enum.TryParse<AppTheme>(theme, out var appTheme))
+            {
+                CurrentTheme = appTheme;
             }
         }
 
