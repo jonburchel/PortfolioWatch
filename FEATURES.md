@@ -42,7 +42,7 @@ PortfolioWatch is designed to be a comprehensive yet unobtrusive tool for monito
 
 *   **Smart Search:** Quickly find and add stocks by typing their symbol or company name.
 *   **Quick Links:**
-    *   Right-click context menu to open stock details directly in Google Finance.
+    *   Click through on a stock to open details directly in Google Finance.
     *   Quick access to the GitHub repository for updates or to report issues.
 
 ## 🤝 Community & Support
