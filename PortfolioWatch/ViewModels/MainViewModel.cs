@@ -759,7 +759,7 @@ namespace PortfolioWatch.ViewModels
 
                 var prompt = new UpdatePromptWindow
                 {
-                    Message = $"A new version ({updateInfo.Version}) is available, released on {updateInfo.ReleaseDate:d}."
+                    Message = $"A new version (Portfolio Watch {updateInfo.Version}) is available, released on {updateInfo.ReleaseDate:d}."
                 };
 
                 prompt.ShowDialog();
@@ -787,7 +787,13 @@ namespace PortfolioWatch.ViewModels
                 if (isManual)
                 {
                     StatusMessage = "You are up to date.";
-                    System.Windows.MessageBox.Show("You are running the latest version.", "Up to Date", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    var prompt = new UpdatePromptWindow
+                    {
+                        Title = "Up to Date",
+                        Message = "You are running the latest version.",
+                        IsInfoMode = true
+                    };
+                    prompt.ShowDialog();
                 }
             }
         }

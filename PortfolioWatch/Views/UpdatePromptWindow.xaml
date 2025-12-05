@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         mc:Ignorable="d"
         Title="Update Available" Height="220" Width="400"
         WindowStartupLocation="CenterScreen"
@@ -11,6 +12,9 @@
         ResizeMode="NoResize">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
+
         <Style TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
             <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
@@ -50,7 +54,7 @@
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
                 <emoji:TextBlock Text="🚀" FontSize="18" Margin="0,0,10,0"/>
-                <TextBlock Text="Update Available" 
+                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" 
                            Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="18" FontWeight="SemiBold"/>
             </StackPanel>
 
@@ -58,14 +62,23 @@
                 <TextBlock Text="{Binding Message, RelativeSource={RelativeSource AncestorType=Window}}" 
                            Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,0,0,10"/>
                 <TextBlock Text="Would you like to update now?" 
-                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap"/>
+                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap"
+                           Visibility="{Binding IsInfoMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolToVis}}"/>
             </StackPanel>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
-                <Button Content="Disable Checking" Click="DisableButton_Click" Margin="0,0,10,0" Background="Transparent" FontSize="11" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
-                <Button Content="Snooze 7 Days" Click="SnoozeButton_Click" Margin="0,0,10,0" Background="Transparent"/>
-                <Button Content="Update Now" Click="UpdateButton_Click" Background="{DynamicResource PositiveColorBrush}" Foreground="White"/>
-            </StackPanel>
+            <Grid Grid.Row="2" Margin="0,15,0,0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            Visibility="{Binding IsInfoMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource InverseBoolToVis}}">
+                    <Button Content="Disable Checking" Click="DisableButton_Click" Margin="0,0,10,0" Background="Transparent" FontSize="11" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                    <Button Content="Snooze 7 Days" Click="SnoozeButton_Click" Margin="0,0,10,0" Background="Transparent"/>
+                    <Button Content="Update Now" Click="UpdateButton_Click" Background="{DynamicResource PositiveColorBrush}" Foreground="White"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            Visibility="{Binding IsInfoMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                    <Button Content="OK" Click="OKButton_Click" Background="{DynamicResource ControlBackgroundBrush}" Width="80"/>
+                </StackPanel>
+            </Grid>
         </Grid>
     </Border>
 </Window>

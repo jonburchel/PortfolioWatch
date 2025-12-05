@@ -37,6 +37,9 @@ namespace PortfolioWatch.Services
 
         [JsonPropertyName("size")]
         public long Size { get; set; }
+
+        [JsonPropertyName("digest")]
+        public string Digest { get; set; }
     }
 
     public class UpdateInfo
@@ -106,17 +109,30 @@ namespace PortfolioWatch.Services
                     }
 
                     // Check if the hash matches
-                    // We assume the hash is in the release body or we might have to download to check?
-                    // The requirement says: "If our current SHA hash of the binary doesn't match the published SHA of one of the binaries in the latest release"
-                    // This implies the SHA is published in the release body text.
-                    // We'll look for the hash in the body.
+                    // We check against the asset digest provided by GitHub API (format: "sha256:HASH")
+                    // or fallback to checking the body text if digest is missing.
                     
-                    if (!IsHashInBody(release.Body, currentHash))
+                    bool isHashMatch = false;
+
+                    // First check asset digests
+                    foreach (var asset in binaries)
                     {
-                        // If current hash is NOT in the body, it means we are different from the release, so update is available.
-                        // Wait, if we are running the latest version, our hash SHOULD be in the body.
-                        // So if IsHashInBody is false, then we have an update (or we are running a dev build).
-                        
+                        if (!string.IsNullOrEmpty(asset.Digest) && 
+                            asset.Digest.EndsWith(currentHash, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isHashMatch = true;
+                            break;
+                        }
+                    }
+
+                    // Fallback to body check if no digest match found
+                    if (!isHashMatch)
+                    {
+                        isHashMatch = IsHashInBody(release.Body, currentHash);
+                    }
+
+                    if (!isHashMatch)
+                    {
                         return new UpdateInfo
                         {
                             IsUpdateAvailable = true,
