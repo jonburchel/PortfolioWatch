@@ -124,13 +124,13 @@ namespace PortfolioWatch.Views
             Application.Current.Shutdown();
         }
 
-        private void Reset_Click(object sender, RoutedEventArgs e)
+        private async void Reset_Click(object sender, RoutedEventArgs e)
         {
             foreach (Window window in Application.Current.Windows)
             {
                 if (window is MainWindow mainWindow && mainWindow.DataContext is MainViewModel vm)
                 {
-                    vm.Reset();
+                    await vm.Reset();
                     return;
                 }
             }

@@ -72,6 +72,9 @@ namespace PortfolioWatch.ViewModels
         private System.Collections.Generic.List<double> _portfolioHistory = new();
 
         [ObservableProperty]
+        private System.Collections.Generic.List<DateTime> _portfolioTimestamps = new();
+
+        [ObservableProperty]
         private double _portfolioDayProgress;
 
         [ObservableProperty]
@@ -88,6 +91,9 @@ namespace PortfolioWatch.ViewModels
 
         [ObservableProperty]
         private string _statusMessage = string.Empty;
+
+        [ObservableProperty]
+        private string _selectedRange = "1d";
 
         public bool IsSystemTheme => CurrentTheme == AppTheme.System;
         public bool IsLightTheme => CurrentTheme == AppTheme.Light;
@@ -157,9 +163,9 @@ namespace PortfolioWatch.ViewModels
                 var searchResult = await _stockService.SearchStocksAsync(value);
                 if (token.IsCancellationRequested) return;
 
-                if (!searchResult.Success)
+                if (!searchResult.Success || searchResult.Data == null)
                 {
-                    StatusMessage = searchResult.ErrorMessage;
+                    StatusMessage = searchResult.ErrorMessage ?? "Search failed";
                     return;
                 }
 
@@ -186,7 +192,7 @@ namespace PortfolioWatch.ViewModels
                     
                     if (token.IsCancellationRequested) return;
 
-                    if (quotesResult.Success)
+                    if (quotesResult.Success && quotesResult.Data != null)
                     {
                         // Update existing results with quote data
                         foreach (var quote in quotesResult.Data)
@@ -269,13 +275,13 @@ namespace PortfolioWatch.ViewModels
             
             // Load Indexes
             var indexesResult = await _stockService.GetIndexesAsync();
-            if (indexesResult.Success)
+            if (indexesResult.Success && indexesResult.Data != null)
             {
                 Indexes = new ObservableCollection<Stock>(indexesResult.Data);
             }
             else
             {
-                StatusMessage = $"Failed to load indexes: {indexesResult.ErrorMessage}";
+                StatusMessage = $"Failed to load indexes: {indexesResult.ErrorMessage ?? "Unknown error"}";
             }
 
             if (!settings.IsFirstRun && settings.Stocks != null)
@@ -288,7 +294,7 @@ namespace PortfolioWatch.ViewModels
             {
                 // First run or invalid settings: Use default stocks from service
                 var defaultStocksResult = await _stockService.GetStocksAsync();
-                if (defaultStocksResult.Success)
+                if (defaultStocksResult.Success && defaultStocksResult.Data != null)
                 {
                     Stocks = new ObservableCollection<Stock>(defaultStocksResult.Data);
                     // Save defaults
@@ -296,7 +302,7 @@ namespace PortfolioWatch.ViewModels
                 }
                 else
                 {
-                    StatusMessage = $"Failed to load default stocks: {defaultStocksResult.ErrorMessage}";
+                    StatusMessage = $"Failed to load default stocks: {defaultStocksResult.ErrorMessage ?? "Unknown error"}";
                     Stocks = new ObservableCollection<Stock>();
                 }
             }
@@ -314,15 +320,16 @@ namespace PortfolioWatch.ViewModels
             StartWithWindows = _settingsService.IsStartupEnabled();
             CurrentTheme = settings.Theme;
             WindowOpacity = settings.WindowOpacity;
+            SelectedRange = settings.SelectedRange;
 
             // Apply sort
             ApplySortInternal();
             
             // Initial fetch
-            var updateResult = await _stockService.UpdatePricesAsync();
+            var updateResult = await _stockService.UpdatePricesAsync(SelectedRange);
             if (!updateResult.Success)
             {
-                StatusMessage = $"Update failed: {updateResult.ErrorMessage}";
+                StatusMessage = $"Update failed: {updateResult.ErrorMessage ?? "Unknown error"}";
             }
             else
             {
@@ -384,20 +391,21 @@ namespace PortfolioWatch.ViewModels
             settings.IsPortfolioMode = IsPortfolioMode;
             settings.Theme = CurrentTheme;
             settings.WindowOpacity = WindowOpacity;
+            settings.SelectedRange = SelectedRange;
             settings.IsFirstRun = false;
             _settingsService.SaveSettings(settings);
         }
 
         private async void Timer_Tick(object? sender, EventArgs e)
         {
-            var result = await _stockService.UpdatePricesAsync();
+            var result = await _stockService.UpdatePricesAsync(SelectedRange);
             if (result.Success)
             {
                 StatusMessage = $"Last updated: {DateTime.Now:T}";
             }
             else
             {
-                StatusMessage = $"Update failed: {result.ErrorMessage}";
+                StatusMessage = $"Update failed: {result.ErrorMessage ?? "Unknown error"}";
             }
             CalculatePortfolioTotals();
             ApplySortInternal();
@@ -412,17 +420,28 @@ namespace PortfolioWatch.ViewModels
         private async System.Threading.Tasks.Task Refresh()
         {
             StatusMessage = "Refreshing...";
-            var result = await _stockService.UpdatePricesAsync();
+            var result = await _stockService.UpdatePricesAsync(SelectedRange);
             if (result.Success)
             {
                 StatusMessage = $"Last updated: {DateTime.Now:T}";
             }
             else
             {
-                StatusMessage = $"Update failed: {result.ErrorMessage}";
+                StatusMessage = $"Update failed: {result.ErrorMessage ?? "Unknown error"}";
             }
             ApplySortInternal();
             _ = _stockService.UpdateEarningsAsync();
+        }
+
+        [RelayCommand]
+        private async Task SetRange(string range)
+        {
+            if (SelectedRange != range)
+            {
+                SelectedRange = range;
+                SaveStocks();
+                await Refresh();
+            }
         }
 
         [RelayCommand]
@@ -433,13 +452,13 @@ namespace PortfolioWatch.ViewModels
                 // If user typed "GOOG" and hit enter without selecting from popup
                 // We need to fetch the name.
                 var result = await _stockService.GetStockDetailsAsync(NewSymbol);
-                if (result.Success)
+                if (result.Success && result.Data != default)
                 {
                     AddStockInternal(result.Data.Symbol, result.Data.Name);
                 }
                 else
                 {
-                    StatusMessage = result.ErrorMessage;
+                    StatusMessage = result.ErrorMessage ?? "Failed to find stock details";
                 }
             }
         }
@@ -464,7 +483,7 @@ namespace PortfolioWatch.ViewModels
                 return;
             }
 
-            var stock = _stockService.CreateStock(symbol, name);
+            var stock = _stockService.CreateStock(symbol, name, SelectedRange);
             Stocks.Add(stock);
             
             // Sync service
@@ -482,112 +501,74 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private void RemoveStock(Stock stock)
         {
-            if (stock != null)
+            if (stock != null && Stocks.Contains(stock))
             {
+                stock.PropertyChanged -= Stock_PropertyChanged;
                 Stocks.Remove(stock);
                 _stockService.SetStocks(Stocks.ToList());
                 SaveStocks();
-                StatusMessage = $"Removed {stock.Symbol}";
+                CalculatePortfolioTotals();
             }
         }
 
         [RelayCommand]
-        private void OpenStock(string symbol)
+        public async System.Threading.Tasks.Task Reset()
         {
-            if (!string.IsNullOrWhiteSpace(symbol))
-            {
-                try
-                {
-                    var url = $"https://www.google.com/search?q=stock+{symbol}";
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = url,
-                        UseShellExecute = true
-                    });
-                }
-                catch { }
-            }
-        }
+            var confirmationWindow = new ConfirmationWindow(
+                "Confirm Reset",
+                "Are you sure you want to reset all settings and portfolios to default? This action cannot be undone.");
 
-        [RelayCommand]
-        private void OpenAbout()
-        {
-            try
+            if (confirmationWindow.ShowDialog() != true)
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "https://github.com/jonburchel/PortfolioWatch",
-                    UseShellExecute = true
-                });
-            }
-            catch { }
-        }
-
-        [RelayCommand]
-        private void RequestFeature()
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "https://github.com/jonburchel/PortfolioWatch/issues/new",
-                    UseShellExecute = true
-                });
-            }
-            catch { }
-        }
-
-        [RelayCommand]
-        private void SetTheme(string themeName)
-        {
-            if (Enum.TryParse<AppTheme>(themeName, out var theme))
-            {
-                CurrentTheme = theme;
-            }
-        }
-
-        [RelayCommand]
-        private void BuyCoffee(string amountStr)
-        {
-            // Handle "Say thanks - $0"
-            if (amountStr == "0")
-            {
-                // Send email
-                try
-                {
-                    var url = "mailto:jonburchel@gmail.com?subject=Thank%20you%20for%20PortfolioWatch!";
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = url,
-                        UseShellExecute = true
-                    });
-                }
-                catch { }
                 return;
             }
 
-            string amount = amountStr;
-            if (amountStr == "Custom")
+            // Clear settings
+            var settings = new AppSettings(); // Default settings
+            _settingsService.SaveSettings(settings);
+
+            // Reset properties
+            WindowTitle = "Watchlist";
+            SortProperty = string.Empty;
+            IsAscending = true;
+            IsIndexesVisible = true;
+            IsPortfolioMode = false;
+            CurrentTheme = AppTheme.System;
+            WindowOpacity = 1.0;
+            SelectedRange = "1d";
+
+            // Load default stocks
+            var defaultStocksResult = await _stockService.GetStocksAsync();
+            if (defaultStocksResult.Success && defaultStocksResult.Data != null)
             {
-                var inputWindow = new InputWindow("Enter amount ($):", "Buy me anything you want", "1000000", (input) =>
+                // Force UI update by clearing and adding
+                Stocks.Clear();
+                foreach (var stock in defaultStocksResult.Data)
                 {
-                    if (string.IsNullOrWhiteSpace(input)) return "Amount is required.";
-                    if (!decimal.TryParse(input, out decimal v)) return "Please enter a valid number.";
-                    if (v < 1) return "Amount must be at least $1.";
-                    if (v > int.MaxValue) return $"Amount must be less than {int.MaxValue:N0}.";
-                    return null;
-                });
+                    Stocks.Add(stock);
+                }
+                
+                _stockService.SetStocks(Stocks.ToList());
 
-                if (inputWindow.ShowDialog() == true)
-                {
-                    amount = inputWindow.InputText;
-                }
-                else
-                {
-                    return;
-                }
+                // Save defaults
+                SaveStocks();
+                
+                // Re-apply sort (default)
+                ApplySortInternal();
+                
+                // Fetch fresh data
+                await _stockService.UpdatePricesAsync(SelectedRange);
+                StatusMessage = "Reset complete.";
             }
+            else
+            {
+                StatusMessage = $"Reset failed: {defaultStocksResult.ErrorMessage ?? "Unknown error"}";
+            }
+        }
 
+        [RelayCommand]
+        private void BuyCoffee(string amount)
+        {
             // Validate amount is integer > 1
             if (decimal.TryParse(amount, out decimal val) && val >= 1 && val <= int.MaxValue)
             {
@@ -714,8 +695,10 @@ namespace PortfolioWatch.ViewModels
             decimal totalDayChangeValue = 0;
             
             var portfolioHistory = new System.Collections.Generic.List<double>();
+            var portfolioTimestamps = new System.Collections.Generic.List<DateTime>();
             int maxHistoryCount = 0;
             double maxDayProgress = 0;
+            Stock? stockWithMaxHistory = null;
 
             foreach (var stock in Stocks)
             {
@@ -724,7 +707,11 @@ namespace PortfolioWatch.ViewModels
 
                 if (stock.Shares > 0 && stock.History != null)
                 {
-                    maxHistoryCount = Math.Max(maxHistoryCount, stock.History.Count);
+                    if (stock.History.Count > maxHistoryCount)
+                    {
+                        maxHistoryCount = stock.History.Count;
+                        stockWithMaxHistory = stock;
+                    }
                     maxDayProgress = Math.Max(maxDayProgress, stock.DayProgress);
                 }
             }
@@ -752,9 +739,17 @@ namespace PortfolioWatch.ViewModels
                     }
                     portfolioHistory.Add(pointValue);
                 }
+
+                // Use timestamps from the stock with the most history
+                if (stockWithMaxHistory != null && stockWithMaxHistory.Timestamps != null)
+                {
+                    // Take up to maxHistoryCount timestamps, or as many as available
+                    portfolioTimestamps = stockWithMaxHistory.Timestamps.Take(maxHistoryCount).ToList();
+                }
             }
 
             PortfolioHistory = portfolioHistory;
+            PortfolioTimestamps = portfolioTimestamps;
             PortfolioDayProgress = maxDayProgress;
 
             TotalPortfolioValue = totalValue;
@@ -796,59 +791,6 @@ namespace PortfolioWatch.ViewModels
             System.Windows.Application.Current.Shutdown();
         }
 
-        [RelayCommand]
-        public async System.Threading.Tasks.Task Reset()
-        {
-            var confirmationWindow = new ConfirmationWindow(
-                "Confirm Reset",
-                "Are you sure you want to reset all settings and portfolios to default? This action cannot be undone.");
-
-            if (confirmationWindow.ShowDialog() != true)
-            {
-                return;
-            }
-
-            // Clear settings
-            var settings = new AppSettings(); // Default settings
-            _settingsService.SaveSettings(settings);
-
-            // Reset properties
-            WindowTitle = "Watchlist";
-            SortProperty = string.Empty;
-            IsAscending = true;
-            IsIndexesVisible = true;
-            IsPortfolioMode = false;
-            CurrentTheme = AppTheme.System;
-            WindowOpacity = 1.0;
-
-            // Load default stocks
-            var defaultStocksResult = await _stockService.GetStocksAsync();
-            if (defaultStocksResult.Success)
-            {
-                // Force UI update by clearing and adding
-                Stocks.Clear();
-                foreach (var stock in defaultStocksResult.Data)
-                {
-                    Stocks.Add(stock);
-                }
-                
-                _stockService.SetStocks(Stocks.ToList());
-
-                // Save defaults
-                SaveStocks();
-                
-                // Re-apply sort (default)
-                ApplySortInternal();
-                
-                // Fetch fresh data
-                await _stockService.UpdatePricesAsync();
-                StatusMessage = "Reset complete.";
-            }
-            else
-            {
-                StatusMessage = $"Reset failed: {defaultStocksResult.ErrorMessage}";
-            }
-        }
 
         private void ApplySort(string property)
         {

@@ -12,10 +12,10 @@ namespace PortfolioWatch.Services
         Task<ServiceResult<(string Symbol, string Name)>> GetStockDetailsAsync(string query);
         Task<ServiceResult<List<StockSearchResult>>> GetQuotesAsync(IEnumerable<string> symbols);
         void SetStocks(List<Stock> stocks);
-        Stock CreateStock(string symbol, string? name = null);
+        Stock CreateStock(string symbol, string? name = null, string range = "1d");
         void AddStock(string symbol);
         void RemoveStock(Stock stock);
-        Task<ServiceResult<bool>> UpdatePricesAsync();
+        Task<ServiceResult<bool>> UpdatePricesAsync(string range = "1d");
         Task<ServiceResult<bool>> UpdateEarningsAsync();
     }
 }

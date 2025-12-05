@@ -36,6 +36,32 @@
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
         <converters:ZeroToEmptyStringConverter x:Key="ZeroToEmptyStringConverter"/>
         <converters:PieSliceConverter x:Key="PieSliceConverter"/>
+        <converters:StringEqualityConverter x:Key="StringEqualityConverter"/>
+
+        <Style x:Key="RangeRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryForegroundBrush}"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border Background="{TemplateBinding Background}" Padding="4,2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Grid.IsSharedSizeScope="True">
@@ -186,6 +212,28 @@
 
             <!-- Sorting & Indexes Toggle -->
             <Grid Grid.Row="2" Margin="15,0,15,5">
+                <!-- Range Selector -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <RadioButton Content="1D" Command="{Binding SetRangeCommand}" CommandParameter="1d" 
+                                 IsChecked="{Binding SelectedRange, Converter={StaticResource StringEqualityConverter}, ConverterParameter=1d, Mode=OneWay}"
+                                 Style="{StaticResource RangeRadioButtonStyle}"/>
+                    <RadioButton Content="5D" Command="{Binding SetRangeCommand}" CommandParameter="5d" 
+                                 IsChecked="{Binding SelectedRange, Converter={StaticResource StringEqualityConverter}, ConverterParameter=5d, Mode=OneWay}"
+                                 Style="{StaticResource RangeRadioButtonStyle}"/>
+                    <RadioButton Content="30D" Command="{Binding SetRangeCommand}" CommandParameter="1mo" 
+                                 IsChecked="{Binding SelectedRange, Converter={StaticResource StringEqualityConverter}, ConverterParameter=1mo, Mode=OneWay}"
+                                 Style="{StaticResource RangeRadioButtonStyle}"/>
+                    <RadioButton Content="1Y" Command="{Binding SetRangeCommand}" CommandParameter="1y" 
+                                 IsChecked="{Binding SelectedRange, Converter={StaticResource StringEqualityConverter}, ConverterParameter=1y, Mode=OneWay}"
+                                 Style="{StaticResource RangeRadioButtonStyle}"/>
+                    <RadioButton Content="5Y" Command="{Binding SetRangeCommand}" CommandParameter="5y" 
+                                 IsChecked="{Binding SelectedRange, Converter={StaticResource StringEqualityConverter}, ConverterParameter=5y, Mode=OneWay}"
+                                 Style="{StaticResource RangeRadioButtonStyle}"/>
+                    <RadioButton Content="10Y" Command="{Binding SetRangeCommand}" CommandParameter="10y" 
+                                 IsChecked="{Binding SelectedRange, Converter={StaticResource StringEqualityConverter}, ConverterParameter=10y, Mode=OneWay}"
+                                 Style="{StaticResource RangeRadioButtonStyle}"/>
+                </StackPanel>
+
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <StackPanel Orientation="Horizontal" Margin="0,0,15,0" ToolTip="Toggle Portfolio Mode">
                         <TextBlock Text="Portfolio" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">

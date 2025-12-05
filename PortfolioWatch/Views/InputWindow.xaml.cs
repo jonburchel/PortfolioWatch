@@ -11,8 +11,8 @@ namespace PortfolioWatch.Views
 {
     public partial class InputWindow : Window, INotifyPropertyChanged, INotifyDataErrorInfo
     {
-        private string _inputText;
-        private readonly Func<string, string> _validator;
+        private string _inputText = string.Empty;
+        private readonly Func<string, string?>? _validator;
         private readonly Dictionary<string, List<string>> _errors = new Dictionary<string, List<string>>();
 
         public string Message
@@ -41,10 +41,10 @@ namespace PortfolioWatch.Views
         public bool HasErrors => _errors.Any();
         public bool IsInputValid => !HasErrors;
 
-        public event PropertyChangedEventHandler PropertyChanged;
-        public event EventHandler<DataErrorsChangedEventArgs> ErrorsChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
-        public InputWindow(string message, string title, string defaultText = "", Func<string, string> validator = null)
+        public InputWindow(string message, string title, string defaultText = "", Func<string, string?>? validator = null)
         {
             InitializeComponent();
             DataContext = this;
@@ -77,14 +77,14 @@ namespace PortfolioWatch.Views
             OnPropertyChanged(nameof(IsInputValid));
         }
 
-        public IEnumerable GetErrors(string propertyName)
+        public IEnumerable GetErrors(string? propertyName)
         {
             if (string.IsNullOrEmpty(propertyName) || !_errors.ContainsKey(propertyName))
-                return null;
+                return Enumerable.Empty<string>();
             return _errors[propertyName];
         }
 
-        protected void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }

@@ -204,10 +204,16 @@ namespace PortfolioWatch
 
         private void UpdateGraphTooltip(object context, Point mousePos, double actualWidth, FrameworkElement target)
         {
-            List<double> history = null;
-            List<DateTime> timestamps = null;
+            List<double>? history = null;
+            List<DateTime>? timestamps = null;
             double dayProgress = 0;
             double previousClose = 0;
+            string selectedRange = "1d";
+
+            if (DataContext is ViewModels.MainViewModel mainVm)
+            {
+                selectedRange = mainVm.SelectedRange;
+            }
 
             if (context is Models.Stock stock)
             {
@@ -219,7 +225,7 @@ namespace PortfolioWatch
             else if (context is ViewModels.MainViewModel vm)
             {
                 history = vm.PortfolioHistory;
-                // Portfolio history doesn't have timestamps yet, would need to aggregate or just not show time
+                timestamps = vm.PortfolioTimestamps;
                 dayProgress = vm.PortfolioDayProgress;
                 previousClose = vm.PortfolioPreviousClose;
             }
@@ -268,7 +274,19 @@ namespace PortfolioWatch
 
             if (timestamps != null && index < timestamps.Count)
             {
-                TooltipTime.Text = timestamps[index].ToString("t"); // Short time pattern (e.g. 1:45 PM)
+                string format = "t"; // Default for 1d (ShortTime)
+                
+                if (selectedRange == "5d")
+                {
+                    format = "MM/dd HH:mm"; // Date + Time
+                }
+                else if (selectedRange != "1d")
+                {
+                    // 1mo, 1y, etc.
+                    format = "d"; // ShortDate
+                }
+
+                TooltipTime.Text = timestamps[index].ToString(format);
                 TooltipTime.Visibility = Visibility.Visible;
             }
             else
