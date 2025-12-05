@@ -12,6 +12,12 @@ namespace PortfolioWatch.Converters
             {
                 return string.Empty;
             }
+            
+            if (parameter is string format && value is IFormattable formattable)
+            {
+                return formattable.ToString(format, culture);
+            }
+
             return value?.ToString() ?? string.Empty;
         }
 

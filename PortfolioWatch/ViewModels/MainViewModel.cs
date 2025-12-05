@@ -789,16 +789,24 @@ namespace PortfolioWatch.ViewModels
                     double pointValue = 0;
                     foreach (var stock in Stocks)
                     {
-                        if (stock.Shares > 0 && stock.History != null && stock.History.Count > 0)
+                        if (stock.Shares > 0)
                         {
-                            if (i < stock.History.Count)
+                            if (stock.History != null && stock.History.Count > 0)
                             {
-                                pointValue += stock.History[i] * (double)stock.Shares;
+                                if (i < stock.History.Count)
+                                {
+                                    pointValue += stock.History[i] * (double)stock.Shares;
+                                }
+                                else
+                                {
+                                    // Use last known value if history is shorter
+                                    pointValue += stock.History.Last() * (double)stock.Shares;
+                                }
                             }
                             else
                             {
-                                // Use last known value if history is shorter
-                                pointValue += stock.History.Last() * (double)stock.Shares;
+                                // No history available, use current price as a flat line
+                                pointValue += (double)stock.Price * (double)stock.Shares;
                             }
                         }
                     }

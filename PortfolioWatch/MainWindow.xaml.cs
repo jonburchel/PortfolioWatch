@@ -75,19 +75,18 @@ namespace PortfolioWatch
 
         private void MenuButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is System.Windows.Controls.Button btn && btn.ContextMenu != null)
-            {
-                // Ensure DataContext is set
-                btn.ContextMenu.DataContext = this.DataContext;
+            // Create/Find ContextMenu dynamically to avoid resource locking on the button
+            var menu = (System.Windows.Controls.ContextMenu)FindResource("SharedContextMenu");
+            menu.PlacementTarget = sender as UIElement;
+            menu.DataContext = this.DataContext;
 
-                // Ensure handlers are attached
-                btn.ContextMenu.Opened -= ContextMenu_Opened;
-                btn.ContextMenu.Opened += ContextMenu_Opened;
-                btn.ContextMenu.Closed -= ContextMenu_Closed;
-                btn.ContextMenu.Closed += ContextMenu_Closed;
+            // Ensure handlers are attached
+            menu.Opened -= ContextMenu_Opened;
+            menu.Opened += ContextMenu_Opened;
+            menu.Closed -= ContextMenu_Closed;
+            menu.Closed += ContextMenu_Closed;
 
-                btn.ContextMenu.IsOpen = true;
-            }
+            menu.IsOpen = true;
         }
 
         private void ContextMenu_Opened(object sender, RoutedEventArgs e)
@@ -200,6 +199,21 @@ namespace PortfolioWatch
         private void Graph_MouseLeave(object sender, MouseEventArgs e)
         {
             GraphTooltip.IsOpen = false;
+        }
+
+        private void Pie_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
+            {
+                PieTooltipText.Text = $"{stock.PortfolioPercentage * 100:N2}% of portfolio";
+                PieTooltip.PlacementTarget = element;
+                PieTooltip.IsOpen = true;
+            }
+        }
+
+        private void Pie_MouseLeave(object sender, MouseEventArgs e)
+        {
+            PieTooltip.IsOpen = false;
         }
 
         private void UpdateGraphTooltip(object context, Point mousePos, double actualWidth, FrameworkElement target)
