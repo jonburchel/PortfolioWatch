@@ -76,9 +76,21 @@ namespace PortfolioWatch.Converters
                 // Clamp baselineY to be within bounds (0 to height) just in case
                 baselineY = Math.Max(0, Math.Min(height, baselineY));
 
-                LineGeometry baseline = new LineGeometry(new Point(0, baselineY), new Point(width, baselineY));
-                baseline.Freeze();
-                return baseline;
+                // Use StreamGeometry to ensure bounds match the SparklineConverter
+                StreamGeometry geometry = new StreamGeometry();
+                using (StreamGeometryContext ctx = geometry.Open())
+                {
+                    // Force bounds to match the full width/height (0,0 to 60,20)
+                    // This ensures alignment with the main sparkline when Stretch="Fill" is used
+                    ctx.BeginFigure(new Point(0, 0), false, false);
+                    ctx.BeginFigure(new Point(width, height), false, false);
+
+                    // Draw the baseline
+                    ctx.BeginFigure(new Point(0, baselineY), false, false);
+                    ctx.LineTo(new Point(width, baselineY), true, true);
+                }
+                geometry.Freeze();
+                return geometry;
             }
             return Geometry.Empty;
         }

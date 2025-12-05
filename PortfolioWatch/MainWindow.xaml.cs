@@ -5,6 +5,10 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace PortfolioWatch
 {
@@ -182,6 +186,101 @@ namespace PortfolioWatch
                 var parent = ((System.Windows.Controls.Control)sender).Parent as UIElement;
                 parent?.RaiseEvent(eventArg);
             }
+        }
+
+        private void Graph_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                var mousePos = e.GetPosition(element);
+                UpdateGraphTooltip(element.DataContext, mousePos, element.ActualWidth, element);
+            }
+        }
+
+        private void Graph_MouseLeave(object sender, MouseEventArgs e)
+        {
+            GraphTooltip.IsOpen = false;
+        }
+
+        private void UpdateGraphTooltip(object context, Point mousePos, double actualWidth, FrameworkElement target)
+        {
+            List<double> history = null;
+            List<DateTime> timestamps = null;
+            double dayProgress = 0;
+            double previousClose = 0;
+
+            if (context is Models.Stock stock)
+            {
+                history = stock.History;
+                timestamps = stock.Timestamps;
+                dayProgress = stock.DayProgress;
+                previousClose = stock.PreviousClose;
+            }
+            else if (context is ViewModels.MainViewModel vm)
+            {
+                history = vm.PortfolioHistory;
+                // Portfolio history doesn't have timestamps yet, would need to aggregate or just not show time
+                dayProgress = vm.PortfolioDayProgress;
+                previousClose = vm.PortfolioPreviousClose;
+            }
+
+            if (history == null || history.Count == 0 || dayProgress <= 0)
+            {
+                GraphTooltip.IsOpen = false;
+                return;
+            }
+
+            // Calculate index
+            // The graph draws from 0 to (60 * dayProgress) in a 60-unit wide coordinate space.
+            // This 60-unit space is stretched to actualWidth.
+            // So the "drawn" width in pixels is actualWidth * dayProgress.
+            // If mouse is beyond this, we clamp to the last point.
+
+            // Map mouseX to logical X (0..60)
+            // double logicalX = (mousePos.X / actualWidth) * 60;
+            
+            // Map logical X to index
+            // index = logicalX * (count - 1) / (60 * dayProgress)
+            // index = (mousePos.X / actualWidth) * (count - 1) / dayProgress
+
+            double relativeX = mousePos.X / actualWidth;
+            int index = (int)Math.Round((relativeX * (history.Count - 1)) / dayProgress);
+
+            // Clamp index
+            index = Math.Max(0, Math.Min(index, history.Count - 1));
+
+            double price = history[index];
+            double change = price - previousClose;
+            double percent = previousClose != 0 ? (change / previousClose) : 0;
+
+            // Update Tooltip
+            TooltipPrice.Text = price.ToString("C2");
+            TooltipPercent.Text = percent.ToString("+#0.00%;-#0.00%;0.00%");
+            
+            if (percent >= 0)
+            {
+                TooltipPercent.Foreground = (Brush)Application.Current.Resources["PositiveColorBrush"];
+            }
+            else
+            {
+                TooltipPercent.Foreground = (Brush)Application.Current.Resources["NegativeColorBrush"];
+            }
+
+            if (timestamps != null && index < timestamps.Count)
+            {
+                TooltipTime.Text = timestamps[index].ToString("t"); // Short time pattern (e.g. 1:45 PM)
+                TooltipTime.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                TooltipTime.Visibility = Visibility.Collapsed;
+            }
+
+            GraphTooltip.PlacementTarget = target;
+            GraphTooltip.Placement = PlacementMode.Relative;
+            GraphTooltip.HorizontalOffset = mousePos.X + 15;
+            GraphTooltip.VerticalOffset = mousePos.Y + 15;
+            GraphTooltip.IsOpen = true;
         }
     }
 }

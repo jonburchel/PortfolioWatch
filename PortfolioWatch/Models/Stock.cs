@@ -74,6 +74,13 @@ namespace PortfolioWatch.Models
             set => SetProperty(ref _history, value);
         }
 
+        private List<DateTime> _timestamps = new List<DateTime>();
+        public List<DateTime> Timestamps
+        {
+            get => _timestamps;
+            set => SetProperty(ref _timestamps, value);
+        }
+
         private double _shares;
         public double Shares
         {

@@ -25,6 +25,10 @@
     <Window.Resources>
         <helpers:BindingProxy x:Key="Proxy" Data="{Binding}"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <Style x:Key="TooltipTextStyle" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
         <converters:DoubleToVisibilityConverter x:Key="DoubleToVis"/>
         <converters:InverseDoubleToVisibilityConverter x:Key="InverseDoubleToVis"/>
         <converters:SparklineConverter x:Key="SparklineConverter"/>
@@ -119,8 +123,9 @@
                 </StackPanel>
 
                 <!-- Portfolio Graph -->
-                <Grid Grid.Column="1" Margin="20,0" VerticalAlignment="Center" Height="30">
-                    <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill">
+                <Grid Grid.Column="1" Margin="20,0" VerticalAlignment="Center" Height="30" Background="Transparent"
+                      MouseMove="Graph_MouseMove" MouseLeave="Graph_MouseLeave">
+                    <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill" IsHitTestVisible="False">
                         <Path.Data>
                             <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
                                 <Binding Path="PortfolioHistory"/>
@@ -128,7 +133,7 @@
                             </MultiBinding>
                         </Path.Data>
                     </Path>
-                    <Path StrokeThickness="2" Stretch="Fill">
+                    <Path StrokeThickness="2" Stretch="Fill" IsHitTestVisible="False">
                         <Path.Data>
                             <MultiBinding Converter="{StaticResource SparklineConverter}">
                                 <Binding Path="PortfolioHistory"/>
@@ -246,8 +251,9 @@
                                     </StackPanel>
 
                                     <!-- Center Column (Sparkline) -->
-                                    <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center" Height="20">
-                                        <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill">
+                                    <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center" Height="20" Background="Transparent"
+                                          MouseMove="Graph_MouseMove" MouseLeave="Graph_MouseLeave">
+                                        <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill" IsHitTestVisible="False">
                                             <Path.Data>
                                                 <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
                                                     <Binding Path="History"/>
@@ -255,7 +261,7 @@
                                                 </MultiBinding>
                                             </Path.Data>
                                         </Path>
-                                        <Path StrokeThickness="1.5" Stretch="Fill">
+                                        <Path StrokeThickness="1.5" Stretch="Fill" IsHitTestVisible="False">
                                             <Path.Data>
                                                 <MultiBinding Converter="{StaticResource SparklineConverter}">
                                                     <Binding Path="History"/>
@@ -454,8 +460,9 @@
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Sparkline Graph -->
-                                        <Grid Grid.Column="0" Height="20">
-                                            <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill">
+                                        <Grid Grid.Column="0" Height="20" Background="Transparent"
+                                              MouseMove="Graph_MouseMove" MouseLeave="Graph_MouseLeave">
+                                            <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill" IsHitTestVisible="False">
                                                 <Path.Data>
                                                     <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
                                                         <Binding Path="History"/>
@@ -463,7 +470,7 @@
                                                     </MultiBinding>
                                                 </Path.Data>
                                             </Path>
-                                            <Path StrokeThickness="1.5" Stretch="Fill">
+                                            <Path StrokeThickness="1.5" Stretch="Fill" IsHitTestVisible="False">
                                                 <Path.Data>
                                                     <MultiBinding Converter="{StaticResource SparklineConverter}">
                                                         <Binding Path="History"/>
@@ -592,6 +599,22 @@
                         <DropShadowEffect BlurRadius="5" ShadowDepth="2" Opacity="0.3"/>
                     </Border.Effect>
                     <TextBlock Text="Window Pinned" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="12"/>
+                </Border>
+            </Popup>
+
+            <!-- Graph Tooltip -->
+            <Popup x:Name="GraphTooltip" Placement="Mouse" StaysOpen="True" AllowsTransparency="True" IsHitTestVisible="False">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="4" Padding="6,3" Margin="10,0,0,10">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="5" ShadowDepth="2" Opacity="0.3"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="TooltipPrice" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" Margin="0,0,5,0" Style="{StaticResource TooltipTextStyle}"/>
+                            <TextBlock x:Name="TooltipPercent" FontWeight="Bold" Style="{StaticResource TooltipTextStyle}"/>
+                        </StackPanel>
+                        <TextBlock x:Name="TooltipTime" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                    </StackPanel>
                 </Border>
             </Popup>
 

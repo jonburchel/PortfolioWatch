@@ -416,14 +416,22 @@ namespace PortfolioWatch.Services
                     quoteArray[0].TryGetProperty("close", out var closes))
                 {
                     var history = new List<double>();
-                    foreach (var close in closes.EnumerateArray())
+                    var timeList = new List<DateTime>();
+                    
+                    var timestampList = timestamps.EnumerateArray().ToList();
+                    var closeList = closes.EnumerateArray().ToList();
+
+                    for (int i = 0; i < Math.Min(timestampList.Count, closeList.Count); i++)
                     {
-                        if (close.ValueKind != JsonValueKind.Null)
+                        if (closeList[i].ValueKind != JsonValueKind.Null)
                         {
-                            history.Add(close.GetDouble());
+                            history.Add(closeList[i].GetDouble());
+                            long unixSeconds = timestampList[i].GetInt64();
+                            timeList.Add(DateTimeOffset.FromUnixTimeSeconds(unixSeconds).LocalDateTime);
                         }
                     }
                     stock.History = history;
+                    stock.Timestamps = timeList;
 
                     // Calculate Day Progress
                     // Market hours: 9:30 AM - 4:00 PM ET
