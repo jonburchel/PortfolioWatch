@@ -23,6 +23,8 @@ namespace PortfolioWatch
         private MainWindow? _mainWindow;
         private SettingsService _settingsService;
         private bool _isSyncing;
+        private double _intendedLeft;
+        private double _intendedTop;
 
         public static App CurrentApp => (App)Current;
 
@@ -58,6 +60,7 @@ namespace PortfolioWatch
 
             // System Theme Change Listener
             SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
+            SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
 
             try
             {
@@ -106,6 +109,9 @@ namespace PortfolioWatch
                 _floatingWindow.Left = 20;
                 _floatingWindow.Top = desktopWorkingArea.Bottom - _floatingWindow.Height - 20;
             }
+
+            _intendedLeft = _floatingWindow.Left;
+            _intendedTop = _floatingWindow.Top;
             
             if (settings.WindowHeight > 0)
             {
@@ -127,6 +133,10 @@ namespace PortfolioWatch
                     _mainWindow.IsPinned = false;
                     _floatingWindow.IsPinned = false;
                 }
+                else
+                {
+                    RefreshData();
+                }
             };
             _notifyIcon.TrayLeftMouseUp += (s, args) => ShowMainWindow(true);
 
@@ -143,6 +153,24 @@ namespace PortfolioWatch
             _floatingWindow.LocationChanged += (s, args) =>
             {
                 if (_isSyncing || _mainWindow == null) return;
+
+                // Sticky positioning logic
+                if (_floatingWindow.IsUserMoving)
+                {
+                    _intendedLeft = _floatingWindow.Left;
+                    _intendedTop = _floatingWindow.Top;
+                }
+                else
+                {
+                    // If moved by system (not user), revert to intended position
+                    if (Math.Abs(_floatingWindow.Left - _intendedLeft) > 1 || Math.Abs(_floatingWindow.Top - _intendedTop) > 1)
+                    {
+                        _floatingWindow.Left = _intendedLeft;
+                        _floatingWindow.Top = _intendedTop;
+                        return; // Don't sync if we reverted
+                    }
+                }
+
                 _isSyncing = true;
                 
                 // Move MainWindow to stay above FloatingWindow
@@ -163,6 +191,12 @@ namespace PortfolioWatch
                 // Move FloatingWindow to stay below MainWindow
                 _floatingWindow.Left = _mainWindow.Left - 20;
                 _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height - 20; // Removed gap
+
+                if (_mainWindow.IsUserMoving)
+                {
+                    _intendedLeft = _floatingWindow.Left;
+                    _intendedTop = _floatingWindow.Top;
+                }
 
                 _isSyncing = false;
             };
@@ -324,9 +358,27 @@ namespace PortfolioWatch
             }
         }
 
+        private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            if (e.Reason == SessionSwitchReason.SessionUnlock)
+            {
+                RefreshData();
+            }
+        }
+
+        private void RefreshData()
+        {
+            if (_mainWindow?.DataContext is MainViewModel vm)
+            {
+                // Execute on UI thread
+                Dispatcher.Invoke(() => vm.RefreshCommand.Execute(null));
+            }
+        }
+
         protected override void OnExit(ExitEventArgs e)
         {
             SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
+            SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
 
             if (_floatingWindow != null && _mainWindow != null)
             {

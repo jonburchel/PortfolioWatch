@@ -30,6 +30,7 @@ namespace PortfolioWatch.Views
         public event EventHandler<OpenEventArgs>? OpenRequested;
         private DispatcherTimer _hoverTimer;
         private bool _isHovering;
+        public bool IsUserMoving { get; private set; }
 
         public FloatingWindow()
         {
@@ -101,7 +102,15 @@ namespace PortfolioWatch.Views
             {
                 _hoverTimer.Stop();
                 OpenRequested?.Invoke(this, new OpenEventArgs(true));
-                this.DragMove();
+                IsUserMoving = true;
+                try
+                {
+                    this.DragMove();
+                }
+                finally
+                {
+                    IsUserMoving = false;
+                }
             }
         }
 

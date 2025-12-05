@@ -12,6 +12,7 @@ namespace PortfolioWatch
     {
         private DispatcherTimer _autoHideTimer;
         public bool IsPinned { get; set; }
+        public bool IsUserMoving { get; private set; }
 
         public MainWindow()
         {
@@ -102,7 +103,15 @@ namespace PortfolioWatch
         {
             if (e.ButtonState == MouseButtonState.Pressed)
             {
-                this.DragMove();
+                IsUserMoving = true;
+                try
+                {
+                    this.DragMove();
+                }
+                finally
+                {
+                    IsUserMoving = false;
+                }
             }
         }
 
