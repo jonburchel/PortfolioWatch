@@ -17,6 +17,7 @@ namespace PortfolioWatch.ViewModels
     {
         private readonly IStockService _stockService;
         private readonly SettingsService _settingsService;
+        private readonly UpdateService _updateService;
         private readonly DispatcherTimer _timer;
         private readonly DispatcherTimer _earningsTimer;
         private CancellationTokenSource? _searchCts;
@@ -277,6 +278,7 @@ namespace PortfolioWatch.ViewModels
         {
             _stockService = new StockService();
             _settingsService = new SettingsService();
+            _updateService = new UpdateService();
             
             _timer = new DispatcherTimer
             {
@@ -385,6 +387,9 @@ namespace PortfolioWatch.ViewModels
             // to allow UI to be responsive first
             await System.Threading.Tasks.Task.Delay(2000);
             _ = _stockService.UpdateEarningsAsync();
+            
+            // Check for updates on startup
+            _ = CheckForUpdates(isManual: false);
         }
 
         private void Stocks_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -450,6 +455,13 @@ namespace PortfolioWatch.ViewModels
             }
             CalculatePortfolioTotals();
             ApplySortInternal();
+
+            // Check for updates daily
+            var settings = _settingsService.CurrentSettings;
+            if (settings.IsUpdateCheckEnabled && (DateTime.Now - settings.LastUpdateCheck).TotalHours >= 24)
+            {
+                _ = CheckForUpdates(isManual: false);
+            }
         }
 
         private async void EarningsTimer_Tick(object? sender, EventArgs e)
@@ -710,6 +722,72 @@ namespace PortfolioWatch.ViewModels
                 catch (Exception ex)
                 {
                     System.Windows.MessageBox.Show($"Export failed: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                }
+            }
+        }
+
+        [RelayCommand]
+        private async Task CheckForUpdates()
+        {
+            await CheckForUpdates(isManual: true);
+        }
+
+        private async Task CheckForUpdates(bool isManual)
+        {
+            var settings = _settingsService.CurrentSettings;
+
+            // If automatic check, verify if we should check
+            if (!isManual)
+            {
+                if (!settings.IsUpdateCheckEnabled) return;
+                
+                if (settings.UpdateSnoozedUntil.HasValue && DateTime.Now < settings.UpdateSnoozedUntil.Value)
+                    return;
+            }
+
+            // Update last check time
+            settings.LastUpdateCheck = DateTime.Now;
+            _settingsService.SaveSettings(settings);
+
+            if (isManual) StatusMessage = "Checking for updates...";
+
+            var updateInfo = await _updateService.CheckForUpdatesAsync();
+
+            if (updateInfo.IsUpdateAvailable)
+            {
+                if (isManual) StatusMessage = "Update available!";
+
+                var prompt = new UpdatePromptWindow
+                {
+                    Message = $"A new version ({updateInfo.Version}) is available, released on {updateInfo.ReleaseDate:d}."
+                };
+
+                prompt.ShowDialog();
+
+                switch (prompt.Result)
+                {
+                    case UpdatePromptResult.Update:
+                        StatusMessage = "Downloading update...";
+                        await _updateService.ApplyUpdateAsync(updateInfo.DownloadUrl, updateInfo.FileName);
+                        break;
+                    
+                    case UpdatePromptResult.Snooze:
+                        settings.UpdateSnoozedUntil = DateTime.Now.AddDays(7);
+                        _settingsService.SaveSettings(settings);
+                        break;
+                    
+                    case UpdatePromptResult.Disable:
+                        settings.IsUpdateCheckEnabled = false;
+                        _settingsService.SaveSettings(settings);
+                        break;
+                }
+            }
+            else
+            {
+                if (isManual)
+                {
+                    StatusMessage = "You are up to date.";
+                    System.Windows.MessageBox.Show("You are running the latest version.", "Up to Date", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 }
             }
         }

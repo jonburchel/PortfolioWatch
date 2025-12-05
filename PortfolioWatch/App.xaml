@@ -83,6 +83,12 @@
                 </MenuItem>
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>
+
+                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding CheckForUpdatesCommand}">
+                    <MenuItem.Header>
+                        <emoji:TextBlock Text="🆕 Check for updates" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    </MenuItem.Header>
+                </MenuItem>
                 
                 <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding OpenAboutCommand}">
                     <MenuItem.Header>
