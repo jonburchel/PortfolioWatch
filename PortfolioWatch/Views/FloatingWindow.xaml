@@ -14,7 +14,7 @@
     </Window.Resources>
 
     <Grid>
-        <Border x:Name="MainBorder" Width="60" Height="60" CornerRadius="30" Background="#01000000" BorderBrush="Transparent" BorderThickness="0"
+        <Border x:Name="MainBorder" AutomationProperties.AutomationId="MainBorder" Width="60" Height="60" CornerRadius="30" Background="#01000000" BorderBrush="Transparent" BorderThickness="0"
                 MouseEnter="Border_MouseEnter" MouseLeave="Border_MouseLeave" MouseLeftButtonDown="Border_MouseLeftButtonDown"
                 MouseRightButtonDown="Border_MouseRightButtonDown"
                 ContextMenu="{StaticResource SharedContextMenu}">

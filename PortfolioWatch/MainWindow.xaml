@@ -42,6 +42,55 @@
         <converters:NewsItemBorderConverter x:Key="NewsItemBorderConverter"/>
         <converters:NewsItemSpacingConverter x:Key="NewsItemSpacingConverter"/>
 
+        <Style x:Key="NarrowScrollBarStyle" TargetType="{x:Type ScrollBar}">
+            <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
+            <Setter Property="Stylus.IsFlicksEnabled" Value="false"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Width" Value="4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ScrollBar}">
+                        <Grid x:Name="Bg" SnapsToDevicePixels="true">
+                            <Track x:Name="PART_Track" IsDirectionReversed="true" IsEnabled="{TemplateBinding IsEnabled}">
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Style>
+                                            <Style TargetType="{x:Type Thumb}">
+                                                <Setter Property="OverridesDefaultStyle" Value="true"/>
+                                                <Setter Property="IsTabStop" Value="false"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="{x:Type Thumb}">
+                                                            <Border x:Name="rectangle" 
+                                                                    Background="{DynamicResource PrimaryForegroundBrush}" 
+                                                                    BorderBrush="{DynamicResource PrimaryForegroundBrush}"
+                                                                    BorderThickness="0"
+                                                                    Opacity="0.3" 
+                                                                    CornerRadius="2" 
+                                                                    SnapsToDevicePixels="True"/>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="true">
+                                                                    <Setter Property="Opacity" TargetName="rectangle" Value="0.6"/>
+                                                                    <Setter Property="Background" TargetName="rectangle" Value="{DynamicResource SecondaryForegroundBrush}"/>
+                                                                </Trigger>
+                                                                <Trigger Property="IsDragging" Value="true">
+                                                                    <Setter Property="Opacity" TargetName="rectangle" Value="0.8"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </Thumb.Style>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="RangeRadioButtonStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="{DynamicResource SecondaryForegroundBrush}"/>
@@ -275,7 +324,24 @@
             </Grid>
 
             <!-- List Area -->
-            <ScrollViewer x:Name="MainScrollViewer" Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="10,0">
+            <ScrollViewer x:Name="MainScrollViewer" AutomationProperties.AutomationId="MainScrollViewer" Grid.Row="3" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" Padding="10,0">
+                <ScrollViewer.Template>
+                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                        <Grid x:Name="Grid" Background="{TemplateBinding Background}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" CanContentScroll="{TemplateBinding CanContentScroll}" CanHorizontallyScroll="False" CanVerticallyScroll="False" ContentTemplate="{TemplateBinding ContentTemplate}" Content="{TemplateBinding Content}" Grid.Column="0" Margin="{TemplateBinding Padding}" Grid.Row="0"/>
+                            <ScrollBar x:Name="PART_VerticalScrollBar" AutomationProperties.AutomationId="VerticalScrollBar_Custom" Cursor="Arrow" Grid.Column="1" Maximum="{TemplateBinding ScrollableHeight}" Minimum="0" Grid.Row="0" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportHeight}" Style="{StaticResource NarrowScrollBarStyle}" Width="4" MinWidth="0" MaxWidth="4"/>
+                            <ScrollBar x:Name="PART_HorizontalScrollBar" AutomationProperties.AutomationId="HorizontalScrollBar_Custom" Cursor="Arrow" Grid.Column="0" Maximum="{TemplateBinding ScrollableWidth}" Minimum="0" Orientation="Horizontal" Grid.Row="1" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportWidth}" Style="{StaticResource NarrowScrollBarStyle}" Height="4" MinHeight="0" MaxHeight="4"/>
+                        </Grid>
+                    </ControlTemplate>
+                </ScrollViewer.Template>
                 <StackPanel>
                     <!-- Indexes List -->
                     <ListView ItemsSource="{Binding Indexes}" 
@@ -297,9 +363,9 @@
                                     
                                     <!-- No Delete Button for Indexes -->
                                     
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0,0,10,0" MinWidth="80">
                                         <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                                        <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left"/>
                                     </StackPanel>
 
                                     <!-- Center Column (Sparkline) -->
@@ -531,7 +597,7 @@
                                                            MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
                                                            MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"/>
                                             </StackPanel>
-                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
+                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left"/>
                                         </StackPanel>
                                         
                                         <!-- Pie Chart -->
@@ -950,6 +1016,29 @@
                                StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide">
                             <Border Background="{DynamicResource SearchPopupBackgroundBrush}" BorderBrush="{DynamicResource SearchPopupBorderBrush}" BorderThickness="1" CornerRadius="4" MaxHeight="200" Width="{Binding ElementName=SearchBox, Path=ActualWidth}">
                                 <ListView ItemsSource="{Binding SearchResults}" Background="Transparent" BorderThickness="0">
+                                    <ListView.Resources>
+                                        <Style TargetType="{x:Type ScrollViewer}">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                                                        <Grid x:Name="Grid" Background="{TemplateBinding Background}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="*"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" CanContentScroll="{TemplateBinding CanContentScroll}" CanHorizontallyScroll="False" CanVerticallyScroll="False" ContentTemplate="{TemplateBinding ContentTemplate}" Content="{TemplateBinding Content}" Grid.Column="0" Margin="{TemplateBinding Padding}" Grid.Row="0"/>
+                                                            <ScrollBar x:Name="PART_VerticalScrollBar" AutomationProperties.AutomationId="VerticalScrollBar" Cursor="Arrow" Grid.Column="1" Maximum="{TemplateBinding ScrollableHeight}" Minimum="0" Grid.Row="0" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportHeight}" Style="{StaticResource NarrowScrollBarStyle}" Width="4" MinWidth="0" MaxWidth="4"/>
+                                                            <ScrollBar x:Name="PART_HorizontalScrollBar" AutomationProperties.AutomationId="HorizontalScrollBar" Cursor="Arrow" Grid.Column="0" Maximum="{TemplateBinding ScrollableWidth}" Minimum="0" Orientation="Horizontal" Grid.Row="1" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportWidth}" Style="{StaticResource NarrowScrollBarStyle}" Height="4" MinHeight="0" MaxHeight="4"/>
+                                                        </Grid>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ListView.Resources>
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
                                             <Border Padding="5">
