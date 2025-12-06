@@ -8,7 +8,7 @@
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
-        TextOptions.TextFormattingMode="Display"
+        TextOptions.TextFormattingMode="{DynamicResource ThemeTextFormattingMode}"
         mc:Ignorable="d"
         Title="Portfolio Watchlist" Height="600" Width="450"
         MinHeight="200" MinWidth="450"
@@ -671,6 +671,7 @@
                                                          Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
                                                          HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
                                                          Padding="2"
+                                                         FontWeight="SemiBold"
                                                          KeyDown="SharesBox_KeyDown">
                                                     <TextBox.Resources>
                                                         <Style TargetType="Border">

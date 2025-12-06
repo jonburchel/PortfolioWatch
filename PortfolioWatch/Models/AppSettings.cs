@@ -13,8 +13,8 @@ namespace PortfolioWatch.Models
     public class AppSettings
     {
         public List<Stock> Stocks { get; set; } = new List<Stock>();
-        public double WindowLeft { get; set; }
-        public double WindowTop { get; set; }
+        public double WindowLeft { get; set; } = -9;
+        public double WindowTop { get; set; } = SystemParameters.WorkArea.Bottom + 34 - 800;
         public double WindowWidth { get; set; } = 600;
         public double WindowHeight { get; set; } = 800;
         public string WindowTitle { get; set; } = "Watchlist";

@@ -36,6 +36,8 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _isBusy;
 
+        private bool _isLoading;
+
         [ObservableProperty]
         private string _newSymbol = string.Empty;
 
@@ -137,6 +139,7 @@ namespace PortfolioWatch.ViewModels
                     ChangePercentLabel = "Day %";
                     break;
             }
+            if (!_isLoading) SaveStocks();
         }
 
         public bool IsSystemTheme => CurrentTheme == AppTheme.System;
@@ -148,7 +151,7 @@ namespace PortfolioWatch.ViewModels
 
         partial void OnStartWithWindowsChanged(bool value)
         {
-            if (!IsBusy)
+            if (!_isLoading)
             {
                 _settingsService.SetStartup(value);
             }
@@ -156,12 +159,12 @@ namespace PortfolioWatch.ViewModels
 
         partial void OnWindowOpacityChanged(double value)
         {
-            if (!IsBusy) SaveStocks();
+            if (!_isLoading) SaveStocks();
         }
 
         partial void OnCurrentThemeChanged(AppTheme value)
         {
-            if (!IsBusy)
+            if (!_isLoading)
             {
                 App.CurrentApp.ApplyTheme(value);
                 SaveStocks();
@@ -170,18 +173,28 @@ namespace PortfolioWatch.ViewModels
 
         partial void OnWindowTitleChanged(string value)
         {
-            if (!IsBusy) SaveStocks();
+            if (!_isLoading) SaveStocks();
         }
 
         partial void OnIsIndexesVisibleChanged(bool value)
         {
-            if (!IsBusy) SaveStocks();
+            if (!_isLoading) SaveStocks();
         }
 
         partial void OnIsPortfolioModeChanged(bool value)
         {
-            if (!IsBusy) SaveStocks();
+            if (!_isLoading) SaveStocks();
             CalculatePortfolioTotals();
+        }
+
+        partial void OnSortPropertyChanged(string value)
+        {
+            if (!_isLoading) SaveStocks();
+        }
+
+        partial void OnIsAscendingChanged(bool value)
+        {
+            if (!_isLoading) SaveStocks();
         }
 
         async partial void OnNewSymbolChanged(string value)
@@ -308,6 +321,7 @@ namespace PortfolioWatch.ViewModels
 
         private async void LoadData()
         {
+            _isLoading = true;
             IsBusy = true;
             StatusMessage = "Loading data...";
             
@@ -391,6 +405,7 @@ namespace PortfolioWatch.ViewModels
             CalculatePortfolioTotals();
 
             IsBusy = false;
+            _isLoading = false;
 
             // Check for updates on startup
             _ = CheckForUpdates(isManual: false);
@@ -440,6 +455,24 @@ namespace PortfolioWatch.ViewModels
         private void SaveStocks()
         {
             var settings = _settingsService.CurrentSettings;
+            SyncViewModelToSettings(settings);
+            _settingsService.SaveSettings(settings);
+        }
+
+        public void SaveWindowPositions(double left, double top, double width, double height)
+        {
+            var settings = _settingsService.CurrentSettings;
+            settings.WindowLeft = left;
+            settings.WindowTop = top;
+            settings.WindowWidth = width;
+            settings.WindowHeight = height;
+            
+            SyncViewModelToSettings(settings);
+            _settingsService.SaveSettings(settings);
+        }
+
+        private void SyncViewModelToSettings(AppSettings settings)
+        {
             settings.Stocks = Stocks.ToList();
             settings.SortColumn = SortProperty;
             settings.SortAscending = IsAscending;
@@ -450,7 +483,6 @@ namespace PortfolioWatch.ViewModels
             settings.WindowOpacity = WindowOpacity;
             settings.SelectedRange = SelectedRange;
             settings.IsFirstRun = false;
-            _settingsService.SaveSettings(settings);
         }
 
         private async void Timer_Tick(object? sender, EventArgs e)

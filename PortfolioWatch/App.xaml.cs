@@ -569,11 +569,14 @@ namespace PortfolioWatch
         {
             if (e.Category == UserPreferenceCategory.General)
             {
-                var settings = _settingsService.LoadSettings();
-                if (settings.Theme == AppTheme.System)
+                Dispatcher.Invoke(() =>
                 {
-                    ApplyTheme(AppTheme.System);
-                }
+                    var settings = _settingsService.LoadSettings();
+                    if (settings.Theme == AppTheme.System)
+                    {
+                        ApplyTheme(AppTheme.System);
+                    }
+                });
             }
         }
 
@@ -599,15 +602,13 @@ namespace PortfolioWatch
             SystemEvents.UserPreferenceChanged -= SystemEvents_UserPreferenceChanged;
             SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
 
-            if (_floatingWindow != null && _mainWindow != null)
+            if (_floatingWindow != null && _mainWindow != null && _mainWindow.DataContext is MainViewModel vm)
             {
-                // Reload settings to ensure we have the latest stocks saved by MainViewModel
-                var settings = _settingsService.LoadSettings();
-                settings.WindowLeft = _floatingWindow.Left;
-                settings.WindowTop = _floatingWindow.Top;
-                settings.WindowHeight = _mainWindow.Height;
-                settings.WindowWidth = _mainWindow.Width;
-                _settingsService.SaveSettings(settings);
+                vm.SaveWindowPositions(
+                    _floatingWindow.Left,
+                    _floatingWindow.Top,
+                    _mainWindow.Width,
+                    _mainWindow.Height);
             }
 
             _notifyIcon?.Dispose();

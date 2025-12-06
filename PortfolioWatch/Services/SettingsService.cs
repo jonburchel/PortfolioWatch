@@ -35,8 +35,9 @@ namespace PortfolioWatch.Services
                     }
                 }
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Debug.WriteLine($"Failed to load settings: {ex.Message}");
                 // Ignore errors and use defaults
             }
             return _currentSettings;
@@ -50,8 +51,9 @@ namespace PortfolioWatch.Services
                 var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(_filePath, json);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                Debug.WriteLine($"Failed to save settings: {ex.Message}");
                 // Ignore errors
             }
         }
