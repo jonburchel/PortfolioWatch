@@ -104,6 +104,12 @@ The application uses a system of emoji-based flags to alert the user to signific
         *   **Conflicting Signals**:
             *   **Flow Overpowers Max Pain**: Traders are betting heavily against the house. Max Pain acts as a temporary drag (or prop). Once the expiration date passes, this artificial pressure releases, often leading to a surge (or drop) in the direction of the flow.
             *   **Max Pain Overpowers Flow**: Market Maker incentives are too strong for current volume to overcome. The price is likely to be pinned near the Max Pain price until expiration.
+    *   **Signal Strength & UI Overlay**:
+        *   **Metric**: The raw directional confidence score (-1.0 to +1.0) is converted into a user-friendly **0-10 rating** (e.g., 7.5/10).
+        *   **Calculation**: `Signal Strength = |Directional Confidence| * 10`.
+        *   **Visuals**: This rating is overlaid directly on the Options emoji (🐂/🐻) as small, bold text.
+            *   **Green Text**: Indicates a Bullish signal (Positive confidence).
+            *   **Red Text**: Indicates a Bearish signal (Negative confidence).
 *   **Insider Flag**:
     *   **Insider Activity (💼)**: Significant insider trading activity detected.
     *   **Trigger**: Net insider buying > $500k OR Net insider selling > $1M.

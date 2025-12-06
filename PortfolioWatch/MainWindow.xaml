@@ -617,7 +617,7 @@
                                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                                 </DataTrigger>
                                                             </Style.Triggers>
-                                                        </Style>
+ri                                                        </Style>
                                                     </Button.Style>
                                                 </Button>
                                             </Grid>
