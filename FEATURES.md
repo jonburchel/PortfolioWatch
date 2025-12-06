@@ -80,6 +80,26 @@ The application consists of two synchronized windows:
     *   **Beat/Miss**: Shows a green arrow (Beat) or red arrow (Miss) based on the last reported EPS vs Estimate.
 *   **Data**: Fetched asynchronously to avoid blocking UI.
 
+### 3.5. Notifications & Flags
+The application uses a system of emoji-based flags to alert the user to significant events or data points for each stock.
+
+*   **Earnings Flag**:
+    *   **Upcoming (📅)**: Earnings report is scheduled within the next 7 days.
+    *   **Beat (🎯)**: Most recent earnings report beat analyst estimates.
+    *   **Miss (📉)**: Most recent earnings report missed analyst estimates.
+*   **News Flag**:
+    *   **Breaking News (📰)**: Indicates recent news articles are available for the stock.
+*   **Options Flag**:
+    *   **Bullish (🐂)**: Unusual options volume or critical gamma exposure with positive directional confidence.
+    *   **Bearish (🐻)**: Unusual options volume or critical gamma exposure with negative directional confidence.
+    *   **Trigger**: Requires unusual volume/gamma AND an options impact date within 7 days.
+*   **Insider Flag**:
+    *   **Insider Activity (💼)**: Significant insider trading activity detected.
+    *   **Trigger**: Net insider buying > $500k OR Net insider selling > $1M.
+*   **RVOL Flag**:
+    *   **High Volume (🏦)**: Relative Volume (RVOL) is significantly higher than average.
+    *   **Trigger**: Current volume is > 1.5x the average volume for this time of day.
+
 ## 4. Data Persistence & Settings
 
 ### 4.1. Settings File

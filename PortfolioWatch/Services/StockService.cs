@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Globalization;
+using System.Net;
 using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Services
@@ -14,12 +15,16 @@ namespace PortfolioWatch.Services
         private readonly List<Stock> _stocks;
         private readonly List<Stock> _indexes;
         private readonly HttpClient _httpClient;
+        private string _crumb = string.Empty;
+        private bool _crumbAttempted = false;
 
         public StockService()
         {
             var handler = new HttpClientHandler
             {
-                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+                AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
+                UseCookies = true,
+                CookieContainer = new CookieContainer()
             };
             _httpClient = new HttpClient(handler);
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
@@ -213,11 +218,42 @@ namespace PortfolioWatch.Services
             };
             
             // Fire and forget update
-            _ = UpdateStockDataAsync(stock, range);
-            _ = UpdateStockEarningsAsync(stock);
-            _ = UpdateStockNewsAsync(stock);
+            _ = UpdateAllStockDataAsync(stock, range);
 
             return stock;
+        }
+
+        private async Task UpdateAllStockDataAsync(Stock stock, string range)
+        {
+            await EnsureCrumbAsync();
+            await Task.WhenAll(
+                UpdateStockDataAsync(stock, range),
+                UpdateStockEarningsAsync(stock),
+                UpdateStockNewsAsync(stock),
+                UpdateOptionsDataAsync(stock),
+                UpdateInsiderDataAsync(stock),
+                UpdateRVolDataAsync(stock)
+            );
+        }
+
+        private async Task EnsureCrumbAsync()
+        {
+            if (!string.IsNullOrEmpty(_crumb) || _crumbAttempted) return;
+            _crumbAttempted = true;
+
+            try
+            {
+                // 1. Get Cookies
+                await _httpClient.GetAsync("https://fc.yahoo.com");
+                
+                // 2. Get Crumb
+                string crumbUrl = "https://query1.finance.yahoo.com/v1/test/getcrumb";
+                _crumb = await _httpClient.GetStringAsync(crumbUrl);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to get crumb: {ex.Message}");
+            }
         }
 
         public void AddStock(string symbol)
@@ -270,6 +306,21 @@ namespace PortfolioWatch.Services
             catch (Exception ex)
             {
                 return ServiceResult<bool>.Fail($"Failed to update news: {ex.Message}");
+            }
+        }
+
+        public async Task<ServiceResult<bool>> UpdateAllDataAsync(string range = "1d")
+        {
+            try
+            {
+                await EnsureCrumbAsync();
+                var tasks = _stocks.Concat(_indexes).Select(stock => UpdateAllStockDataAsync(stock, range));
+                await Task.WhenAll(tasks);
+                return ServiceResult<bool>.Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<bool>.Fail($"Failed to update all data: {ex.Message}");
             }
         }
 
@@ -570,6 +621,248 @@ namespace PortfolioWatch.Services
                 // Expose error in UI for debugging
                 stock.EarningsMessage = $"Error: {ex.Message}";
                 if (stock.EarningsStatus == null) stock.EarningsStatus = "None";
+            }
+        }
+
+        private async Task UpdateOptionsDataAsync(Stock stock)
+        {
+            try
+            {
+                var url = $"https://query2.finance.yahoo.com/v7/finance/options/{stock.Symbol}?crumb={_crumb}";
+                var response = await _httpClient.GetStringAsync(url);
+                
+                using var doc = JsonDocument.Parse(response);
+                var result = doc.RootElement.GetProperty("optionChain").GetProperty("result")[0];
+                var options = result.GetProperty("options")[0];
+                
+                // Get Expiration Date
+                if (options.TryGetProperty("expirationDate", out var expDateProp))
+                {
+                    long unixSeconds = expDateProp.GetInt64();
+                    stock.OptionsImpactDate = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).LocalDateTime;
+                }
+
+                var calls = options.GetProperty("calls");
+                var puts = options.GetProperty("puts");
+
+                long callVol = 0;
+                long putVol = 0;
+                long callOI = 0;
+                long putOI = 0;
+
+                // Simplified Max Pain Calculation
+                // We need a list of all strikes and their OI
+                var strikes = new Dictionary<double, (long callOI, long putOI)>();
+
+                foreach (var call in calls.EnumerateArray())
+                {
+                    callVol += call.TryGetProperty("volume", out var v) ? (long)v.GetDouble() : 0; // Volume is sometimes double in JSON
+                    long oi = call.TryGetProperty("openInterest", out var o) ? (long)o.GetDouble() : 0;
+                    callOI += oi;
+                    
+                    double strike = call.GetProperty("strike").GetDouble();
+                    if (!strikes.ContainsKey(strike)) strikes[strike] = (0, 0);
+                    strikes[strike] = (strikes[strike].callOI + oi, strikes[strike].putOI);
+                }
+
+                foreach (var put in puts.EnumerateArray())
+                {
+                    putVol += put.TryGetProperty("volume", out var v) ? (long)v.GetDouble() : 0;
+                    long oi = put.TryGetProperty("openInterest", out var o) ? (long)o.GetDouble() : 0;
+                    putOI += oi;
+
+                    double strike = put.GetProperty("strike").GetDouble();
+                    if (!strikes.ContainsKey(strike)) strikes[strike] = (0, 0);
+                    strikes[strike] = (strikes[strike].callOI, strikes[strike].putOI + oi);
+                }
+
+                stock.CallVolume = callVol;
+                stock.PutVolume = putVol;
+                stock.TotalVolume = callVol + putVol;
+                stock.OpenInterest = callOI + putOI;
+
+                // Calculate Max Pain
+                double minPainValue = double.MaxValue;
+                double maxPainStrike = 0;
+
+                foreach (var strikeCandidate in strikes.Keys)
+                {
+                    double totalPain = 0;
+                    foreach (var kvp in strikes)
+                    {
+                        double strike = kvp.Key;
+                        long cOI = kvp.Value.callOI;
+                        long pOI = kvp.Value.putOI;
+
+                        // If price expires at strikeCandidate:
+                        // Calls are ITM if strike < strikeCandidate
+                        if (strike < strikeCandidate)
+                        {
+                            totalPain += (strikeCandidate - strike) * cOI;
+                        }
+                        // Puts are ITM if strike > strikeCandidate
+                        if (strike > strikeCandidate)
+                        {
+                            totalPain += (strike - strikeCandidate) * pOI;
+                        }
+                    }
+
+                    if (totalPain < minPainValue)
+                    {
+                        minPainValue = totalPain;
+                        maxPainStrike = strikeCandidate;
+                    }
+                }
+
+                stock.MaxPainPrice = (decimal)maxPainStrike;
+                
+                // Check for Unusual Volume (Simplified: Volume > OI for any strike, or Total Vol > Avg Vol proxy)
+                // For now, let's just say if Total Volume is high relative to something, but we don't have historical options volume.
+                // Let's use a simple heuristic: If Call/Put Ratio is extreme (> 2 or < 0.5) AND Volume is significant (> 1000)
+                if (stock.TotalVolume > 1000 && (stock.CallVolume > 2 * stock.PutVolume || stock.PutVolume > 2 * stock.CallVolume))
+                {
+                    stock.UnusualOptionsVolume = true;
+                }
+                else
+                {
+                    stock.UnusualOptionsVolume = false;
+                }
+
+                stock.RefreshDirectionalConfidence();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to update options for {stock.Symbol}: {ex.Message}");
+            }
+        }
+
+        private async Task UpdateInsiderDataAsync(Stock stock)
+        {
+            try
+            {
+                var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{stock.Symbol}?modules=insiderTransactions,netSharePurchaseActivity,institutionOwnership&crumb={_crumb}";
+                var response = await _httpClient.GetStringAsync(url);
+                
+                using var doc = JsonDocument.Parse(response);
+                var result = doc.RootElement.GetProperty("quoteSummary").GetProperty("result")[0];
+
+                // Net Insider Transaction Value
+                // Try to get it from netSharePurchaseActivity
+                if (result.TryGetProperty("netSharePurchaseActivity", out var netActivity))
+                {
+                    long buyShares = 0;
+                    long sellShares = 0;
+
+                    if (netActivity.TryGetProperty("buyInfoShares", out var buyInfo) && buyInfo.TryGetProperty("raw", out var buyRaw))
+                        buyShares = (long)buyRaw.GetDouble();
+                    
+                    if (netActivity.TryGetProperty("sellInfoShares", out var sellInfo) && sellInfo.TryGetProperty("raw", out var sellRaw))
+                        sellShares = (long)sellRaw.GetDouble();
+
+                    // Estimate value based on current price (approximate)
+                    decimal netShares = buyShares - sellShares;
+                    stock.NetInsiderTransactionValue = netShares * stock.Price;
+                }
+
+                // Insider Transactions List
+                if (result.TryGetProperty("insiderTransactions", out var transactions) && transactions.TryGetProperty("transactions", out var transArray))
+                {
+                    var list = new List<InsiderTransaction>();
+                    foreach (var t in transArray.EnumerateArray())
+                    {
+                        if (t.TryGetProperty("startDate", out var dateProp) && dateProp.TryGetProperty("fmt", out var dateFmt))
+                        {
+                            var dateStr = dateFmt.GetString();
+                            if (DateTime.TryParse(dateStr, out var date))
+                            {
+                                var person = t.GetProperty("filerName").GetString() ?? "Unknown";
+                                var shares = t.GetProperty("shares").GetProperty("raw").GetDouble();
+                                var value = t.TryGetProperty("value", out var v) && v.TryGetProperty("raw", out var vr) ? (decimal)vr.GetDouble() : 0;
+                                
+                                // If value is missing, estimate
+                                if (value == 0 && shares > 0) value = (decimal)shares * stock.Price;
+
+                                // Determine type (Buy/Sell) based on text or shares sign?
+                                // Usually "Sale" or "Purchase" in transactionText
+                                string type = "Buy";
+                                string text = t.GetProperty("transactionText").GetString() ?? "";
+                                if (text.Contains("Sale", StringComparison.OrdinalIgnoreCase) || text.Contains("Sold", StringComparison.OrdinalIgnoreCase))
+                                    type = "Sell";
+                                
+                                list.Add(new InsiderTransaction
+                                {
+                                    Date = date,
+                                    Person = person,
+                                    TransactionType = type,
+                                    Value = value
+                                });
+                            }
+                        }
+                    }
+                    stock.InsiderTransactions = list.OrderByDescending(x => x.Date).Take(10).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to update insider data for {stock.Symbol}: {ex.Message}");
+            }
+        }
+
+        private async Task UpdateRVolDataAsync(Stock stock)
+        {
+            try
+            {
+                var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{stock.Symbol}?modules=summaryDetail,price&crumb={_crumb}";
+                var response = await _httpClient.GetStringAsync(url);
+                
+                using var doc = JsonDocument.Parse(response);
+                var result = doc.RootElement.GetProperty("quoteSummary").GetProperty("result")[0];
+
+                long avgVolume = 0;
+                long currentVolume = 0;
+
+                if (result.TryGetProperty("summaryDetail", out var summary) && summary.TryGetProperty("averageVolume", out var avgVolProp))
+                {
+                    avgVolume = (long)avgVolProp.GetProperty("raw").GetDouble();
+                }
+                else if (result.TryGetProperty("price", out var price) && price.TryGetProperty("averageDailyVolume3Month", out var avgVol3m))
+                {
+                    avgVolume = (long)avgVol3m.GetProperty("raw").GetDouble();
+                }
+
+                if (result.TryGetProperty("price", out var priceModule) && priceModule.TryGetProperty("regularMarketVolume", out var volProp))
+                {
+                    currentVolume = (long)volProp.GetProperty("raw").GetDouble();
+                }
+
+                stock.AverageVolume = avgVolume;
+                stock.CurrentVolume = currentVolume;
+                
+                // For RVOL, we ideally want "Average Volume at this time of day".
+                // Since we don't have that granular data easily without storing history, 
+                // we will use a simplified model:
+                // Expected Volume = Average Volume * DayProgress
+                // RVOL = Current Volume / Expected Volume
+                
+                // However, volume is U-shaped (high at open/close). Linear approximation is poor but better than nothing.
+                // Let's just use the full day average for now as the denominator for "AverageVolumeByTimeOfDay" 
+                // but scale it by progress if we want "Pacing".
+                // The prompt asked for "Relative Volume (RVOL) > 1.5". Usually this means "Current Volume / Average Volume for this time of day".
+                // If we use full day average, RVOL will be low in the morning.
+                
+                // Let's use the linear approximation for now:
+                if (stock.DayProgress > 0.05) // Avoid division by near-zero at open
+                {
+                    stock.AverageVolumeByTimeOfDay = (long)(avgVolume * stock.DayProgress);
+                }
+                else
+                {
+                    stock.AverageVolumeByTimeOfDay = (long)(avgVolume * 0.05); // Floor at 5%
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to update RVOL for {stock.Symbol}: {ex.Message}");
             }
         }
 

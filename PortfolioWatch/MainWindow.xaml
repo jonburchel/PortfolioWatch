@@ -7,6 +7,7 @@
         xmlns:models="clr-namespace:PortfolioWatch.Models"
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         mc:Ignorable="d"
         Title="Portfolio Watchlist" Height="600" Width="450"
         MinHeight="200" MinWidth="450"
@@ -484,24 +485,39 @@
                                                 <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
                                                 
                                                 <!-- Earnings Flag -->
-                                                <Grid Margin="5,0,0,0" Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}" 
-                                                      ToolTip="{Binding EarningsMessage}" Background="Transparent" Cursor="Hand"
-                                                      MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
-                                                      MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown">
-                                                    <Path Data="M14.4,6L14,4H5V21H7V14H12.6L13,16H20V6H14.4Z" 
-                                                          Fill="{Binding EarningsFlagColor}" 
-                                                          Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center"/>
-                                                </Grid>
+                                                <emoji:TextBlock Text="{Binding EarningsEmoji}" Margin="5,0,0,0" 
+                                                           Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}"
+                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
+                                                           MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown"/>
 
                                                 <!-- News Flag -->
-                                                <Grid Margin="5,0,0,0" Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}" 
-                                                      Background="Transparent" Cursor="Hand"
-                                                      MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
-                                                      MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown">
-                                                    <Path Data="M14.4,6L14,4H5V21H7V14H12.6L13,16H20V6H14.4Z" 
-                                                          Fill="#808080" 
-                                                          Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center"/>
-                                                </Grid>
+                                                <emoji:TextBlock Text="{Binding NewsEmoji}" Margin="5,0,0,0" 
+                                                           Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}"
+                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
+                                                           MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown"/>
+
+                                                <!-- Options Flag -->
+                                                <emoji:TextBlock Text="{Binding OptionsEmoji}" Margin="5,0,0,0" 
+                                                           Visibility="{Binding HasOptionsFlag, Converter={StaticResource BoolToVis}}"
+                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
+                                                           MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"/>
+
+                                                <!-- Insider Flag -->
+                                                <emoji:TextBlock Text="{Binding InsiderEmoji}" Margin="5,0,0,0" 
+                                                           Visibility="{Binding HasInsiderFlag, Converter={StaticResource BoolToVis}}"
+                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           MouseEnter="InsiderFlag_MouseEnter" MouseLeave="InsiderFlag_MouseLeave"
+                                                           MouseLeftButtonDown="InsiderFlag_MouseLeftButtonDown"/>
+
+                                                <!-- RVOL Flag -->
+                                                <emoji:TextBlock Text="{Binding RVolEmoji}" Margin="5,0,0,0" 
+                                                           Visibility="{Binding HasRVolFlag, Converter={StaticResource BoolToVis}}"
+                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
+                                                           MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"/>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120"/>
                                         </StackPanel>
@@ -772,6 +788,119 @@
                         <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
                     </Border.Effect>
                     <TextBlock Text="{Binding EarningsMessage}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                </Border>
+            </Popup>
+
+            <!-- Options Popup -->
+            <Popup x:Name="OptionsPopup" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+                   MouseEnter="OptionsPopup_MouseEnter" MouseLeave="OptionsPopup_MouseLeave">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="10,0,0,0" MaxWidth="300">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <TextBlock Text="Options Market Structure" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                        
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Max Pain:" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,10,2"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding MaxPainPrice, StringFormat=C2}" Foreground="{Binding MaxPainColor}" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Net Flow:" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,10,2"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding NetFlowDisplay}" Foreground="{Binding NetFlowColor}" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Gamma Risk:" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,10,2"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding GammaRiskDisplay}" Foreground="{Binding GammaRiskColor}" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Impact Date:" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,10,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding OptionsImpactDate, StringFormat=d}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="{Binding OptionsSummary}" TextWrapping="Wrap" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- Insider Popup -->
+            <Popup x:Name="InsiderPopup" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+                   MouseEnter="InsiderPopup_MouseEnter" MouseLeave="InsiderPopup_MouseLeave">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="10,0,0,0" MaxWidth="350">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <TextBlock Text="Institutional/Insider Activity" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                        
+                        <ItemsControl ItemsSource="{Binding InsiderTransactions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="40"/>
+                                            <ColumnDefinition Width="60"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding DateDisplay}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Person}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="5,0"/>
+                                        <TextBlock Grid.Column="2" Text="{Binding TransactionType}" Foreground="{Binding Color}" FontSize="11" FontWeight="SemiBold"/>
+                                        <TextBlock Grid.Column="3" Text="{Binding ValueDisplay}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="11" HorizontalAlignment="Right"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="{Binding InsiderSentiment, StringFormat='Net Insider Sentiment: {0}'}" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+
+            <!-- RVOL Popup -->
+            <Popup x:Name="RVolPopup" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+                   MouseEnter="RVolPopup_MouseEnter" MouseLeave="RVolPopup_MouseLeave">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="10,0,0,0" MaxWidth="250">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <TextBlock Text="Momentum and Volume" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                        
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="RVOL: " Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="14"/>
+                            <TextBlock Text="{Binding RVOLDisplay}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="16" FontWeight="Bold"/>
+                        </StackPanel>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Current Vol:" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,10,2"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CurrentVolume, StringFormat=N0}" Foreground="{DynamicResource PrimaryForegroundBrush}" HorizontalAlignment="Right"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Avg Vol (Time):" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,10,2"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AverageVolumeByTimeOfDay, StringFormat=N0}" Foreground="{DynamicResource PrimaryForegroundBrush}" HorizontalAlignment="Right"/>
+                        </Grid>
+
+                        <TextBlock Text="High relative volume indicates institutional participation validating the price move." 
+                                   TextWrapping="Wrap" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic"/>
+                    </StackPanel>
                 </Border>
             </Popup>
 

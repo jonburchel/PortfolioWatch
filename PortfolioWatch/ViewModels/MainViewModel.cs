@@ -376,8 +376,8 @@ namespace PortfolioWatch.ViewModels
             // Apply sort
             ApplySortInternal();
             
-            // Initial fetch
-            var updateResult = await _stockService.UpdatePricesAsync(SelectedRange);
+            // Initial fetch - Update ALL data (Prices, Options, Insider, RVOL, etc.)
+            var updateResult = await _stockService.UpdateAllDataAsync(SelectedRange);
             if (!updateResult.Success)
             {
                 StatusMessage = $"Update failed: {updateResult.ErrorMessage ?? "Unknown error"}";
@@ -391,12 +391,6 @@ namespace PortfolioWatch.ViewModels
 
             IsBusy = false;
 
-            // Trigger earnings update in background after a short delay
-            // to allow UI to be responsive first
-            await System.Threading.Tasks.Task.Delay(2000);
-            _ = _stockService.UpdateEarningsAsync();
-            _ = _stockService.UpdateNewsAsync();
-            
             // Check for updates on startup
             _ = CheckForUpdates(isManual: false);
         }
@@ -427,9 +421,16 @@ namespace PortfolioWatch.ViewModels
                 e.PropertyName == nameof(Stock.Change))
             {
                 CalculatePortfolioTotals();
+                
                 if (e.PropertyName == nameof(Stock.Shares))
                 {
                     SaveStocks();
+                    ApplySortInternal();
+                }
+                else if ((SortProperty == "MarketValue" || SortProperty == "DayChangeValue") && 
+                         (e.PropertyName == nameof(Stock.Price) || e.PropertyName == nameof(Stock.Change)))
+                {
+                    // Re-sort if sorting by dynamic values
                     ApplySortInternal();
                 }
             }
@@ -453,6 +454,7 @@ namespace PortfolioWatch.ViewModels
 
         private async void Timer_Tick(object? sender, EventArgs e)
         {
+            // Regular price update
             var result = await _stockService.UpdatePricesAsync(SelectedRange);
             if (result.Success)
             {
@@ -470,6 +472,13 @@ namespace PortfolioWatch.ViewModels
             if (settings.IsUpdateCheckEnabled && (DateTime.Now - settings.LastUpdateCheck).TotalHours >= 24)
             {
                 _ = CheckForUpdates(isManual: false);
+            }
+
+            // Periodically refresh ALL data (Options, Insider, RVOL) - e.g., every hour or once a day
+            // For now, let's do it every hour to keep flags fresh during the day
+            if (DateTime.Now.Minute == 0) 
+            {
+                _ = _stockService.UpdateAllDataAsync(SelectedRange);
             }
         }
 
@@ -540,7 +549,7 @@ namespace PortfolioWatch.ViewModels
             }
         }
 
-        private void AddStockInternal(string symbol, string? name = null)
+        private async void AddStockInternal(string symbol, string? name = null)
         {
             // Check if already exists
             if (Stocks.Any(s => s.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)))
@@ -560,10 +569,14 @@ namespace PortfolioWatch.ViewModels
             SaveStocks();
             NewSymbol = string.Empty;
             IsSearchPopupOpen = false;
-            StatusMessage = $"Added {symbol}";
+            StatusMessage = $"Added {symbol}... fetching data";
             
             // Re-sort
             ApplySortInternal();
+
+            // Explicitly wait for full data update to ensure UI populates
+            await _stockService.UpdateAllDataAsync(SelectedRange);
+            StatusMessage = $"Added {symbol}";
         }
 
         [RelayCommand]

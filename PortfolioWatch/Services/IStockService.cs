@@ -18,5 +18,6 @@ namespace PortfolioWatch.Services
         Task<ServiceResult<bool>> UpdatePricesAsync(string range = "1d");
         Task<ServiceResult<bool>> UpdateEarningsAsync();
         Task<ServiceResult<bool>> UpdateNewsAsync();
+        Task<ServiceResult<bool>> UpdateAllDataAsync(string range = "1d");
     }
 }
