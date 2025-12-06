@@ -348,6 +348,8 @@ namespace PortfolioWatch.Models
             OnPropertyChanged(nameof(NetFlowDisplay));
             OnPropertyChanged(nameof(OptionsSummary));
             OnPropertyChanged(nameof(OptionsEmoji));
+            OnPropertyChanged(nameof(SignalStrengthDisplay));
+            OnPropertyChanged(nameof(SignalStrengthColor));
         }
 
         private double CalculateDirectionalConfidence()
@@ -381,6 +383,9 @@ namespace PortfolioWatch.Models
 
         public string NetFlowDisplay => (CallVolume > PutVolume) ? "Bullish" : "Bearish";
         public string NetFlowColor => (CallVolume > PutVolume) ? "#2ecc71" : "#e74c3c";
+
+        public string SignalStrengthDisplay => (Math.Abs(DirectionalConfidence) * 10).ToString("0.0");
+        public string SignalStrengthColor => DirectionalConfidence >= 0 ? "#2ecc71" : "#e74c3c";
 
         public string OptionsSummary
         {
@@ -430,7 +435,7 @@ namespace PortfolioWatch.Models
                     }
                 }
 
-                return $"{explanation}\n\n{implication}";
+                return $"Signal Strength: {SignalStrengthDisplay}/10\n\n{explanation}\n\n{implication}";
             }
         }
 

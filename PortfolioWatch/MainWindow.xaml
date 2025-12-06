@@ -499,11 +499,23 @@
                                                            MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown"/>
 
                                                 <!-- Options Flag -->
-                                                <emoji:TextBlock Text="{Binding OptionsEmoji}" Margin="5,0,0,0" 
-                                                           Visibility="{Binding HasOptionsFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
-                                                           MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
-                                                           MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"/>
+                                                <Grid Margin="5,0,0,0" 
+                                                      Visibility="{Binding HasOptionsFlag, Converter={StaticResource BoolToVis}}"
+                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                      MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
+                                                      MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"
+                                                      Background="Transparent">
+                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding SignalStrengthDisplay}" 
+                                                               Foreground="{Binding SignalStrengthColor}" 
+                                                               FontSize="8" FontWeight="Bold" 
+                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                               Margin="0,0,-4,-2">
+                                                        <TextBlock.Effect>
+                                                            <DropShadowEffect BlurRadius="2" ShadowDepth="0" Color="Black" Opacity="0.8"/>
+                                                        </TextBlock.Effect>
+                                                    </TextBlock>
+                                                </Grid>
 
                                                 <!-- Insider Flag -->
                                                 <emoji:TextBlock Text="{Binding InsiderEmoji}" Margin="5,0,0,0" 
