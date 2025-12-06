@@ -31,7 +31,6 @@ namespace PortfolioWatch.Views
         public event EventHandler? DragStarted;
         public event EventHandler? DragEnded;
         private DispatcherTimer _hoverTimer;
-        private bool _isHovering;
         public bool IsUserMoving { get; private set; }
 
         public FloatingWindow()
@@ -46,15 +45,8 @@ namespace PortfolioWatch.Views
 
         private void FloatingWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            if (DataContext is MainViewModel vm)
-            {
-                vm.PropertyChanged += ViewModel_PropertyChanged;
-                UpdateOpacity();
-            }
-            else
-            {
-                this.Opacity = 0.3;
-            }
+            // Ensure Window itself is fully opaque so Border opacity controls visibility
+            this.Opacity = 1.0;
 
             if (MainBorder.ContextMenu != null)
             {
@@ -62,33 +54,13 @@ namespace PortfolioWatch.Views
             }
         }
 
-        private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(MainViewModel.WindowOpacity))
-            {
-                UpdateOpacity();
-            }
-        }
-
-        private void UpdateOpacity()
-        {
-            if (DataContext is MainViewModel vm)
-            {
-                this.Opacity = _isHovering ? vm.WindowOpacity : vm.WindowOpacity * 0.3;
-            }
-        }
-
         private void Border_MouseEnter(object sender, MouseEventArgs e)
         {
-            _isHovering = true;
-            UpdateOpacity();
             _hoverTimer.Start();
         }
 
         private void Border_MouseLeave(object sender, MouseEventArgs e)
         {
-            _isHovering = false;
-            UpdateOpacity();
             _hoverTimer.Stop();
         }
 

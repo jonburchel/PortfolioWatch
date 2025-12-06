@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
+        xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         mc:Ignorable="d"
         Title="PortfolioWatch" Height="100" Width="100"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -11,15 +12,18 @@
     
     <Window.Resources>
         <helpers:BindingProxy x:Key="Proxy" Data="{Binding}"/>
+        <converters:FloatingWindowOpacityConverter x:Key="FloatingWindowOpacityConverter"/>
     </Window.Resources>
 
     <Grid>
         <Border x:Name="MainBorder" AutomationProperties.AutomationId="MainBorder" Width="60" Height="60" CornerRadius="30" Background="#01000000" BorderBrush="Transparent" BorderThickness="0"
-                MouseEnter="Border_MouseEnter" MouseLeave="Border_MouseLeave" MouseLeftButtonDown="Border_MouseLeftButtonDown"
+                MouseEnter="Border_MouseEnter" MouseLeave="Border_MouseLeave"
+                MouseLeftButtonDown="Border_MouseLeftButtonDown"
                 MouseRightButtonDown="Border_MouseRightButtonDown"
                 ContextMenu="{StaticResource SharedContextMenu}">
             <Border.Style>
                 <Style TargetType="Border">
+                    <Setter Property="Opacity" Value="{Binding WindowOpacity, Converter={StaticResource FloatingWindowOpacityConverter}}"/>
                     <Setter Property="Effect">
                         <Setter.Value>
                             <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
@@ -27,16 +31,20 @@
                     </Setter>
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsPinned, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Opacity" Value="1.0"/>
                             <Setter Property="Effect">
                                 <Setter.Value>
                                     <DropShadowEffect BlurRadius="15" ShadowDepth="0" Color="#00CC6A" Opacity="0.8"/>
                                 </Setter.Value>
                             </Setter>
                         </DataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Opacity" Value="1.0"/>
+                        </Trigger>
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <Image Source="/pyramid.png" Stretch="Uniform" Margin="0" Opacity="0.9"/>
+            <Image Source="/pyramid.png" Stretch="Uniform" Margin="0"/>
         </Border>
     </Grid>
 </Window>

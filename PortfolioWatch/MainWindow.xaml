@@ -218,6 +218,8 @@
                                 <Binding Path="PortfolioHistory"/>
                                 <Binding Path="PortfolioDayProgress"/>
                                 <Binding Path="PortfolioPreviousClose"/>
+                                <Binding Path="PortfolioTimestamps"/>
+                                <Binding Path="SelectedRange"/>
                             </MultiBinding>
                         </Path.Data>
                         <Path.Style>
@@ -385,6 +387,8 @@
                                                     <Binding Path="History"/>
                                                     <Binding Path="DayProgress"/>
                                                     <Binding Path="PreviousClose"/>
+                                                    <Binding Path="Timestamps"/>
+                                                    <Binding Path="DataContext.SelectedRange" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                 </MultiBinding>
                                             </Path.Data>
                                             <Path.Style>
@@ -634,6 +638,8 @@
                                                         <Binding Path="History"/>
                                                         <Binding Path="DayProgress"/>
                                                         <Binding Path="PreviousClose"/>
+                                                        <Binding Path="Timestamps"/>
+                                                        <Binding Path="DataContext.SelectedRange" RelativeSource="{RelativeSource AncestorType=Window}"/>
                                                     </MultiBinding>
                                                 </Path.Data>
                                                 <Path.Style>

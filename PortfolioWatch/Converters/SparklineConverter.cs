@@ -15,8 +15,14 @@ namespace PortfolioWatch.Converters
             // values[0]: History (List<double>)
             // values[1]: DayProgress (double)
             // values[2]: PreviousClose (double)
+            // values[3]: Timestamps (List<DateTime>) - Optional
+            // values[4]: SelectedRange (string) - Optional
+
             if (values.Length >= 3 && values[0] is List<double> history && values[1] is double dayProgress && values[2] is double previousClose && history.Count > 0)
             {
+                List<DateTime>? timestamps = (values.Length > 3) ? values[3] as List<DateTime> : null;
+                string selectedRange = (values.Length > 4) ? values[4] as string ?? "1d" : "1d";
+
                 double min = Math.Min(history.Min(), previousClose);
                 double max = Math.Max(history.Max(), previousClose);
                 double range = max - min;
@@ -24,9 +30,6 @@ namespace PortfolioWatch.Converters
 
                 double width = 60;
                 double height = 20;
-                
-                double totalWidth = width * dayProgress;
-                double step = history.Count > 1 ? totalWidth / (history.Count - 1) : 0;
 
                 StreamGeometry geometry = new StreamGeometry();
                 using (StreamGeometryContext ctx = geometry.Open())
@@ -35,12 +38,60 @@ namespace PortfolioWatch.Converters
                     ctx.BeginFigure(new Point(0, 0), false, false);
                     ctx.BeginFigure(new Point(width, height), false, false);
 
-                    ctx.BeginFigure(new Point(0, height - ((history[0] - min) / range * height)), false, false);
-                    for (int i = 1; i < history.Count; i++)
+                    if (selectedRange == "1d" || timestamps == null || timestamps.Count != history.Count)
                     {
-                        double x = i * step;
-                        double y = height - ((history[i] - min) / range * height);
-                        ctx.LineTo(new Point(x, y), true, true);
+                        // Original logic for 1d or missing timestamps
+                        double totalWidth = width * dayProgress;
+                        double step = history.Count > 1 ? totalWidth / (history.Count - 1) : 0;
+
+                        ctx.BeginFigure(new Point(0, height - ((history[0] - min) / range * height)), false, false);
+                        for (int i = 1; i < history.Count; i++)
+                        {
+                            double x = i * step;
+                            double y = height - ((history[i] - min) / range * height);
+                            ctx.LineTo(new Point(x, y), true, true);
+                        }
+                    }
+                    else
+                    {
+                        // Time-based logic for historical ranges
+                        DateTime endTime = timestamps.Last();
+                        DateTime startTime;
+
+                        switch (selectedRange)
+                        {
+                            case "5d": startTime = endTime.AddDays(-5); break;
+                            case "1mo": startTime = endTime.AddMonths(-1); break;
+                            case "1y": startTime = endTime.AddYears(-1); break;
+                            case "5y": startTime = endTime.AddYears(-5); break;
+                            case "10y": startTime = endTime.AddYears(-10); break;
+                            default: startTime = timestamps.First(); break; // Fallback
+                        }
+
+                        double totalSeconds = (endTime - startTime).TotalSeconds;
+                        if (totalSeconds <= 0) totalSeconds = 1;
+
+                        bool firstPointDrawn = false;
+
+                        for (int i = 0; i < history.Count; i++)
+                        {
+                            double timeOffset = (timestamps[i] - startTime).TotalSeconds;
+                            double x = (timeOffset / totalSeconds) * width;
+                            double y = height - ((history[i] - min) / range * height);
+
+                            // Clamp x to be safe, though it might be negative if data is older than range (unlikely with Yahoo logic)
+                            // or > width if slightly off.
+                            
+                            if (!firstPointDrawn)
+                            {
+                                ctx.BeginFigure(new Point(x, y), false, false);
+                                firstPointDrawn = true;
+                            }
+                            else
+                            {
+                                ctx.LineTo(new Point(x, y), true, true);
+                            }
+                        }
                     }
                 }
                 geometry.Freeze();

@@ -101,4 +101,30 @@ namespace PortfolioWatch.Converters
             throw new NotImplementedException();
         }
     }
+
+    public class FloatingWindowOpacityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is double opacity)
+            {
+                if (opacity >= 1.0)
+                {
+                    return 0.95;
+                }
+                else
+                {
+                    // Map 0.0 -> 0.99 to 0.10 -> 0.85
+                    // Formula: 0.10 + (opacity / 0.99) * (0.85 - 0.10)
+                    return 0.10 + (opacity / 0.99) * 0.75;
+                }
+            }
+            return 1.0;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

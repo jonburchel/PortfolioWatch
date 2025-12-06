@@ -18,6 +18,23 @@ namespace PortfolioWatch.Services
         private string _crumb = string.Empty;
         private bool _crumbAttempted = false;
 
+        private async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> action, int maxRetries = 3, int delayMs = 1000)
+        {
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    return await action();
+                }
+                catch (Exception ex) when (i < maxRetries - 1)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Retry attempt {i + 1} failed: {ex.Message}");
+                    await Task.Delay(delayMs * (i + 1));
+                }
+            }
+            return await action();
+        }
+
         public StockService()
         {
             var handler = new HttpClientHandler
@@ -76,7 +93,7 @@ namespace PortfolioWatch.Services
             try
             {
                 var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={Uri.EscapeDataString(query)}&quotesCount=10&newsCount=0";
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
                 var quotes = doc.RootElement.GetProperty("quotes");
@@ -148,51 +165,51 @@ namespace PortfolioWatch.Services
 
             try 
             {
-                // Use chart endpoint concurrently as quote endpoint is often blocked
-                var tasks = symbolList.Select(async symbol =>
+                await EnsureCrumbAsync();
+                
+                var joinedSymbols = string.Join(",", symbolList.Select(Uri.EscapeDataString));
+                var url = $"https://query1.finance.yahoo.com/v7/finance/quote?symbols={joinedSymbols}&crumb={_crumb}";
+                
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
+                
+                using var doc = JsonDocument.Parse(response);
+                if (doc.RootElement.TryGetProperty("quoteResponse", out var quoteResponse) && 
+                    quoteResponse.TryGetProperty("result", out var result) && 
+                    result.ValueKind == JsonValueKind.Array)
                 {
-                    try
+                    var searchResults = new List<StockSearchResult>();
+                    
+                    foreach (var item in result.EnumerateArray())
                     {
-                        var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(symbol)}?interval=1d&range=1d";
-                        var response = await _httpClient.GetStringAsync(url);
+                        var quote = new StockSearchResult();
                         
-                        using var doc = JsonDocument.Parse(response);
-                        var chart = doc.RootElement.GetProperty("chart");
-                        
-                        if (chart.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
-                            return null;
+                        if (item.TryGetProperty("symbol", out var sym))
+                            quote.Symbol = sym.GetString() ?? "";
+                            
+                        if (item.TryGetProperty("regularMarketPrice", out var price))
+                            quote.Price = price.GetDouble();
+                            
+                        if (item.TryGetProperty("regularMarketChange", out var change))
+                            quote.Change = change.GetDouble();
+                            
+                        if (item.TryGetProperty("regularMarketChangePercent", out var changePct))
+                            quote.ChangePercent = changePct.GetDouble();
 
-                        var result = chart.GetProperty("result")[0];
-                        var meta = result.GetProperty("meta");
+                        if (item.TryGetProperty("shortName", out var name))
+                            quote.Name = name.GetString() ?? "";
+                        else if (item.TryGetProperty("longName", out var longName))
+                            quote.Name = longName.GetString() ?? "";
 
-                        var quote = new StockSearchResult { Symbol = symbol };
-
-                        if (meta.TryGetProperty("regularMarketPrice", out var priceProp))
-                            quote.Price = priceProp.GetDouble();
-
-                        double previousClose = 0;
-                        if (meta.TryGetProperty("chartPreviousClose", out var prevCloseProp))
-                            previousClose = prevCloseProp.GetDouble();
-                        else if (meta.TryGetProperty("previousClose", out var prevCloseProp2))
-                            previousClose = prevCloseProp2.GetDouble();
-
-                        if (previousClose > 0 && quote.Price.HasValue)
+                        if (!string.IsNullOrEmpty(quote.Symbol))
                         {
-                            quote.Change = quote.Price.Value - previousClose;
-                            quote.ChangePercent = (quote.Price.Value - previousClose) / previousClose * 100;
+                            searchResults.Add(quote);
                         }
-
-                        return quote;
                     }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Failed to get quote for {symbol}: {ex.Message}");
-                        return null;
-                    }
-                });
-
-                var results = await Task.WhenAll(tasks);
-                return ServiceResult<List<StockSearchResult>>.Ok(results.Where(r => r != null).Cast<StockSearchResult>().ToList());
+                    
+                    return ServiceResult<List<StockSearchResult>>.Ok(searchResults);
+                }
+                
+                return ServiceResult<List<StockSearchResult>>.Fail("Invalid response format from quote endpoint");
             }
             catch (Exception ex)
             {
@@ -244,11 +261,11 @@ namespace PortfolioWatch.Services
             try
             {
                 // 1. Get Cookies
-                await _httpClient.GetAsync("https://fc.yahoo.com");
+                await ExecuteWithRetryAsync(() => _httpClient.GetAsync("https://fc.yahoo.com"));
                 
                 // 2. Get Crumb
                 string crumbUrl = "https://query1.finance.yahoo.com/v1/test/getcrumb";
-                _crumb = await _httpClient.GetStringAsync(crumbUrl);
+                _crumb = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(crumbUrl));
             }
             catch (Exception ex)
             {
@@ -336,7 +353,7 @@ namespace PortfolioWatch.Services
             {
                 // Request more items initially to allow for filtering
                 var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={stock.Symbol}&newsCount=20";
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
                 if (doc.RootElement.TryGetProperty("news", out var newsArray) && newsArray.ValueKind == JsonValueKind.Array)
@@ -529,7 +546,7 @@ namespace PortfolioWatch.Services
 
                 // 1. Check for recent earnings (Beat/Miss)
                 var surpriseUrl = $"https://api.nasdaq.com/api/company/{stock.Symbol}/earnings-surprise";
-                var surpriseResponse = await _httpClient.GetStringAsync(surpriseUrl);
+                var surpriseResponse = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(surpriseUrl));
                 
                 using var surpriseDoc = JsonDocument.Parse(surpriseResponse);
                 
@@ -576,7 +593,7 @@ namespace PortfolioWatch.Services
                 // 2. Check for upcoming earnings
                 // Use analyst endpoint as company endpoint often returns 404
                 var dateUrl = $"https://api.nasdaq.com/api/analyst/{stock.Symbol}/earnings-date";
-                var dateResponse = await _httpClient.GetStringAsync(dateUrl);
+                var dateResponse = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(dateUrl));
                 
                 using var dateDoc = JsonDocument.Parse(dateResponse);
                 
@@ -629,7 +646,7 @@ namespace PortfolioWatch.Services
             try
             {
                 var url = $"https://query2.finance.yahoo.com/v7/finance/options/{stock.Symbol}?crumb={_crumb}";
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
                 var result = doc.RootElement.GetProperty("optionChain").GetProperty("result")[0];
@@ -741,7 +758,7 @@ namespace PortfolioWatch.Services
             try
             {
                 var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{stock.Symbol}?modules=insiderTransactions,netSharePurchaseActivity,institutionOwnership&crumb={_crumb}";
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
                 var result = doc.RootElement.GetProperty("quoteSummary").GetProperty("result")[0];
@@ -813,7 +830,7 @@ namespace PortfolioWatch.Services
             try
             {
                 var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{stock.Symbol}?modules=summaryDetail,price&crumb={_crumb}";
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
                 var result = doc.RootElement.GetProperty("quoteSummary").GetProperty("result")[0];
@@ -883,7 +900,7 @@ namespace PortfolioWatch.Services
                 }
 
                 var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(stock.Symbol)}?interval={interval}&range={range}";
-                var response = await _httpClient.GetStringAsync(url);
+                var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
                 var chart = doc.RootElement.GetProperty("chart");

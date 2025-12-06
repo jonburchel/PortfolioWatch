@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -83,7 +84,7 @@ namespace PortfolioWatch.ViewModels
         private bool _startWithWindows;
 
         [ObservableProperty]
-        private double _windowOpacity = 1.0;
+        private double _windowOpacity = 0.8;
 
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsSystemTheme))]
@@ -615,7 +616,7 @@ namespace PortfolioWatch.ViewModels
             IsIndexesVisible = true;
             IsPortfolioMode = false;
             CurrentTheme = AppTheme.System;
-            WindowOpacity = 1.0;
+            WindowOpacity = 0.8;
             SelectedRange = "1d";
 
             // Load default stocks
@@ -650,6 +651,21 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private void BuyCoffee(string amount)
         {
+            if (amount == "0")
+            {
+                try
+                {
+                    var url = "mailto:jonburchel@gmail.com?subject=Thanks%20for%20PortfolioWatch!";
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch { }
+                return;
+            }
+
             if (amount == "Custom")
             {
                 var inputWindow = new InputWindow("Enter the amount you'd like to contribute:", "Enter Amount", "$1,000,000");
@@ -682,6 +698,34 @@ namespace PortfolioWatch.ViewModels
                 }
                 catch { }
             }
+        }
+
+        [RelayCommand]
+        private void OpenAbout()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/jonburchel/PortfolioWatch",
+                    UseShellExecute = true
+                });
+            }
+            catch { }
+        }
+
+        [RelayCommand]
+        private void RequestFeature()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/jonburchel/PortfolioWatch/issues/new",
+                    UseShellExecute = true
+                });
+            }
+            catch { }
         }
 
         [RelayCommand]
@@ -894,43 +938,67 @@ namespace PortfolioWatch.ViewModels
             }
 
             // Aggregate history
-            if (maxHistoryCount > 0)
+            // 1. Collect all unique timestamps
+            var allTimestamps = new System.Collections.Generic.HashSet<DateTime>();
+            foreach (var stock in Stocks)
             {
-                for (int i = 0; i < maxHistoryCount; i++)
+                if (stock.Shares > 0 && stock.Timestamps != null)
+                {
+                    foreach (var ts in stock.Timestamps)
+                    {
+                        allTimestamps.Add(ts);
+                    }
+                }
+            }
+
+            if (allTimestamps.Count > 0)
+            {
+                portfolioTimestamps = allTimestamps.OrderBy(t => t).ToList();
+                
+                // 2. Calculate total value at each timestamp
+                foreach (var ts in portfolioTimestamps)
                 {
                     double pointValue = 0;
                     foreach (var stock in Stocks)
                     {
                         if (stock.Shares > 0)
                         {
-                            if (stock.History != null && stock.History.Count > 0)
+                            double priceAtTime = 0;
+                            
+                            if (stock.Timestamps != null && stock.History != null && stock.Timestamps.Count > 0)
                             {
-                                if (i < stock.History.Count)
+                                // Find exact match or last known price before this timestamp
+                                // Since lists are sorted, we could optimize this, but for now LINQ is safer/easier
+                                int index = stock.Timestamps.FindLastIndex(t => t <= ts);
+                                
+                                if (index >= 0 && index < stock.History.Count)
                                 {
-                                    pointValue += stock.History[i] * (double)stock.Shares;
+                                    priceAtTime = stock.History[index];
                                 }
-                                else
+                                else if (stock.History.Count > 0)
                                 {
-                                    // Use last known value if history is shorter
-                                    pointValue += stock.History.Last() * (double)stock.Shares;
+                                    // If timestamp is before first history point, use first point? 
+                                    // Or 0? Let's use first point (flat line start)
+                                    priceAtTime = stock.History[0];
                                 }
                             }
-                            else
+                            
+                            if (priceAtTime == 0)
                             {
-                                // No history available, use current price as a flat line
-                                pointValue += (double)stock.Price * (double)stock.Shares;
+                                // Fallback to current price if no history found (e.g. new listing or error)
+                                priceAtTime = (double)stock.Price;
                             }
+
+                            pointValue += priceAtTime * (double)stock.Shares;
                         }
                     }
                     portfolioHistory.Add(pointValue);
                 }
-
-                // Use timestamps from the stock with the most history
-                if (stockWithMaxHistory != null && stockWithMaxHistory.Timestamps != null)
-                {
-                    // Take up to maxHistoryCount timestamps, or as many as available
-                    portfolioTimestamps = stockWithMaxHistory.Timestamps.Take(maxHistoryCount).ToList();
-                }
+            }
+            else
+            {
+                // No history at all, create a single point or flat line based on current values?
+                // If we have no timestamps, we can't draw a graph.
             }
 
             PortfolioHistory = portfolioHistory;

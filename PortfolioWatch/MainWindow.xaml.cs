@@ -32,30 +32,11 @@ namespace PortfolioWatch
         }
 
         private DispatcherTimer _autoHideTimer;
-        private DispatcherTimer _newsPopupTimer;
-        private DispatcherTimer _newsOpenTimer;
-        private FrameworkElement? _pendingNewsTarget;
-        private Models.Stock? _pendingNewsStock;
-
-        private DispatcherTimer _earningsPopupTimer;
-        private DispatcherTimer _earningsOpenTimer;
-        private FrameworkElement? _pendingEarningsTarget;
-        private Models.Stock? _pendingEarningsStock;
-
-        private DispatcherTimer _optionsPopupTimer;
-        private DispatcherTimer _optionsOpenTimer;
-        private FrameworkElement? _pendingOptionsTarget;
-        private Models.Stock? _pendingOptionsStock;
-
-        private DispatcherTimer _insiderPopupTimer;
-        private DispatcherTimer _insiderOpenTimer;
-        private FrameworkElement? _pendingInsiderTarget;
-        private Models.Stock? _pendingInsiderStock;
-
-        private DispatcherTimer _rVolPopupTimer;
-        private DispatcherTimer _rVolOpenTimer;
-        private FrameworkElement? _pendingRVolTarget;
-        private Models.Stock? _pendingRVolStock;
+        private PopupController _newsController = null!;
+        private PopupController _earningsController = null!;
+        private PopupController _optionsController = null!;
+        private PopupController _insiderController = null!;
+        private PopupController _rVolController = null!;
 
         public bool IsPinned { get; set; }
         public bool IsUserMoving { get; private set; }
@@ -97,163 +78,11 @@ namespace PortfolioWatch
                 }
             };
 
-            _newsPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            _newsPopupTimer.Tick += (s, e) =>
-            {
-                // Check if mouse is over Popup
-                if (NewsPopup.IsMouseOver) return;
-
-                // Check if mouse is over Target (Flag)
-                // We use bounds check instead of IsMouseOver because IsMouseOver can be false 
-                // when the Popup window is active/focused, causing flickering.
-                if (NewsPopup.PlacementTarget is FrameworkElement target)
-                {
-                    var mousePos = Mouse.GetPosition(target);
-                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
-                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
-                    {
-                        return;
-                    }
-                }
-
-                NewsPopup.IsOpen = false;
-                _newsPopupTimer.Stop();
-            };
-
-            _newsOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _newsOpenTimer.Tick += (s, e) =>
-            {
-                _newsOpenTimer.Stop();
-                if (_pendingNewsTarget != null && _pendingNewsStock != null)
-                {
-                    NewsPopup.DataContext = _pendingNewsStock;
-                    NewsPopup.PlacementTarget = _pendingNewsTarget;
-                    NewsPopup.IsOpen = true;
-                }
-            };
-
-            _earningsPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            _earningsPopupTimer.Tick += (s, e) =>
-            {
-                // Check if mouse is over Popup
-                if (EarningsPopup.IsMouseOver) return;
-
-                // Check if mouse is over Target (Flag)
-                if (EarningsPopup.PlacementTarget is FrameworkElement target)
-                {
-                    var mousePos = Mouse.GetPosition(target);
-                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
-                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
-                    {
-                        return;
-                    }
-                }
-
-                EarningsPopup.IsOpen = false;
-                _earningsPopupTimer.Stop();
-            };
-
-            _earningsOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
-            _earningsOpenTimer.Tick += (s, e) =>
-            {
-                _earningsOpenTimer.Stop();
-                if (_pendingEarningsTarget != null && _pendingEarningsStock != null)
-                {
-                    EarningsPopup.DataContext = _pendingEarningsStock;
-                    EarningsPopup.PlacementTarget = _pendingEarningsTarget;
-                    EarningsPopup.IsOpen = true;
-                }
-            };
-
-            // Options Popup Timers
-            _optionsPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            _optionsPopupTimer.Tick += (s, e) =>
-            {
-                if (OptionsPopup.IsMouseOver) return;
-                if (OptionsPopup.PlacementTarget is FrameworkElement target)
-                {
-                    var mousePos = Mouse.GetPosition(target);
-                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
-                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
-                    {
-                        return;
-                    }
-                }
-                OptionsPopup.IsOpen = false;
-                _optionsPopupTimer.Stop();
-            };
-
-            _optionsOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-            _optionsOpenTimer.Tick += (s, e) =>
-            {
-                _optionsOpenTimer.Stop();
-                if (_pendingOptionsTarget != null && _pendingOptionsStock != null)
-                {
-                    OptionsPopup.DataContext = _pendingOptionsStock;
-                    OptionsPopup.PlacementTarget = _pendingOptionsTarget;
-                    OptionsPopup.IsOpen = true;
-                }
-            };
-
-            // Insider Popup Timers
-            _insiderPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            _insiderPopupTimer.Tick += (s, e) =>
-            {
-                if (InsiderPopup.IsMouseOver) return;
-                if (InsiderPopup.PlacementTarget is FrameworkElement target)
-                {
-                    var mousePos = Mouse.GetPosition(target);
-                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
-                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
-                    {
-                        return;
-                    }
-                }
-                InsiderPopup.IsOpen = false;
-                _insiderPopupTimer.Stop();
-            };
-
-            _insiderOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-            _insiderOpenTimer.Tick += (s, e) =>
-            {
-                _insiderOpenTimer.Stop();
-                if (_pendingInsiderTarget != null && _pendingInsiderStock != null)
-                {
-                    InsiderPopup.DataContext = _pendingInsiderStock;
-                    InsiderPopup.PlacementTarget = _pendingInsiderTarget;
-                    InsiderPopup.IsOpen = true;
-                }
-            };
-
-            // RVOL Popup Timers
-            _rVolPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            _rVolPopupTimer.Tick += (s, e) =>
-            {
-                if (RVolPopup.IsMouseOver) return;
-                if (RVolPopup.PlacementTarget is FrameworkElement target)
-                {
-                    var mousePos = Mouse.GetPosition(target);
-                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
-                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
-                    {
-                        return;
-                    }
-                }
-                RVolPopup.IsOpen = false;
-                _rVolPopupTimer.Stop();
-            };
-
-            _rVolOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
-            _rVolOpenTimer.Tick += (s, e) =>
-            {
-                _rVolOpenTimer.Stop();
-                if (_pendingRVolTarget != null && _pendingRVolStock != null)
-                {
-                    RVolPopup.DataContext = _pendingRVolStock;
-                    RVolPopup.PlacementTarget = _pendingRVolTarget;
-                    RVolPopup.IsOpen = true;
-                }
-            };
+            _newsController = new PopupController(NewsPopup, 500);
+            _earningsController = new PopupController(EarningsPopup, 500);
+            _optionsController = new PopupController(OptionsPopup, 400);
+            _insiderController = new PopupController(InsiderPopup, 400);
+            _rVolController = new PopupController(RVolPopup, 400);
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -451,20 +280,71 @@ namespace PortfolioWatch
             }
 
             // Calculate index
-            // The graph draws from 0 to (60 * dayProgress) in a 60-unit wide coordinate space.
-            // This 60-unit space is stretched to actualWidth.
-            // So the "drawn" width in pixels is actualWidth * dayProgress.
-            // If mouse is beyond this, we clamp to the last point.
-
-            // Map mouseX to logical X (0..60)
-            // double logicalX = (mousePos.X / actualWidth) * 60;
-            
-            // Map logical X to index
-            // index = logicalX * (count - 1) / (60 * dayProgress)
-            // index = (mousePos.X / actualWidth) * (count - 1) / dayProgress
-
             double relativeX = mousePos.X / actualWidth;
-            int index = (int)Math.Round((relativeX * (history.Count - 1)) / dayProgress);
+            int index = -1;
+
+            if (selectedRange == "1d" || timestamps == null || timestamps.Count != history.Count)
+            {
+                // 1d Logic (Partial graph based on dayProgress)
+                if (relativeX > dayProgress)
+                {
+                    GraphTooltip.IsOpen = false;
+                    return;
+                }
+                index = (int)Math.Round((relativeX * (history.Count - 1)) / dayProgress);
+            }
+            else
+            {
+                // Time-based logic for historical ranges
+                DateTime endTime = timestamps.Last();
+                DateTime startTime;
+
+                switch (selectedRange)
+                {
+                    case "5d": startTime = endTime.AddDays(-5); break;
+                    case "1mo": startTime = endTime.AddMonths(-1); break;
+                    case "1y": startTime = endTime.AddYears(-1); break;
+                    case "5y": startTime = endTime.AddYears(-5); break;
+                    case "10y": startTime = endTime.AddYears(-10); break;
+                    default: startTime = timestamps.First(); break;
+                }
+
+                double totalSeconds = (endTime - startTime).TotalSeconds;
+                if (totalSeconds <= 0) totalSeconds = 1;
+
+                double hoverSeconds = relativeX * totalSeconds;
+                DateTime hoverTime = startTime.AddSeconds(hoverSeconds);
+
+                // If hovering before the first data point, show nothing
+                if (hoverTime < timestamps.First())
+                {
+                    GraphTooltip.IsOpen = false;
+                    return;
+                }
+
+                // Find closest timestamp
+                int binaryIndex = timestamps.BinarySearch(hoverTime);
+                if (binaryIndex >= 0)
+                {
+                    index = binaryIndex;
+                }
+                else
+                {
+                    // ~binaryIndex is the index of the next larger element
+                    int nextIndex = ~binaryIndex;
+                    int prevIndex = nextIndex - 1;
+
+                    if (prevIndex < 0) index = nextIndex;
+                    else if (nextIndex >= timestamps.Count) index = prevIndex;
+                    else
+                    {
+                        // Check which is closer
+                        double diffPrev = (hoverTime - timestamps[prevIndex]).TotalSeconds;
+                        double diffNext = (timestamps[nextIndex] - hoverTime).TotalSeconds;
+                        index = (diffPrev < diffNext) ? prevIndex : nextIndex;
+                    }
+                }
+            }
 
             // Clamp index
             index = Math.Max(0, Math.Min(index, history.Count - 1));
@@ -518,225 +398,242 @@ namespace PortfolioWatch
         private void NewsFlag_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
-            {
-                _newsPopupTimer.Stop();
-
-                // Prevent flickering by checking if we're already showing this stock's news
-                if (NewsPopup.IsOpen && NewsPopup.DataContext == stock)
-                {
-                    return;
-                }
-
-                _pendingNewsTarget = element;
-                _pendingNewsStock = stock;
-                _newsOpenTimer.Start();
-            }
+                _newsController.OnMouseEnterTarget(element, stock);
         }
 
         private void NewsFlag_MouseLeave(object sender, MouseEventArgs e)
         {
-            _newsOpenTimer.Stop();
-            _newsPopupTimer.Start();
+            _newsController.OnMouseLeaveTarget();
         }
 
         private void NewsFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
             {
-                _newsOpenTimer.Stop();
-                _newsPopupTimer.Stop();
-
-                NewsPopup.DataContext = stock;
-                NewsPopup.PlacementTarget = element;
-                NewsPopup.IsOpen = true;
-                
+                _newsController.OnMouseLeftButtonDownTarget(element, stock);
                 e.Handled = true;
             }
         }
 
         private void NewsPopup_MouseEnter(object sender, MouseEventArgs e)
         {
-            _newsPopupTimer.Stop();
+            _newsController.OnMouseEnterPopup();
         }
 
         private void NewsPopup_MouseLeave(object sender, MouseEventArgs e)
         {
-            _newsPopupTimer.Start();
+            _newsController.OnMouseLeavePopup();
         }
 
         private void EarningsFlag_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
-            {
-                _earningsPopupTimer.Stop();
-
-                // Prevent flickering by checking if we're already showing this stock's earnings
-                if (EarningsPopup.IsOpen && EarningsPopup.DataContext == stock)
-                {
-                    return;
-                }
-
-                _pendingEarningsTarget = element;
-                _pendingEarningsStock = stock;
-                _earningsOpenTimer.Start();
-            }
+                _earningsController.OnMouseEnterTarget(element, stock);
         }
 
         private void EarningsFlag_MouseLeave(object sender, MouseEventArgs e)
         {
-            _earningsOpenTimer.Stop();
-            _earningsPopupTimer.Start();
+            _earningsController.OnMouseLeaveTarget();
         }
 
         private void EarningsFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
             {
-                _earningsOpenTimer.Stop();
-                _earningsPopupTimer.Stop();
-
-                EarningsPopup.DataContext = stock;
-                EarningsPopup.PlacementTarget = element;
-                EarningsPopup.IsOpen = true;
-                
+                _earningsController.OnMouseLeftButtonDownTarget(element, stock);
                 e.Handled = true;
             }
         }
 
         private void EarningsPopup_MouseEnter(object sender, MouseEventArgs e)
         {
-            _earningsPopupTimer.Stop();
+            _earningsController.OnMouseEnterPopup();
         }
 
         private void EarningsPopup_MouseLeave(object sender, MouseEventArgs e)
         {
-            _earningsPopupTimer.Start();
+            _earningsController.OnMouseLeavePopup();
         }
 
         // Options Flag Handlers
         private void OptionsFlag_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
-            {
-                _optionsPopupTimer.Stop();
-                if (OptionsPopup.IsOpen && OptionsPopup.DataContext == stock) return;
-                _pendingOptionsTarget = element;
-                _pendingOptionsStock = stock;
-                _optionsOpenTimer.Start();
-            }
+                _optionsController.OnMouseEnterTarget(element, stock);
         }
 
         private void OptionsFlag_MouseLeave(object sender, MouseEventArgs e)
         {
-            _optionsOpenTimer.Stop();
-            _optionsPopupTimer.Start();
+            _optionsController.OnMouseLeaveTarget();
         }
 
         private void OptionsFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
             {
-                _optionsOpenTimer.Stop();
-                _optionsPopupTimer.Stop();
-                OptionsPopup.DataContext = stock;
-                OptionsPopup.PlacementTarget = element;
-                OptionsPopup.IsOpen = true;
+                _optionsController.OnMouseLeftButtonDownTarget(element, stock);
                 e.Handled = true;
             }
         }
 
         private void OptionsPopup_MouseEnter(object sender, MouseEventArgs e)
         {
-            _optionsPopupTimer.Stop();
+            _optionsController.OnMouseEnterPopup();
         }
 
         private void OptionsPopup_MouseLeave(object sender, MouseEventArgs e)
         {
-            _optionsPopupTimer.Start();
+            _optionsController.OnMouseLeavePopup();
         }
 
         // Insider Flag Handlers
         private void InsiderFlag_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
-            {
-                _insiderPopupTimer.Stop();
-                if (InsiderPopup.IsOpen && InsiderPopup.DataContext == stock) return;
-                _pendingInsiderTarget = element;
-                _pendingInsiderStock = stock;
-                _insiderOpenTimer.Start();
-            }
+                _insiderController.OnMouseEnterTarget(element, stock);
         }
 
         private void InsiderFlag_MouseLeave(object sender, MouseEventArgs e)
         {
-            _insiderOpenTimer.Stop();
-            _insiderPopupTimer.Start();
+            _insiderController.OnMouseLeaveTarget();
         }
 
         private void InsiderFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
             {
-                _insiderOpenTimer.Stop();
-                _insiderPopupTimer.Stop();
-                InsiderPopup.DataContext = stock;
-                InsiderPopup.PlacementTarget = element;
-                InsiderPopup.IsOpen = true;
+                _insiderController.OnMouseLeftButtonDownTarget(element, stock);
                 e.Handled = true;
             }
         }
 
         private void InsiderPopup_MouseEnter(object sender, MouseEventArgs e)
         {
-            _insiderPopupTimer.Stop();
+            _insiderController.OnMouseEnterPopup();
         }
 
         private void InsiderPopup_MouseLeave(object sender, MouseEventArgs e)
         {
-            _insiderPopupTimer.Start();
+            _insiderController.OnMouseLeavePopup();
         }
 
         // RVOL Flag Handlers
         private void RVolFlag_MouseEnter(object sender, MouseEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
-            {
-                _rVolPopupTimer.Stop();
-                if (RVolPopup.IsOpen && RVolPopup.DataContext == stock) return;
-                _pendingRVolTarget = element;
-                _pendingRVolStock = stock;
-                _rVolOpenTimer.Start();
-            }
+                _rVolController.OnMouseEnterTarget(element, stock);
         }
 
         private void RVolFlag_MouseLeave(object sender, MouseEventArgs e)
         {
-            _rVolOpenTimer.Stop();
-            _rVolPopupTimer.Start();
+            _rVolController.OnMouseLeaveTarget();
         }
 
         private void RVolFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
             {
-                _rVolOpenTimer.Stop();
-                _rVolPopupTimer.Stop();
-                RVolPopup.DataContext = stock;
-                RVolPopup.PlacementTarget = element;
-                RVolPopup.IsOpen = true;
+                _rVolController.OnMouseLeftButtonDownTarget(element, stock);
                 e.Handled = true;
             }
         }
 
         private void RVolPopup_MouseEnter(object sender, MouseEventArgs e)
         {
-            _rVolPopupTimer.Stop();
+            _rVolController.OnMouseEnterPopup();
         }
 
         private void RVolPopup_MouseLeave(object sender, MouseEventArgs e)
         {
-            _rVolPopupTimer.Start();
+            _rVolController.OnMouseLeavePopup();
+        }
+        private class PopupController
+        {
+            private readonly Popup _popup;
+            private readonly DispatcherTimer _openTimer;
+            private readonly DispatcherTimer _closeTimer;
+            private FrameworkElement? _pendingTarget;
+            private Models.Stock? _pendingStock;
+
+            public PopupController(Popup popup, int openDelayMs = 500)
+            {
+                _popup = popup;
+                
+                _openTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(openDelayMs) };
+                _openTimer.Tick += OpenTimer_Tick;
+
+                _closeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+                _closeTimer.Tick += CloseTimer_Tick;
+            }
+
+            private void OpenTimer_Tick(object? sender, EventArgs e)
+            {
+                _openTimer.Stop();
+                if (_pendingTarget != null && _pendingStock != null)
+                {
+                    _popup.DataContext = _pendingStock;
+                    _popup.PlacementTarget = _pendingTarget;
+                    _popup.IsOpen = true;
+                }
+            }
+
+            private void CloseTimer_Tick(object? sender, EventArgs e)
+            {
+                if (_popup.IsMouseOver) return;
+
+                if (_popup.PlacementTarget is FrameworkElement target)
+                {
+                    var mousePos = Mouse.GetPosition(target);
+                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
+                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
+                    {
+                        return;
+                    }
+                }
+
+                _popup.IsOpen = false;
+                _closeTimer.Stop();
+            }
+
+            public void OnMouseEnterTarget(FrameworkElement target, Models.Stock stock)
+            {
+                _closeTimer.Stop();
+
+                if (_popup.IsOpen && _popup.DataContext == stock)
+                {
+                    return;
+                }
+
+                _pendingTarget = target;
+                _pendingStock = stock;
+                _openTimer.Start();
+            }
+
+            public void OnMouseLeaveTarget()
+            {
+                _openTimer.Stop();
+                _closeTimer.Start();
+            }
+
+            public void OnMouseLeftButtonDownTarget(FrameworkElement target, Models.Stock stock)
+            {
+                _openTimer.Stop();
+                _closeTimer.Stop();
+
+                _popup.DataContext = stock;
+                _popup.PlacementTarget = target;
+                _popup.IsOpen = true;
+            }
+
+            public void OnMouseEnterPopup()
+            {
+                _closeTimer.Stop();
+            }
+
+            public void OnMouseLeavePopup()
+            {
+                _closeTimer.Start();
+            }
         }
     }
 }
