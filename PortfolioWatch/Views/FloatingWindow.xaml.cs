@@ -28,6 +28,8 @@ namespace PortfolioWatch.Views
         }
 
         public event EventHandler<OpenEventArgs>? OpenRequested;
+        public event EventHandler? DragStarted;
+        public event EventHandler? DragEnded;
         private DispatcherTimer _hoverTimer;
         private bool _isHovering;
         public bool IsUserMoving { get; private set; }
@@ -101,8 +103,12 @@ namespace PortfolioWatch.Views
             if (e.ButtonState == MouseButtonState.Pressed)
             {
                 _hoverTimer.Stop();
-                OpenRequested?.Invoke(this, new OpenEventArgs(true));
+
+                var startLeft = this.Left;
+                var startTop = this.Top;
+
                 IsUserMoving = true;
+                DragStarted?.Invoke(this, EventArgs.Empty);
                 try
                 {
                     this.DragMove();
@@ -110,6 +116,13 @@ namespace PortfolioWatch.Views
                 finally
                 {
                     IsUserMoving = false;
+                    DragEnded?.Invoke(this, EventArgs.Empty);
+                }
+
+                // Only treat as a click if we didn't move significantly
+                if (Math.Abs(this.Left - startLeft) < 2 && Math.Abs(this.Top - startTop) < 2)
+                {
+                    OpenRequested?.Invoke(this, new OpenEventArgs(true));
                 }
             }
         }

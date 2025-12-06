@@ -551,32 +551,32 @@
                                                 <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
                                                 
                                                 <!-- Earnings Flag -->
-                                                <emoji:TextBlock Text="{Binding EarningsEmoji}" Margin="5,0,0,0" 
+                                                <emoji:TextBlock Text="{Binding EarningsEmoji}" Margin="3,0,0,0" 
                                                            Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
                                                            MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
                                                            MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown"/>
 
                                                 <!-- News Flag -->
-                                                <emoji:TextBlock Text="{Binding NewsEmoji}" Margin="5,0,0,0" 
+                                                <emoji:TextBlock Text="{Binding NewsEmoji}" Margin="3,0,0,0" 
                                                            Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
                                                            MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
                                                            MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown"/>
 
                                                 <!-- Options Flag -->
-                                                <Grid Margin="5,0,0,0" 
+                                                <Grid Margin="3,0,0,0" 
                                                       Visibility="{Binding HasOptionsFlag, Converter={StaticResource BoolToVis}}"
                                                       Cursor="Hand" VerticalAlignment="Center"
                                                       MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
                                                       MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"
                                                       Background="Transparent">
-                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                     <TextBlock Text="{Binding SignalStrengthDisplay}" 
                                                                Foreground="{Binding SignalStrengthColor}" 
                                                                FontSize="8" FontWeight="Bold" 
                                                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                               Margin="0,0,-4,-2">
+                                                               Margin="0,0,-3,-1">
                                                         <TextBlock.Effect>
                                                             <DropShadowEffect BlurRadius="2" ShadowDepth="0" Color="Black" Opacity="0.8"/>
                                                         </TextBlock.Effect>
@@ -584,16 +584,16 @@
                                                 </Grid>
 
                                                 <!-- Insider Flag -->
-                                                <emoji:TextBlock Text="{Binding InsiderEmoji}" Margin="5,0,0,0" 
+                                                <emoji:TextBlock Text="{Binding InsiderEmoji}" Margin="3,0,0,0" 
                                                            Visibility="{Binding HasInsiderFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
                                                            MouseEnter="InsiderFlag_MouseEnter" MouseLeave="InsiderFlag_MouseLeave"
                                                            MouseLeftButtonDown="InsiderFlag_MouseLeftButtonDown"/>
 
                                                 <!-- RVOL Flag -->
-                                                <emoji:TextBlock Text="{Binding RVolEmoji}" Margin="5,0,0,0" 
+                                                <emoji:TextBlock Text="{Binding RVolEmoji}" Margin="3,0,0,0" 
                                                            Visibility="{Binding HasRVolFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="14" VerticalAlignment="Center"
+                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
                                                            MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
                                                            MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"/>
                                             </StackPanel>

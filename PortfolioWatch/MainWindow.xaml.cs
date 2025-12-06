@@ -14,6 +14,23 @@ namespace PortfolioWatch
 {
     public partial class MainWindow : Window
     {
+        private const int GWL_STYLE = -16;
+        private const int WS_MAXIMIZEBOX = 0x10000;
+
+        [DllImport("user32.dll")]
+        private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+        [DllImport("user32.dll")]
+        private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            var hwnd = new WindowInteropHelper(this).Handle;
+            var style = GetWindowLong(hwnd, GWL_STYLE);
+            SetWindowLong(hwnd, GWL_STYLE, style & ~WS_MAXIMIZEBOX);
+        }
+
         private DispatcherTimer _autoHideTimer;
         private DispatcherTimer _newsPopupTimer;
         private DispatcherTimer _newsOpenTimer;

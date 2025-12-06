@@ -21,10 +21,13 @@ namespace PortfolioWatch
         private TaskbarIcon? _notifyIcon;
         private FloatingWindow? _floatingWindow;
         private MainWindow? _mainWindow;
+        private DragPreviewWindow? _dragPreviewWindow;
         private SettingsService _settingsService;
         private bool _isSyncing;
         private double _intendedLeft;
         private double _intendedTop;
+        private bool _currentIsBelow;
+        private bool _currentIsRight;
 
         public static App CurrentApp => (App)Current;
 
@@ -124,6 +127,8 @@ namespace PortfolioWatch
 
             // Wire up events
             _floatingWindow.OpenRequested += FloatingWindow_OpenRequested;
+            _floatingWindow.DragStarted += FloatingWindow_DragStarted;
+            _floatingWindow.DragEnded += FloatingWindow_DragEnded;
             
             // Ensure pinning state is reset when main window is hidden
             _mainWindow.IsVisibleChanged += (s, args) =>
@@ -159,6 +164,7 @@ namespace PortfolioWatch
                 {
                     _intendedLeft = _floatingWindow.Left;
                     _intendedTop = _floatingWindow.Top;
+                    UpdateDragPreviewPosition();
                 }
                 else
                 {
@@ -173,11 +179,10 @@ namespace PortfolioWatch
 
                 _isSyncing = true;
                 
-                // Move MainWindow to stay above FloatingWindow
+                // Move MainWindow based on dynamic positioning
                 if (_mainWindow.IsVisible)
                 {
-                    _mainWindow.Left = _floatingWindow.Left + 20;
-                    _mainWindow.Top = _floatingWindow.Top + 20 - _mainWindow.Height; // Removed gap
+                    UpdateMainWindowPosition();
                 }
                 
                 _isSyncing = false;
@@ -186,31 +191,49 @@ namespace PortfolioWatch
             _mainWindow.LocationChanged += (s, args) =>
             {
                 if (_isSyncing || _floatingWindow == null) return;
-                _isSyncing = true;
-
-                // Move FloatingWindow to stay below MainWindow
-                _floatingWindow.Left = _mainWindow.Left - 20;
-                _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height - 20; // Removed gap
-
+                
                 if (_mainWindow.IsUserMoving)
                 {
+                    _isSyncing = true;
+
+                    // Move FloatingWindow based on current relative orientation
+                    if (_currentIsBelow)
+                    {
+                        // MW is Below. FW should be Above.
+                        _floatingWindow.Top = _mainWindow.Top - _floatingWindow.ActualHeight + 20;
+                    }
+                    else
+                    {
+                        // MW is Above. FW should be Below.
+                        _floatingWindow.Top = _mainWindow.Top - 20 + _mainWindow.Height;
+                    }
+
+                    if (_currentIsRight)
+                    {
+                        // MW is Right. FW should be Left.
+                        _floatingWindow.Left = _mainWindow.Left - 20;
+                    }
+                    else
+                    {
+                        // MW is Left. FW should be Right.
+                        _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 20 - _floatingWindow.ActualWidth;
+                    }
+
                     _intendedLeft = _floatingWindow.Left;
                     _intendedTop = _floatingWindow.Top;
-                }
 
-                _isSyncing = false;
+                    _isSyncing = false;
+                }
             };
             
-            // Also sync when MainWindow resizes (height changes)
+            // Also sync when MainWindow resizes
             _mainWindow.SizeChanged += (s, args) =>
             {
                 if (_isSyncing || _floatingWindow == null) return;
-                if (args.HeightChanged)
-                {
-                    _isSyncing = true;
-                    _mainWindow.Top = _floatingWindow.Top + 20 - _mainWindow.Height; // Removed gap
-                    _isSyncing = false;
-                }
+                
+                _isSyncing = true;
+                UpdateMainWindowPosition();
+                _isSyncing = false;
             };
 
             // Show Floating Window
@@ -227,6 +250,71 @@ namespace PortfolioWatch
             if (settings.StartWithWindows)
             {
                 _settingsService.SetStartup(true);
+            }
+        }
+
+        private void FloatingWindow_DragStarted(object? sender, EventArgs e)
+        {
+            if (_mainWindow == null) return;
+
+            _dragPreviewWindow = new DragPreviewWindow
+            {
+                Width = _mainWindow.Width,
+                Height = _mainWindow.Height
+            };
+            
+            UpdateDragPreviewPosition();
+            _dragPreviewWindow.Show();
+        }
+
+        private void FloatingWindow_DragEnded(object? sender, EventArgs e)
+        {
+            if (_dragPreviewWindow != null)
+            {
+                _dragPreviewWindow.Close();
+                _dragPreviewWindow = null;
+            }
+        }
+
+        private void UpdateDragPreviewPosition()
+        {
+            if (_dragPreviewWindow == null || _floatingWindow == null || _mainWindow == null) return;
+
+            // Use the same logic as UpdateMainWindowPosition but apply to preview window
+            var workArea = SystemParameters.WorkArea;
+            var fwLeft = _floatingWindow.Left;
+            var fwTop = _floatingWindow.Top;
+            var fwWidth = _floatingWindow.ActualWidth;
+            var fwHeight = _floatingWindow.ActualHeight;
+
+            // Vertical
+            var spaceAbove = fwTop - workArea.Top;
+            var spaceBelow = workArea.Bottom - (fwTop + fwHeight);
+            
+            bool isBelow = spaceBelow > spaceAbove;
+
+            if (isBelow)
+            {
+                _dragPreviewWindow.Top = fwTop + fwHeight - 20;
+            }
+            else
+            {
+                _dragPreviewWindow.Top = fwTop + 20 - _mainWindow.Height;
+            }
+
+            // Horizontal
+            var spaceLeft = fwLeft - workArea.Left;
+            var spaceRight = workArea.Right - (fwLeft + fwWidth);
+
+            bool isRight = spaceRight > spaceLeft;
+
+            if (isRight)
+            {
+                _dragPreviewWindow.Left = fwLeft + 20;
+            }
+            else
+            {
+                _dragPreviewWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 20;
             }
         }
 
@@ -278,12 +366,14 @@ namespace PortfolioWatch
                 _mainWindow.IsPinned = isPinned;
                 _floatingWindow.IsPinned = isPinned;
                 
-                // Position above floating window
-                _mainWindow.Left = _floatingWindow.Left + 20;
-                _mainWindow.Top = _floatingWindow.Top + 20 - _mainWindow.Height; // Removed gap
+                // Position dynamically
+                UpdateMainWindowPosition();
 
                 _mainWindow.Show();
                 _mainWindow.Activate();
+
+                // Update again after show to ensure dimensions are correct if they were missing
+                UpdateMainWindowPosition();
 
                 if (isPinned)
                 {
@@ -291,6 +381,51 @@ namespace PortfolioWatch
                 }
                 // If not pinned (transient), do NOT start auto-hide yet. 
                 // It will be started when the mouse leaves the FloatingWindow.
+            }
+        }
+
+        private void UpdateMainWindowPosition()
+        {
+            if (_mainWindow == null || _floatingWindow == null) return;
+
+            var workArea = SystemParameters.WorkArea;
+            var fwLeft = _floatingWindow.Left;
+            var fwTop = _floatingWindow.Top;
+            var fwWidth = _floatingWindow.ActualWidth;
+            var fwHeight = _floatingWindow.ActualHeight;
+
+            // Vertical
+            var spaceAbove = fwTop - workArea.Top;
+            var spaceBelow = workArea.Bottom - (fwTop + fwHeight);
+            
+            _currentIsBelow = spaceBelow > spaceAbove;
+
+            if (_currentIsBelow)
+            {
+                // Position Below
+                _mainWindow.Top = fwTop + fwHeight - 20;
+            }
+            else
+            {
+                // Position Above
+                _mainWindow.Top = fwTop + 20 - _mainWindow.Height;
+            }
+
+            // Horizontal
+            var spaceLeft = fwLeft - workArea.Left;
+            var spaceRight = workArea.Right - (fwLeft + fwWidth);
+
+            _currentIsRight = spaceRight > spaceLeft; // More space to the right -> Put window on right (Left aligned)
+
+            if (_currentIsRight)
+            {
+                // Align Left edges (Window extends right)
+                _mainWindow.Left = fwLeft + 20;
+            }
+            else
+            {
+                // Align Right edges (Window extends left)
+                _mainWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 20;
             }
         }
 
