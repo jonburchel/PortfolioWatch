@@ -93,6 +93,17 @@ The application uses a system of emoji-based flags to alert the user to signific
     *   **Bullish (🐂)**: Unusual options volume or critical gamma exposure with positive directional confidence.
     *   **Bearish (🐻)**: Unusual options volume or critical gamma exposure with negative directional confidence.
     *   **Trigger**: Requires unusual volume/gamma AND an options impact date within 7 days.
+    *   **Logic & Signal Interpretation**:
+        The signal is derived from a "tug-of-war" between two primary forces:
+        1.  **Max Pain (Magnet Pull)**: The price point at which the most options contracts expire worthless. Market Makers are incentivized to pin the stock price near this level, creating a "magnetic" pull.
+        2.  **Flow Sentiment**: The ratio of Call vs. Put volume, representing active trader sentiment.
+        
+        The final signal is a weighted average: `(MagnetPull * 0.4) + (FlowSentiment * 0.6)`.
+        
+        *   **Aligned Signals**: When both forces agree, the trend is considered strong and likely to continue through expiration.
+        *   **Conflicting Signals**:
+            *   **Flow Overpowers Max Pain**: Traders are betting heavily against the house. Max Pain acts as a temporary drag (or prop). Once the expiration date passes, this artificial pressure releases, often leading to a surge (or drop) in the direction of the flow.
+            *   **Max Pain Overpowers Flow**: Market Maker incentives are too strong for current volume to overcome. The price is likely to be pinned near the Max Pain price until expiration.
 *   **Insider Flag**:
     *   **Insider Activity (💼)**: Significant insider trading activity detected.
     *   **Trigger**: Net insider buying > $500k OR Net insider selling > $1M.
