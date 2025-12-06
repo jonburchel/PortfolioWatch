@@ -17,5 +17,6 @@ namespace PortfolioWatch.Services
         void RemoveStock(Stock stock);
         Task<ServiceResult<bool>> UpdatePricesAsync(string range = "1d");
         Task<ServiceResult<bool>> UpdateEarningsAsync();
+        Task<ServiceResult<bool>> UpdateNewsAsync();
     }
 }

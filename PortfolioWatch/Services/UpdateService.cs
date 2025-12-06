@@ -15,39 +15,39 @@ namespace PortfolioWatch.Services
     public class GitHubRelease
     {
         [JsonPropertyName("tag_name")]
-        public string TagName { get; set; }
+        public string TagName { get; set; } = string.Empty;
 
         [JsonPropertyName("published_at")]
         public DateTime PublishedAt { get; set; }
 
         [JsonPropertyName("body")]
-        public string Body { get; set; }
+        public string Body { get; set; } = string.Empty;
 
         [JsonPropertyName("assets")]
-        public GitHubAsset[] Assets { get; set; }
+        public GitHubAsset[] Assets { get; set; } = Array.Empty<GitHubAsset>();
     }
 
     public class GitHubAsset
     {
         [JsonPropertyName("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         [JsonPropertyName("browser_download_url")]
-        public string BrowserDownloadUrl { get; set; }
+        public string BrowserDownloadUrl { get; set; } = string.Empty;
 
         [JsonPropertyName("size")]
         public long Size { get; set; }
 
         [JsonPropertyName("digest")]
-        public string Digest { get; set; }
+        public string? Digest { get; set; }
     }
 
     public class UpdateInfo
     {
-        public string Version { get; set; }
+        public string Version { get; set; } = string.Empty;
         public DateTime ReleaseDate { get; set; }
-        public string DownloadUrl { get; set; }
-        public string FileName { get; set; }
+        public string DownloadUrl { get; set; } = string.Empty;
+        public string FileName { get; set; } = string.Empty;
         public bool IsUpdateAvailable { get; set; }
     }
 
@@ -79,7 +79,11 @@ namespace PortfolioWatch.Services
 
                     // Get current binary hash
                     var currentProcess = Process.GetCurrentProcess();
-                    var currentBinaryPath = currentProcess.MainModule.FileName;
+                    var currentBinaryPath = currentProcess.MainModule?.FileName;
+                    
+                    if (string.IsNullOrEmpty(currentBinaryPath))
+                        return new UpdateInfo { IsUpdateAvailable = false };
+
                     var currentHash = ComputeSha256Hash(currentBinaryPath);
                     var currentSize = new FileInfo(currentBinaryPath).Length;
 
@@ -188,7 +192,11 @@ namespace PortfolioWatch.Services
 
                 // Create update script
                 var currentProcess = Process.GetCurrentProcess();
-                var currentPath = currentProcess.MainModule.FileName;
+                var currentPath = currentProcess.MainModule?.FileName;
+                
+                if (string.IsNullOrEmpty(currentPath))
+                    throw new InvalidOperationException("Could not determine current process path");
+
                 var currentDir = Path.GetDirectoryName(currentPath);
                 var scriptPath = Path.Combine(Path.GetTempPath(), "update_portfolio_watch.bat");
                 var pid = currentProcess.Id;

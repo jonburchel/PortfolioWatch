@@ -15,6 +15,16 @@ namespace PortfolioWatch
     public partial class MainWindow : Window
     {
         private DispatcherTimer _autoHideTimer;
+        private DispatcherTimer _newsPopupTimer;
+        private DispatcherTimer _newsOpenTimer;
+        private FrameworkElement? _pendingNewsTarget;
+        private Models.Stock? _pendingNewsStock;
+
+        private DispatcherTimer _earningsPopupTimer;
+        private DispatcherTimer _earningsOpenTimer;
+        private FrameworkElement? _pendingEarningsTarget;
+        private Models.Stock? _pendingEarningsStock;
+
         public bool IsPinned { get; set; }
         public bool IsUserMoving { get; private set; }
 
@@ -52,6 +62,74 @@ namespace PortfolioWatch
                     {
                         _autoHideTimer.Start();
                     }
+                }
+            };
+
+            _newsPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            _newsPopupTimer.Tick += (s, e) =>
+            {
+                // Check if mouse is over Popup
+                if (NewsPopup.IsMouseOver) return;
+
+                // Check if mouse is over Target (Flag)
+                // We use bounds check instead of IsMouseOver because IsMouseOver can be false 
+                // when the Popup window is active/focused, causing flickering.
+                if (NewsPopup.PlacementTarget is FrameworkElement target)
+                {
+                    var mousePos = Mouse.GetPosition(target);
+                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
+                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
+                    {
+                        return;
+                    }
+                }
+
+                NewsPopup.IsOpen = false;
+                _newsPopupTimer.Stop();
+            };
+
+            _newsOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _newsOpenTimer.Tick += (s, e) =>
+            {
+                _newsOpenTimer.Stop();
+                if (_pendingNewsTarget != null && _pendingNewsStock != null)
+                {
+                    NewsPopup.DataContext = _pendingNewsStock;
+                    NewsPopup.PlacementTarget = _pendingNewsTarget;
+                    NewsPopup.IsOpen = true;
+                }
+            };
+
+            _earningsPopupTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
+            _earningsPopupTimer.Tick += (s, e) =>
+            {
+                // Check if mouse is over Popup
+                if (EarningsPopup.IsMouseOver) return;
+
+                // Check if mouse is over Target (Flag)
+                if (EarningsPopup.PlacementTarget is FrameworkElement target)
+                {
+                    var mousePos = Mouse.GetPosition(target);
+                    if (mousePos.X >= 0 && mousePos.X <= target.ActualWidth &&
+                        mousePos.Y >= 0 && mousePos.Y <= target.ActualHeight)
+                    {
+                        return;
+                    }
+                }
+
+                EarningsPopup.IsOpen = false;
+                _earningsPopupTimer.Stop();
+            };
+
+            _earningsOpenTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(500) };
+            _earningsOpenTimer.Tick += (s, e) =>
+            {
+                _earningsOpenTimer.Stop();
+                if (_pendingEarningsTarget != null && _pendingEarningsStock != null)
+                {
+                    EarningsPopup.DataContext = _pendingEarningsStock;
+                    EarningsPopup.PlacementTarget = _pendingEarningsTarget;
+                    EarningsPopup.IsOpen = true;
                 }
             };
         }
@@ -313,6 +391,104 @@ namespace PortfolioWatch
             GraphTooltip.HorizontalOffset = mousePos.X + 15;
             GraphTooltip.VerticalOffset = mousePos.Y + 15;
             GraphTooltip.IsOpen = true;
+        }
+
+        private void NewsFlag_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
+            {
+                _newsPopupTimer.Stop();
+
+                // Prevent flickering by checking if we're already showing this stock's news
+                if (NewsPopup.IsOpen && NewsPopup.DataContext == stock)
+                {
+                    return;
+                }
+
+                _pendingNewsTarget = element;
+                _pendingNewsStock = stock;
+                _newsOpenTimer.Start();
+            }
+        }
+
+        private void NewsFlag_MouseLeave(object sender, MouseEventArgs e)
+        {
+            _newsOpenTimer.Stop();
+            _newsPopupTimer.Start();
+        }
+
+        private void NewsFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
+            {
+                _newsOpenTimer.Stop();
+                _newsPopupTimer.Stop();
+
+                NewsPopup.DataContext = stock;
+                NewsPopup.PlacementTarget = element;
+                NewsPopup.IsOpen = true;
+                
+                e.Handled = true;
+            }
+        }
+
+        private void NewsPopup_MouseEnter(object sender, MouseEventArgs e)
+        {
+            _newsPopupTimer.Stop();
+        }
+
+        private void NewsPopup_MouseLeave(object sender, MouseEventArgs e)
+        {
+            _newsPopupTimer.Start();
+        }
+
+        private void EarningsFlag_MouseEnter(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
+            {
+                _earningsPopupTimer.Stop();
+
+                // Prevent flickering by checking if we're already showing this stock's earnings
+                if (EarningsPopup.IsOpen && EarningsPopup.DataContext == stock)
+                {
+                    return;
+                }
+
+                _pendingEarningsTarget = element;
+                _pendingEarningsStock = stock;
+                _earningsOpenTimer.Start();
+            }
+        }
+
+        private void EarningsFlag_MouseLeave(object sender, MouseEventArgs e)
+        {
+            _earningsOpenTimer.Stop();
+            _earningsPopupTimer.Start();
+        }
+
+        private void EarningsFlag_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.DataContext is Models.Stock stock)
+            {
+                _earningsOpenTimer.Stop();
+                _earningsPopupTimer.Stop();
+
+                EarningsPopup.DataContext = stock;
+                EarningsPopup.PlacementTarget = element;
+                EarningsPopup.IsOpen = true;
+                
+                e.Handled = true;
+            }
+        }
+
+        private void EarningsPopup_MouseEnter(object sender, MouseEventArgs e)
+        {
+            _earningsPopupTimer.Stop();
+        }
+
+        private void EarningsPopup_MouseLeave(object sender, MouseEventArgs e)
+        {
+            _earningsPopupTimer.Start();
         }
     }
 }

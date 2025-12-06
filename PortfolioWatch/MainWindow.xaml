@@ -37,6 +37,9 @@
         <converters:ZeroToEmptyStringConverter x:Key="ZeroToEmptyStringConverter"/>
         <converters:PieSliceConverter x:Key="PieSliceConverter"/>
         <converters:StringEqualityConverter x:Key="StringEqualityConverter"/>
+        <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <converters:NewsItemBorderConverter x:Key="NewsItemBorderConverter"/>
+        <converters:NewsItemSpacingConverter x:Key="NewsItemSpacingConverter"/>
 
         <Style x:Key="RangeRadioButtonStyle" TargetType="RadioButton">
             <Setter Property="Background" Value="Transparent"/>
@@ -441,7 +444,7 @@
                             <DataTemplate DataType="{x:Type models:Stock}">
                                 <Grid Background="Transparent">
                                     <Grid.InputBindings>
-                                        <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Symbol}"/>
+                                        <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
                                     </Grid.InputBindings>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="12"/>
@@ -476,15 +479,27 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center">
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
                                                 
                                                 <!-- Earnings Flag -->
                                                 <Grid Margin="5,0,0,0" Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}" 
-                                                      ToolTip="{Binding EarningsMessage}" Background="Transparent">
+                                                      ToolTip="{Binding EarningsMessage}" Background="Transparent" Cursor="Hand"
+                                                      MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
+                                                      MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown">
                                                     <Path Data="M14.4,6L14,4H5V21H7V14H12.6L13,16H20V6H14.4Z" 
                                                           Fill="{Binding EarningsFlagColor}" 
+                                                          Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center"/>
+                                                </Grid>
+
+                                                <!-- News Flag -->
+                                                <Grid Margin="5,0,0,0" Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}" 
+                                                      Background="Transparent" Cursor="Hand"
+                                                      MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
+                                                      MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown">
+                                                    <Path Data="M14.4,6L14,4H5V21H7V14H12.6L13,16H20V6H14.4Z" 
+                                                          Fill="#808080" 
                                                           Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center"/>
                                                 </Grid>
                                             </StackPanel>
@@ -674,6 +689,89 @@
                         <DropShadowEffect BlurRadius="5" ShadowDepth="2" Opacity="0.3"/>
                     </Border.Effect>
                     <TextBlock x:Name="PieTooltipText" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="12"/>
+                </Border>
+            </Popup>
+
+            <!-- News Popup -->
+            <Popup x:Name="NewsPopup" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+                   MouseEnter="NewsPopup_MouseEnter" MouseLeave="NewsPopup_MouseLeave">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="6" Margin="10,0,0,0" MaxWidth="320">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
+                    </Border.Effect>
+                    <ItemsControl ItemsSource="{Binding NewsItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource SeparatorBrush}">
+                                    <Border.Margin>
+                                        <MultiBinding Converter="{StaticResource NewsItemSpacingConverter}">
+                                            <Binding Path="."/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=ItemsControl}" Path="ItemsSource"/>
+                                        </MultiBinding>
+                                    </Border.Margin>
+                                    <Border.Padding>
+                                        <MultiBinding Converter="{StaticResource NewsItemSpacingConverter}">
+                                            <Binding Path="."/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=ItemsControl}" Path="ItemsSource"/>
+                                        </MultiBinding>
+                                    </Border.Padding>
+                                    <Border.BorderThickness>
+                                        <MultiBinding Converter="{StaticResource NewsItemBorderConverter}">
+                                            <Binding Path="."/>
+                                            <Binding RelativeSource="{RelativeSource AncestorType=ItemsControl}" Path="ItemsSource"/>
+                                        </MultiBinding>
+                                    </Border.BorderThickness>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Image -->
+                                        <Border Grid.Column="0" Width="60" Height="60" CornerRadius="4" Margin="0,0,8,0" 
+                                                Visibility="{Binding ImageUrl, Converter={StaticResource StringToVisibilityConverter}}">
+                                            <Border.Background>
+                                                <ImageBrush ImageSource="{Binding ImageSource}" Stretch="UniformToFill"/>
+                                            </Border.Background>
+                                        </Border>
+
+                                        <Grid Grid.Column="1">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            
+                                            <!-- Title -->
+                                            <TextBlock Grid.Row="0" Text="{Binding Title}" FontWeight="Bold" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,2"
+                                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+
+                                            <!-- Source -->
+                                            <TextBlock Grid.Row="1" Text="{Binding Source}" HorizontalAlignment="Right" FontSize="9" 
+                                                       Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="0,2,0,0"/>
+                                        </Grid>
+                                        
+                                        <!-- Click Area -->
+                                        <Grid Grid.ColumnSpan="2" Background="Transparent" Cursor="Hand">
+                                            <Grid.InputBindings>
+                                                <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenNewsCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding Url}"/>
+                                            </Grid.InputBindings>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Border>
+            </Popup>
+
+            <!-- Earnings Popup -->
+            <Popup x:Name="EarningsPopup" Placement="Right" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade"
+                   MouseEnter="EarningsPopup_MouseEnter" MouseLeave="EarningsPopup_MouseLeave">
+                <Border Background="{DynamicResource ControlBackgroundBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="10,0,0,0" MaxWidth="250">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
+                    </Border.Effect>
+                    <TextBlock Text="{Binding EarningsMessage}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                 </Border>
             </Popup>
 

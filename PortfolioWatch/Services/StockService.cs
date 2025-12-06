@@ -48,7 +48,7 @@ namespace PortfolioWatch.Services
                 new Stock { Symbol = "NVDA", Name = "NVIDIA Corp" },
                 new Stock { Symbol = "META", Name = "Meta Platforms" },
                 new Stock { Symbol = "NFLX", Name = "Netflix Inc" },
-                new Stock { Symbol = "AMD", Name = "Adv Micro Dev" },
+                new Stock { Symbol = "AMD", Name = "Advanced Micro Devices" },
                 new Stock { Symbol = "INTC", Name = "Intel Corp" }
             };
         }
@@ -215,6 +215,7 @@ namespace PortfolioWatch.Services
             // Fire and forget update
             _ = UpdateStockDataAsync(stock, range);
             _ = UpdateStockEarningsAsync(stock);
+            _ = UpdateStockNewsAsync(stock);
 
             return stock;
         }
@@ -248,18 +249,216 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                // Process sequentially or in small batches to avoid rate limits
-                foreach (var stock in _stocks)
-                {
-                    await UpdateStockEarningsAsync(stock);
-                    // Small delay to be nice to the API
-                    await Task.Delay(500);
-                }
+                var tasks = _stocks.Select(stock => UpdateStockEarningsAsync(stock));
+                await Task.WhenAll(tasks);
                 return ServiceResult<bool>.Ok(true);
             }
             catch (Exception ex)
             {
                 return ServiceResult<bool>.Fail($"Failed to update earnings: {ex.Message}");
+            }
+        }
+
+        public async Task<ServiceResult<bool>> UpdateNewsAsync()
+        {
+            try
+            {
+                var tasks = _stocks.Select(stock => UpdateStockNewsAsync(stock));
+                await Task.WhenAll(tasks);
+                return ServiceResult<bool>.Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<bool>.Fail($"Failed to update news: {ex.Message}");
+            }
+        }
+
+        public Task<ServiceResult<bool>> UpdateLogosAsync()
+        {
+            // Deprecated: Logos removed
+            return Task.FromResult(ServiceResult<bool>.Ok(true));
+        }
+
+        private async Task UpdateStockNewsAsync(Stock stock)
+        {
+            try
+            {
+                // Request more items initially to allow for filtering
+                var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={stock.Symbol}&newsCount=20";
+                var response = await _httpClient.GetStringAsync(url);
+                
+                using var doc = JsonDocument.Parse(response);
+                if (doc.RootElement.TryGetProperty("news", out var newsArray) && newsArray.ValueKind == JsonValueKind.Array)
+                {
+                    var newsItems = new List<NewsItem>();
+                    
+                    // Noise Filters
+                    var blockedSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        "The Motley Fool", "Zacks Equity Research", "InvestorPlace", "Seeking Alpha", 
+                        "Benzinga", "MarketWatch", "TheStreet", "TipRanks", "Simply Wall St", "GuruFocus",
+                        "Barrons", "Bloomberg", "IBD", "Investors Business Daily"
+                    };
+
+                    var blockedPrefixes = new[] 
+                    { 
+                        "Why", "Prediction", "Here's", "3 Stocks", "5 Stocks", "7 Stocks", "Best", "Top", 
+                        "Is ", "Should You", "Where Will", "Could ", "Forget ", "Opinion"
+                    };
+
+                    var blockedTerms = new[]
+                    {
+                        "Analyst", "Upgrade", "Downgrade", "Price Target", "Buy Rating", "Sell Rating", 
+                        "Strong Buy", "Strong Sell", "Prediction"
+                    };
+
+                    // Determine cutoff date (Close of Business on the last full day of trading)
+                    var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+                    var nowEastern = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
+                    DateTime cutoff;
+
+                    // Helper to get previous weekday
+                    DateTime GetPreviousWeekday(DateTime date)
+                    {
+                        do { date = date.AddDays(-1); }
+                        while (date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday);
+                        return date;
+                    }
+
+                    // Try to use stock data to determine the last full trading day
+                    if (stock.Timestamps != null && stock.Timestamps.Count > 0)
+                    {
+                        // Timestamps are in Local Time (from UpdateStockDataAsync)
+                        var lastTsLocal = stock.Timestamps.Last();
+                        var lastTsEastern = TimeZoneInfo.ConvertTime(lastTsLocal, TimeZoneInfo.Local, easternZone);
+                        
+                        // Check if the last data point represents a market close (>= 15:55)
+                        // Market closes at 16:00 ET.
+                        bool isMarketClosedForDay = lastTsEastern.Hour >= 16 || (lastTsEastern.Hour == 15 && lastTsEastern.Minute >= 55);
+                        
+                        if (isMarketClosedForDay)
+                        {
+                            // We have a full day of data for this date
+                            cutoff = lastTsEastern.Date.AddHours(16);
+                        }
+                        else
+                        {
+                            // Partial day (market still open, or half-day)
+                            // Cutoff is the close of the PREVIOUS trading day
+                            cutoff = GetPreviousWeekday(lastTsEastern.Date).AddHours(16);
+                        }
+                    }
+                    else
+                    {
+                        // Fallback if no data available yet
+                        if (nowEastern.DayOfWeek == DayOfWeek.Saturday || nowEastern.DayOfWeek == DayOfWeek.Sunday)
+                        {
+                             // Weekend -> Last Friday
+                             var lastFri = nowEastern.Date;
+                             while (lastFri.DayOfWeek != DayOfWeek.Friday) lastFri = lastFri.AddDays(-1);
+                             cutoff = lastFri.AddHours(16);
+                        }
+                        else
+                        {
+                            // Weekday
+                            if (nowEastern.Hour >= 16)
+                            {
+                                // After close -> Today
+                                cutoff = nowEastern.Date.AddHours(16);
+                            }
+                            else
+                            {
+                                // Before close -> Yesterday (or Fri)
+                                cutoff = GetPreviousWeekday(nowEastern.Date).AddHours(16);
+                            }
+                        }
+                    }
+
+                    foreach (var item in newsArray.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("providerPublishTime", out var timeProp))
+                        {
+                            long unixSeconds = timeProp.GetInt64();
+                            var publishedAt = DateTimeOffset.FromUnixTimeSeconds(unixSeconds).ToOffset(easternZone.BaseUtcOffset).DateTime;
+
+                            if (publishedAt > cutoff)
+                            {
+                                string title = item.GetProperty("title").GetString() ?? "";
+                                string source = item.TryGetProperty("publisher", out var pub) ? pub.GetString() ?? "" : "";
+
+                                // Apply Filters
+                                if (blockedSources.Contains(source)) continue;
+                                if (blockedPrefixes.Any(p => title.StartsWith(p, StringComparison.OrdinalIgnoreCase))) continue;
+                                if (blockedTerms.Any(t => title.IndexOf(t, StringComparison.OrdinalIgnoreCase) >= 0)) continue;
+                                if (title.Contains("Earnings", StringComparison.OrdinalIgnoreCase)) continue; // Filter earnings noise as we have a flag for that
+
+                                // Relevance Check: Must contain Symbol or Company Name
+                                string simpleName = stock.Name.Split(' ')[0];
+                                // Avoid matching very short common words if they happen to be the name (unlikely for major stocks but safe to check)
+                                if (simpleName.Length < 3 && stock.Name.Contains(" ")) simpleName = stock.Name;
+
+                                bool containsSymbol = title.IndexOf(stock.Symbol, StringComparison.OrdinalIgnoreCase) >= 0;
+                                bool containsName = title.IndexOf(simpleName, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                                if (!containsSymbol && !containsName) continue;
+
+                                string imageUrl = "";
+                                if (item.TryGetProperty("thumbnail", out var thumb) && 
+                                    thumb.TryGetProperty("resolutions", out var resolutions) && 
+                                    resolutions.ValueKind == JsonValueKind.Array && 
+                                    resolutions.GetArrayLength() > 0)
+                                {
+                                    // Get the second resolution if available (usually better quality), otherwise first
+                                    var resIndex = resolutions.GetArrayLength() > 1 ? 1 : 0;
+                                    if (resolutions[resIndex].TryGetProperty("url", out var urlProp))
+                                    {
+                                        imageUrl = urlProp.GetString() ?? "";
+                                    }
+                                }
+
+                                var newsItem = new NewsItem
+                                {
+                                    Title = title,
+                                    PublishedAt = publishedAt,
+                                    Url = item.TryGetProperty("link", out var link) ? link.GetString() ?? "" : "",
+                                    Source = source,
+                                    ImageUrl = imageUrl
+                                };
+
+                                // Pre-load image
+                                if (!string.IsNullOrEmpty(imageUrl))
+                                {
+                                    try
+                                    {
+                                        var imageBytes = await _httpClient.GetByteArrayAsync(imageUrl);
+                                        using (var stream = new System.IO.MemoryStream(imageBytes))
+                                        {
+                                            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                                            bitmap.BeginInit();
+                                            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                                            bitmap.StreamSource = stream;
+                                            bitmap.EndInit();
+                                            bitmap.Freeze();
+                                            newsItem.ImageSource = bitmap;
+                                        }
+                                    }
+                                    catch
+                                    {
+                                        // Ignore image download failures
+                                    }
+                                }
+
+                                newsItems.Add(newsItem);
+                            }
+                        }
+                    }
+
+                    stock.NewsItems = newsItems.OrderByDescending(n => n.PublishedAt).Take(2).ToList();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to update news for {stock.Symbol}: {ex.Message}");
             }
         }
 

@@ -20,6 +20,7 @@ namespace PortfolioWatch.ViewModels
         private readonly UpdateService _updateService;
         private readonly DispatcherTimer _timer;
         private readonly DispatcherTimer _earningsTimer;
+        private readonly DispatcherTimer _newsTimer;
         private CancellationTokenSource? _searchCts;
 
         [ObservableProperty]
@@ -291,10 +292,17 @@ namespace PortfolioWatch.ViewModels
                 Interval = TimeSpan.FromHours(4)
             };
             _earningsTimer.Tick += EarningsTimer_Tick;
+
+            _newsTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(15)
+            };
+            _newsTimer.Tick += NewsTimer_Tick;
             
             LoadData();
             _timer.Start();
             _earningsTimer.Start();
+            _newsTimer.Start();
         }
 
         private async void LoadData()
@@ -387,6 +395,7 @@ namespace PortfolioWatch.ViewModels
             // to allow UI to be responsive first
             await System.Threading.Tasks.Task.Delay(2000);
             _ = _stockService.UpdateEarningsAsync();
+            _ = _stockService.UpdateNewsAsync();
             
             // Check for updates on startup
             _ = CheckForUpdates(isManual: false);
@@ -469,6 +478,11 @@ namespace PortfolioWatch.ViewModels
             await _stockService.UpdateEarningsAsync();
         }
 
+        private async void NewsTimer_Tick(object? sender, EventArgs e)
+        {
+            await _stockService.UpdateNewsAsync();
+        }
+
         [RelayCommand]
         private async System.Threading.Tasks.Task Refresh()
         {
@@ -484,6 +498,7 @@ namespace PortfolioWatch.ViewModels
             }
             ApplySortInternal();
             _ = _stockService.UpdateEarningsAsync();
+            _ = _stockService.UpdateNewsAsync();
         }
 
         [RelayCommand]
@@ -938,6 +953,47 @@ namespace PortfolioWatch.ViewModels
                 else
                 {
                     stock.PortfolioPercentage = 0;
+                }
+            }
+        }
+
+        [RelayCommand]
+        private void OpenNews(string url)
+        {
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"Failed to open link: {ex.Message}";
+                }
+            }
+        }
+
+        [RelayCommand]
+        private void OpenStock(Stock stock)
+        {
+            if (stock != null && !string.IsNullOrWhiteSpace(stock.Symbol))
+            {
+                try
+                {
+                    var url = $"https://finance.yahoo.com/quote/{stock.Symbol}";
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = url,
+                        UseShellExecute = true
+                    });
+                }
+                catch (Exception ex)
+                {
+                    StatusMessage = $"Failed to open link: {ex.Message}";
                 }
             }
         }

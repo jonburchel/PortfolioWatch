@@ -1,9 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PortfolioWatch.Models
 {
+    public class NewsItem
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Summary { get; set; } = string.Empty;
+        public string Url { get; set; } = string.Empty;
+        public string ImageUrl { get; set; } = string.Empty;
+        public ImageSource? ImageSource { get; set; }
+        public string Source { get; set; } = string.Empty;
+        public DateTime PublishedAt { get; set; }
+    }
+
     public class Stock : ObservableObject
     {
         private string _symbol = string.Empty;
@@ -144,5 +156,21 @@ namespace PortfolioWatch.Models
             "Miss" => "#e74c3c",     // Red
             _ => "Transparent"
         };
+
+        // News Properties
+        private List<NewsItem> _newsItems = new List<NewsItem>();
+        public List<NewsItem> NewsItems
+        {
+            get => _newsItems;
+            set
+            {
+                if (SetProperty(ref _newsItems, value))
+                {
+                    OnPropertyChanged(nameof(HasNewsFlag));
+                }
+            }
+        }
+
+        public bool HasNewsFlag => NewsItems != null && NewsItems.Any();
     }
 }
