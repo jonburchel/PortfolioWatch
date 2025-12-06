@@ -18,7 +18,7 @@
                     </MenuItem.Header>
                 </MenuItem>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="🎨 Theme" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
@@ -40,7 +40,7 @@
                     
                     <Separator Style="{DynamicResource {x:Type Separator}}"/>
 
-                    <MenuItem Style="{DynamicResource {x:Type MenuItem}}" StaysOpenOnClick="True">
+                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" StaysOpenOnClick="True">
                         <MenuItem.Header>
                             <Grid Width="200">
                                 <Grid.ColumnDefinitions>
@@ -62,13 +62,13 @@
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding ImportDataCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ImportDataCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="📥 Import Data..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding ExportDataCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ExportDataCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="📤 Export Data..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
@@ -76,7 +76,7 @@
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding ResetCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ResetCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="🔄 Reset" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
@@ -84,25 +84,25 @@
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>
 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding CheckForUpdatesCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding CheckForUpdatesCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="🆕 Check for updates" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding OpenAboutCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding OpenAboutCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="ℹ️ About" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding RequestFeatureCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding RequestFeatureCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="🐛 Request a fix or feature" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="💖 Say thanks" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
@@ -128,7 +128,7 @@
                     </MenuItem>
                 </MenuItem>
                 
-                <MenuItem Style="{DynamicResource {x:Type MenuItem}}" Command="{Binding ExitCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ExitCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="🚪 Exit" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>

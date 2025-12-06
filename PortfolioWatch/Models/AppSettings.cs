@@ -15,8 +15,8 @@ namespace PortfolioWatch.Models
         public List<Stock> Stocks { get; set; } = new List<Stock>();
         public double WindowLeft { get; set; }
         public double WindowTop { get; set; }
-        public double WindowWidth { get; set; } = 450;
-        public double WindowHeight { get; set; } = 600;
+        public double WindowWidth { get; set; } = 600;
+        public double WindowHeight { get; set; } = 800;
         public string WindowTitle { get; set; } = "Watchlist";
         public string SortColumn { get; set; } = "Symbol";
         public bool SortAscending { get; set; } = true;
@@ -25,7 +25,7 @@ namespace PortfolioWatch.Models
         public bool IsPortfolioMode { get; set; } = false;
         public bool StartWithWindows { get; set; } = true;
         public AppTheme Theme { get; set; } = AppTheme.System;
-        public double WindowOpacity { get; set; } = 1.0;
+        public double WindowOpacity { get; set; } = 0.85;
         public string SelectedRange { get; set; } = "1d";
         
         // Update Settings

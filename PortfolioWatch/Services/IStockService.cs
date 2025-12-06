@@ -6,6 +6,7 @@ namespace PortfolioWatch.Services
 {
     public interface IStockService
     {
+        List<Stock> GetDefaultStocks();
         Task<ServiceResult<List<Stock>>> GetStocksAsync();
         Task<ServiceResult<List<Stock>>> GetIndexesAsync();
         Task<ServiceResult<List<(string Symbol, string Name)>>> SearchStocksAsync(string query);

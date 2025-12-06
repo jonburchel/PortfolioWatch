@@ -8,6 +8,7 @@
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        TextOptions.TextFormattingMode="Display"
         mc:Ignorable="d"
         Title="Portfolio Watchlist" Height="600" Width="450"
         MinHeight="200" MinWidth="450"

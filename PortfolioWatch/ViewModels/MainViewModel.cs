@@ -598,54 +598,60 @@ namespace PortfolioWatch.ViewModels
         {
             var confirmationWindow = new ConfirmationWindow(
                 "Confirm Reset",
-                "Are you sure you want to reset all settings and portfolios to default? This action cannot be undone.");
+                "Are you sure you want to reset your portfolio? This action cannot be undone.",
+                showResetOption: true);
 
             if (confirmationWindow.ShowDialog() != true)
             {
                 return;
             }
 
-            // Clear settings
-            var settings = new AppSettings(); // Default settings
-            _settingsService.SaveSettings(settings);
-
-            // Reset properties
-            WindowTitle = "Watchlist";
-            SortProperty = string.Empty;
-            IsAscending = true;
-            IsIndexesVisible = true;
-            IsPortfolioMode = false;
-            CurrentTheme = AppTheme.System;
-            WindowOpacity = 0.8;
-            SelectedRange = "1d";
-
-            // Load default stocks
-            var defaultStocksResult = await _stockService.GetStocksAsync();
-            if (defaultStocksResult.Success && defaultStocksResult.Data != null)
+            if (confirmationWindow.ResetSettings)
             {
-                // Force UI update by clearing and adding
-                Stocks.Clear();
-                foreach (var stock in defaultStocksResult.Data)
-                {
-                    Stocks.Add(stock);
-                }
-                
-                _stockService.SetStocks(Stocks.ToList());
+                // Clear settings
+                var settings = new AppSettings(); // Default settings
+                _settingsService.SaveSettings(settings);
 
-                // Save defaults
-                SaveStocks();
+                // Reset properties
+                WindowTitle = "Watchlist";
+                SortProperty = string.Empty;
+                IsAscending = true;
+                IsIndexesVisible = true;
+                IsPortfolioMode = false;
+                CurrentTheme = AppTheme.System;
+                WindowOpacity = 0.8;
+                SelectedRange = "1d";
                 
-                // Re-apply sort (default)
-                ApplySortInternal();
-                
-                // Fetch fresh data
-                await _stockService.UpdatePricesAsync(SelectedRange);
-                StatusMessage = "Reset complete.";
+                // Reset window positions
+                App.CurrentApp.ResetWindowPositions();
             }
-            else
+
+            // Load default stocks (hardcoded defaults)
+            var defaultStocks = _stockService.GetDefaultStocks();
+            
+            // Force UI update by clearing and adding
+            Stocks.Clear();
+            foreach (var stock in defaultStocks)
             {
-                StatusMessage = $"Reset failed: {defaultStocksResult.ErrorMessage ?? "Unknown error"}";
+                stock.Shares = 0; // Ensure shares are 0
+                Stocks.Add(stock);
             }
+            
+            _stockService.SetStocks(Stocks.ToList());
+
+            // Save defaults
+            SaveStocks();
+            
+            // Re-apply sort (default)
+            ApplySortInternal();
+            
+            // Show success immediately
+            StatusMessage = "Reset complete.";
+            var alert = new ConfirmationWindow("Success", "Reset complete!", isAlert: true);
+            alert.ShowDialog();
+
+            // Fetch fresh data in background
+            await _stockService.UpdateAllDataAsync(SelectedRange);
         }
 
         [RelayCommand]
@@ -871,7 +877,7 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
-        private void ImportData()
+        private async Task ImportData()
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -898,12 +904,19 @@ namespace PortfolioWatch.ViewModels
                     
                     CalculatePortfolioTotals();
                     ApplySortInternal();
+
+                    // Refresh data immediately
+                    StatusMessage = "Refreshing imported data...";
+                    await _stockService.UpdateAllDataAsync(SelectedRange);
+                    StatusMessage = "Import complete.";
                     
-                    System.Windows.MessageBox.Show("Import successful!", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    var alert = new ConfirmationWindow("Success", "Import successful!", isAlert: true);
+                    alert.ShowDialog();
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Import failed: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    var alert = new ConfirmationWindow("Error", $"Import failed: {ex.Message}", isAlert: true);
+                    alert.ShowDialog();
                 }
             }
         }

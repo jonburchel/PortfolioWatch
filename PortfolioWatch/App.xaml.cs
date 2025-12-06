@@ -107,10 +107,11 @@ namespace PortfolioWatch
             }
             else
             {
-                // Default position: Bottom Left
+                // Default position: Bottom Left, slightly overlapping taskbar
                 var desktopWorkingArea = SystemParameters.WorkArea;
-                _floatingWindow.Left = 20;
-                _floatingWindow.Top = desktopWorkingArea.Bottom - _floatingWindow.Height - 20;
+                _floatingWindow.Left = -10;
+                // Lower edge 50px BELOW top of taskbar (WorkArea.Bottom)
+                _floatingWindow.Top = desktopWorkingArea.Bottom + 50 - _floatingWindow.Height;
             }
 
             _intendedLeft = _floatingWindow.Left;
@@ -232,7 +233,61 @@ namespace PortfolioWatch
                 if (_isSyncing || _floatingWindow == null) return;
                 
                 _isSyncing = true;
-                UpdateMainWindowPosition();
+                
+                // When MainWindow resizes, we want to move the FloatingWindow to maintain the gap
+                // instead of moving the MainWindow back to the old anchor.
+                
+                if (_currentIsBelow)
+                {
+                    // MainWindow is BELOW FloatingWindow.
+                    // FloatingWindow should be 20px ABOVE MainWindow (Overlap by 20px to match "Below" behavior).
+                    // FW.Bottom = MW.Top + 20
+                    // FW.Top + FW.Height = MW.Top + 20
+                    // FW.Top = MW.Top + 20 - FW.Height
+                    _floatingWindow.Top = _mainWindow.Top + 20 - _floatingWindow.ActualHeight;
+                }
+                else
+                {
+                    // MainWindow is ABOVE FloatingWindow.
+                    // FloatingWindow should be 20px BELOW MainWindow.
+                    // FW.Top = MW.Top + MW.Height + 20
+                    // Note: We use 20px gap. Previous logic used 20px overlap/offset?
+                    // Let's check UpdateMainWindowPosition logic:
+                    // if (!_currentIsBelow) _mainWindow.Top = fwTop + 20 - _mainWindow.Height;
+                    // This implies fwTop = _mainWindow.Top + _mainWindow.Height - 20;
+                    // So there is a 20px OVERLAP (or offset from bottom).
+                    // The user said "stay the same number of pixels above or below".
+                    // If the current logic establishes a -20px gap (overlap), we should maintain that.
+                    
+                    // Let's stick to the formula derived from UpdateMainWindowPosition to be consistent.
+                    // fwTop = _mainWindow.Top + _mainWindow.Height - 20;
+                    
+                    _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height - 20;
+                }
+
+                // We might also need to adjust Left if alignment depends on Width?
+                // UpdateMainWindowPosition logic:
+                // if (_currentIsRight) _mainWindow.Left = fwLeft + 20;
+                // else _mainWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 20;
+                
+                if (_currentIsRight)
+                {
+                    // Aligned Left edges.
+                    // If MW Left changes (resizing left edge), we need to move FW.
+                    // fwLeft = MW.Left - 20
+                    _floatingWindow.Left = _mainWindow.Left - 20;
+                }
+                else
+                {
+                    // Aligned Right edges.
+                    // If MW Width changes, we need to move FW?
+                    // fwLeft = _mainWindow.Left + _mainWindow.Width + 20 - fwWidth
+                    _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 20 - _floatingWindow.ActualWidth;
+                }
+
+                _intendedLeft = _floatingWindow.Left;
+                _intendedTop = _floatingWindow.Top;
+
                 _isSyncing = false;
             };
 
@@ -382,6 +437,35 @@ namespace PortfolioWatch
                 // If not pinned (transient), do NOT start auto-hide yet. 
                 // It will be started when the mouse leaves the FloatingWindow.
             }
+        }
+
+        public void ResetWindowPositions()
+        {
+            if (_mainWindow == null || _floatingWindow == null) return;
+
+            _isSyncing = true;
+
+            // Reset Main Window Size
+            _mainWindow.Width = 800;
+            _mainWindow.Height = 600;
+            _mainWindow.UpdateLayout();
+
+            // Reset Floating Window Position
+            // Lower left corner, -10px from left edge.
+            // Lower edge of button 50px BELOW top of taskbar.
+            var workArea = SystemParameters.WorkArea;
+            
+            _floatingWindow.Left = -9;
+            _floatingWindow.Top = workArea.Bottom + 34 - _floatingWindow.ActualHeight;
+
+            // Update intended position to prevent reversion
+            _intendedLeft = _floatingWindow.Left;
+            _intendedTop = _floatingWindow.Top;
+
+            // Force update of relative orientation flags
+            UpdateMainWindowPosition();
+
+            _isSyncing = false;
         }
 
         private void UpdateMainWindowPosition()

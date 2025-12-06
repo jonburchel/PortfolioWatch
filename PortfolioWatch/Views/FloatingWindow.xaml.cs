@@ -111,13 +111,21 @@ namespace PortfolioWatch.Views
 
         private async void Reset_Click(object sender, RoutedEventArgs e)
         {
-            foreach (Window window in Application.Current.Windows)
+            try
             {
-                if (window is MainWindow mainWindow && mainWindow.DataContext is MainViewModel vm)
+                foreach (Window window in Application.Current.Windows)
                 {
-                    await vm.Reset();
-                    return;
+                    if (window is MainWindow mainWindow && mainWindow.DataContext is MainViewModel vm)
+                    {
+                        await vm.Reset();
+                        App.CurrentApp.ResetWindowPositions();
+                        return;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error resetting settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }
