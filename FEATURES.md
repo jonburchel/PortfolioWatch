@@ -81,17 +81,28 @@ The application consists of two synchronized windows:
 *   **Data**: Fetched asynchronously to avoid blocking UI.
 
 ### 3.5. Notifications & Flags
-The application uses a system of emoji-based flags to alert the user to significant events or data points for each stock.
+The application uses a system of emoji-based flags to alert the user to significant events or data points for each stock. Each flag includes a "Signal Strength" rating (0-10) overlaid on the icon to indicate the magnitude or conviction of the signal.
 
 *   **Earnings Flag**:
-    *   **Upcoming (📅)**: Earnings report is scheduled within the next 7 days.
-    *   **Beat (🎯)**: Most recent earnings report beat analyst estimates.
-    *   **Miss (📉)**: Most recent earnings report missed analyst estimates.
+    *   **Icons**:
+        *   **Upcoming (📅)**: Earnings report is scheduled within the next 7 days.
+        *   **Beat (🎯)**: Most recent earnings report beat analyst estimates.
+        *   **Miss (📉)**: Most recent earnings report missed analyst estimates.
+    *   **Signal Strength**:
+        *   **Upcoming**: Fixed at **6.0/10** (Neutral/Unknown magnitude).
+        *   **Beat/Miss**: Calculated based on the **Earnings Surprise %**.
+            *   Scale: 2% surprise = 2.0/10, scaling up to 20% surprise = 10.0/10.
+            *   Logic: Larger surprises typically drive larger price moves.
+
 *   **News Flag**:
-    *   **Breaking News (📰)**: Indicates recent news articles are available for the stock.
+    *   **Icon**: **Breaking News (📰)**.
+    *   **Trigger**: Indicates recent news articles are available for the stock.
+    *   **Filtering**: The system automatically filters out low-quality sources and "junk" news to ensure only relevant headlines trigger the flag.
+
 *   **Options Flag**:
-    *   **Bullish (🐂)**: Unusual options volume or critical gamma exposure with positive directional confidence.
-    *   **Bearish (🐻)**: Unusual options volume or critical gamma exposure with negative directional confidence.
+    *   **Icons**:
+        *   **Bullish (🐂)**: Positive directional confidence.
+        *   **Bearish (🐻)**: Negative directional confidence.
     *   **Trigger**: Requires unusual volume/gamma AND an options impact date within 7 days.
     *   **Logic & Signal Interpretation**:
         The signal is derived from a "tug-of-war" between two primary forces:
@@ -104,18 +115,30 @@ The application uses a system of emoji-based flags to alert the user to signific
         *   **Conflicting Signals**:
             *   **Flow Overpowers Max Pain**: Traders are betting heavily against the house. Max Pain acts as a temporary drag (or prop). Once the expiration date passes, this artificial pressure releases, often leading to a surge (or drop) in the direction of the flow.
             *   **Max Pain Overpowers Flow**: Market Maker incentives are too strong for current volume to overcome. The price is likely to be pinned near the Max Pain price until expiration.
-    *   **Signal Strength & UI Overlay**:
-        *   **Metric**: The raw directional confidence score (-1.0 to +1.0) is converted into a user-friendly **0-10 rating** (e.g., 7.5/10).
-        *   **Calculation**: `Signal Strength = |Directional Confidence| * 10`.
-        *   **Visuals**: This rating is overlaid directly on the Options emoji (🐂/🐻) as small, bold text.
-            *   **Green Text**: Indicates a Bullish signal (Positive confidence).
-            *   **Red Text**: Indicates a Bearish signal (Negative confidence).
+    *   **Signal Strength**:
+        *   **Metric**: The raw directional confidence score (-0.4 to +0.4 typical range) is scaled to a **0-10 rating**.
+        *   **Calculation**: `Signal Strength = Min(|Directional Confidence| * 25, 10.0)`.
+        *   **Visuals**: Overlaid text color indicates direction (Green = Bullish, Red = Bearish).
+
 *   **Insider Flag**:
-    *   **Insider Activity (💼)**: Significant insider trading activity detected.
-    *   **Trigger**: Net insider buying > $500k OR Net insider selling > $1M.
+    *   **Icon**: **Insider Activity (💼)**.
+    *   **Trigger**: Significant net insider buying or selling.
+    *   **Signal Strength**:
+        *   **Buying (Accumulation)**: High conviction signal.
+            *   Scale: Logarithmic scale from $50k (2.0/10) to $10M (10.0/10).
+            *   Logic: Real money buying is always a strong signal.
+        *   **Selling (Distribution)**: Adaptive signal based on Market Cap.
+            *   Scale: Logarithmic scale relative to company size.
+            *   Thresholds: A $10M sell is a 10/10 signal for a small cap, but might be a 2/10 for a mega-cap.
+            *   Logic: Executives sell for many reasons (taxes, diversification), so the threshold for a "warning" is much higher than for buying.
+
 *   **RVOL Flag**:
-    *   **High Volume (🏦)**: Relative Volume (RVOL) is significantly higher than average.
-    *   **Trigger**: Current volume is > 1.5x the average volume for this time of day.
+    *   **Icon**: **High Volume (🏦)**.
+    *   **Trigger**: Relative Volume (RVOL) > 1.5x.
+    *   **Signal Strength**:
+        *   Scale: Linear scale from 1.5x (2.0/10) to 5.0x (10.0/10).
+        *   Logic: Higher relative volume indicates institutional participation and validates the price move.
+    *   **Color**: Green if price is up, Red if price is down.
 
 ## 4. Data Persistence & Settings
 

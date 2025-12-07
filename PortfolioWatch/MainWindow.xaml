@@ -39,9 +39,27 @@
         <converters:ZeroToEmptyStringConverter x:Key="ZeroToEmptyStringConverter"/>
         <converters:PieSliceConverter x:Key="PieSliceConverter"/>
         <converters:StringEqualityConverter x:Key="StringEqualityConverter"/>
+        <converters:EarningsStatusVisibilityConverter x:Key="EarningsStatusVisibilityConverter"/>
         <converters:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <converters:NewsItemBorderConverter x:Key="NewsItemBorderConverter"/>
         <converters:NewsItemSpacingConverter x:Key="NewsItemSpacingConverter"/>
+        <converters:SignalStrengthToOpacityConverter x:Key="SignalStrengthToOpacityConverter"/>
+
+        <Style x:Key="SignalStrengthIndicatorStyle" TargetType="ContentControl">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContentControl">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="1,0,-2,-1">
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="3" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=1}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="4" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=2}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="5" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=3}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="6" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=4}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="7" Margin="0,0,0,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=5}" RadiusX="0.5" RadiusY="0.5"/>
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <Style x:Key="NarrowScrollBarStyle" TargetType="{x:Type ScrollBar}">
             <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
@@ -555,19 +573,52 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
                                                 
-                                                <!-- Earnings Flag -->
-                                                <emoji:TextBlock Text="{Binding EarningsEmoji}" Margin="3,0,0,0" 
-                                                           Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
-                                                           MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
-                                                           MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown"/>
-
                                                 <!-- News Flag -->
                                                 <emoji:TextBlock Text="{Binding NewsEmoji}" Margin="3,0,0,0" 
                                                            Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}"
                                                            Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
                                                            MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
                                                            MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown"/>
+
+                                                <!-- Earnings Flag -->
+                                                <Grid Margin="3,0,0,0" 
+                                                      Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}"
+                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                      MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
+                                                      MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown"
+                                                      Background="Transparent">
+                                                    <emoji:TextBlock Text="{Binding EarningsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                        <emoji:TextBlock.Style>
+                                                            <Style TargetType="emoji:TextBlock">
+                                                                <Setter Property="Margin" Value="0,0,0,2"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding EarningsStatus}" Value="Upcoming">
+                                                                        <Setter Property="Margin" Value="0,2,0,0"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </emoji:TextBlock.Style>
+                                                    </emoji:TextBlock>
+                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                    Content="{Binding EarningsSignalStrength}" 
+                                                                    Tag="{Binding EarningsFlagColor}"
+                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"
+                                                                    Visibility="{Binding EarningsStatus, Converter={StaticResource EarningsStatusVisibilityConverter}}"/>
+                                                </Grid>
+
+                                                <!-- Insider Flag -->
+                                                <Grid Margin="3,0,0,0" 
+                                                      Visibility="{Binding HasInsiderFlag, Converter={StaticResource BoolToVis}}"
+                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                      MouseEnter="InsiderFlag_MouseEnter" MouseLeave="InsiderFlag_MouseLeave"
+                                                      MouseLeftButtonDown="InsiderFlag_MouseLeftButtonDown"
+                                                      Background="Transparent">
+                                                    <emoji:TextBlock Text="{Binding InsiderEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                    Content="{Binding InsiderSignalStrength}" 
+                                                                    Tag="{Binding InsiderSignalColor}"
+                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
+                                                </Grid>
 
                                                 <!-- Options Flag -->
                                                 <Grid Margin="3,0,0,0" 
@@ -576,31 +627,26 @@
                                                       MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
                                                       MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"
                                                       Background="Transparent">
-                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding SignalStrengthDisplay}" 
-                                                               Foreground="{Binding SignalStrengthColor}" 
-                                                               FontSize="8" FontWeight="Bold" 
-                                                               HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                                                               Margin="0,0,-3,-1">
-                                                        <TextBlock.Effect>
-                                                            <DropShadowEffect BlurRadius="2" ShadowDepth="0" Color="Black" Opacity="0.8"/>
-                                                        </TextBlock.Effect>
-                                                    </TextBlock>
+                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                    Content="{Binding OptionsSignalStrength}" 
+                                                                    Tag="{Binding SignalStrengthColor}"
+                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
                                                 </Grid>
 
-                                                <!-- Insider Flag -->
-                                                <emoji:TextBlock Text="{Binding InsiderEmoji}" Margin="3,0,0,0" 
-                                                           Visibility="{Binding HasInsiderFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
-                                                           MouseEnter="InsiderFlag_MouseEnter" MouseLeave="InsiderFlag_MouseLeave"
-                                                           MouseLeftButtonDown="InsiderFlag_MouseLeftButtonDown"/>
-
                                                 <!-- RVOL Flag -->
-                                                <emoji:TextBlock Text="{Binding RVolEmoji}" Margin="3,0,0,0" 
-                                                           Visibility="{Binding HasRVolFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
-                                                           MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
-                                                           MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"/>
+                                                <Grid Margin="3,0,0,0" 
+                                                      Visibility="{Binding HasRVolFlag, Converter={StaticResource BoolToVis}}"
+                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                      MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
+                                                      MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"
+                                                      Background="Transparent">
+                                                    <emoji:TextBlock Text="{Binding RVolEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                    Content="{Binding RVolSignalStrength}" 
+                                                                    Tag="{Binding RVolSignalColor}"
+                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
+                                                </Grid>
                                             </StackPanel>
                                             <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left"/>
                                         </StackPanel>
@@ -873,7 +919,12 @@
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.4"/>
                     </Border.Effect>
-                    <TextBlock Text="{Binding EarningsMessage}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <StackPanel>
+                        <TextBlock Text="{Binding EarningsMessage}" TextWrapping="Wrap" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <TextBlock Text="{Binding EarningsSignalStrengthDisplay, StringFormat='Signal Strength: {0}/10'}" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic" Margin="0,8,0,0"
+                                   Visibility="{Binding EarningsStatus, Converter={StaticResource EarningsStatusVisibilityConverter}}"/>
+                    </StackPanel>
                 </Border>
             </Popup>
 
@@ -948,6 +999,8 @@
 
                         <TextBlock Text="{Binding InsiderSentiment, StringFormat='Net Insider Sentiment: {0}'}" 
                                    Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic" Margin="0,8,0,0"/>
+                        <TextBlock Text="{Binding InsiderSignalStrengthDisplay, StringFormat='Signal Strength: {0}/10'}" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic" Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>
             </Popup>
@@ -986,6 +1039,8 @@
 
                         <TextBlock Text="High relative volume indicates institutional participation validating the price move." 
                                    TextWrapping="Wrap" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic"/>
+                        <TextBlock Text="{Binding RVolSignalStrengthDisplay, StringFormat='Signal Strength: {0}/10'}" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" FontStyle="Italic" Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>
             </Popup>

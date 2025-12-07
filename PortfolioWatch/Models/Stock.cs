@@ -7,14 +7,21 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PortfolioWatch.Models
 {
-    public class NewsItem
+    public class NewsItem : ObservableObject
     {
         public string Title { get; set; } = string.Empty;
         public string Summary { get; set; } = string.Empty;
         public string Url { get; set; } = string.Empty;
         public string ImageUrl { get; set; } = string.Empty;
+
+        private ImageSource? _imageSource;
         [JsonIgnore]
-        public ImageSource? ImageSource { get; set; }
+        public ImageSource? ImageSource
+        {
+            get => _imageSource;
+            set => SetProperty(ref _imageSource, value);
+        }
+
         public string Source { get; set; } = string.Empty;
         public DateTime PublishedAt { get; set; }
     }
@@ -57,9 +64,7 @@ namespace PortfolioWatch.Models
                     OnPropertyChanged(nameof(IsUp));
                     OnPropertyChanged(nameof(MarketValue));
                     OnPropertyChanged(nameof(DayChangeValue));
-                    // Recalculate Directional Bias if price changes significantly? 
-                    // Requirement says "calculated on data ingest only", so we might not need to trigger it here unless Price setter IS the ingest.
-                    // For now, we'll assume ingest sets properties directly or calls a method.
+                    RefreshDirectionalConfidence();
                 }
             }
         }
@@ -124,6 +129,20 @@ namespace PortfolioWatch.Models
             }
         }
 
+        private decimal _marketCap;
+        public decimal MarketCap
+        {
+            get => _marketCap;
+            set
+            {
+                if (SetProperty(ref _marketCap, value))
+                {
+                    OnPropertyChanged(nameof(InsiderSignalStrength));
+                    OnPropertyChanged(nameof(InsiderSignalStrengthDisplay));
+                }
+            }
+        }
+
         public decimal MarketValue => (decimal)Shares * Price;
 
         public decimal DayChangeValue => (decimal)Shares * Change;
@@ -165,6 +184,20 @@ namespace PortfolioWatch.Models
             set => SetProperty(ref _earningsMessage, value);
         }
 
+        private double _earningsSurprisePercent;
+        public double EarningsSurprisePercent
+        {
+            get => _earningsSurprisePercent;
+            set
+            {
+                if (SetProperty(ref _earningsSurprisePercent, value))
+                {
+                    OnPropertyChanged(nameof(EarningsSignalStrength));
+                    OnPropertyChanged(nameof(EarningsSignalStrengthDisplay));
+                }
+            }
+        }
+
         public bool HasEarningsFlag => EarningsStatus != "None";
 
         public string EarningsFlagColor => EarningsStatus switch
@@ -182,6 +215,25 @@ namespace PortfolioWatch.Models
             "Miss" => "📉",
             _ => string.Empty
         };
+
+        public double EarningsSignalStrength
+        {
+            get
+            {
+                if (EarningsStatus == "Upcoming") return 3.0; // Neutral/Unknown magnitude
+                
+                double absSurprise = Math.Abs(EarningsSurprisePercent);
+                
+                // Continuous scale from 2% (Score 1.0) to 20% (Score 5.0)
+                if (absSurprise < 0.02) return 1.0;
+                if (absSurprise >= 0.20) return 5.0;
+
+                // Linear interpolation: 1 + (ratio of range) * 4
+                return 1.0 + ((absSurprise - 0.02) / (0.20 - 0.02)) * 4.0;
+            }
+        }
+
+        public string EarningsSignalStrengthDisplay => (EarningsSignalStrength * 2).ToString("0.0");
 
         // News Properties
         private List<NewsItem> _newsItems = new List<NewsItem>();
@@ -259,6 +311,8 @@ namespace PortfolioWatch.Models
                 return DirectionalConfidence >= 0 ? "🐂" : "🐻";
             }
         }
+
+        public double OptionsSignalStrength => Math.Min(Math.Abs(DirectionalConfidence) * 12.5, 5.0); // Scale 0-0.4 to 0-5, clamped
 
         private decimal _maxPainPrice;
         public decimal MaxPainPrice
@@ -356,7 +410,7 @@ namespace PortfolioWatch.Models
 
         private double CalculateDirectionalConfidence()
         {
-            if (Price == 0 || TotalVolume == 0) return 0;
+            if (Price == 0 || TotalVolume == 0 || MaxPainPrice == 0) return 0;
 
             // Step 1: Magnet Pull
             double magnetPull = (double)((MaxPainPrice - Price) / Price);
@@ -386,7 +440,7 @@ namespace PortfolioWatch.Models
         public string NetFlowDisplay => (CallVolume > PutVolume) ? "Bullish" : "Bearish";
         public string NetFlowColor => (CallVolume > PutVolume) ? "#2ecc71" : "#e74c3c";
 
-        public string SignalStrengthDisplay => (Math.Abs(DirectionalConfidence) * 10).ToString("0.0");
+        public string SignalStrengthDisplay => (Math.Abs(DirectionalConfidence) * 25).ToString("0.0");
         public string SignalStrengthColor => DirectionalConfidence >= 0 ? "#2ecc71" : "#e74c3c";
 
         public string OptionsSummary
@@ -465,16 +519,76 @@ namespace PortfolioWatch.Models
             set => SetProperty(ref _insiderTransactions, value);
         }
 
-        public bool HasInsiderFlag => NetInsiderTransactionValue > 500000 || NetInsiderTransactionValue < -1000000; // Buy > 500k, Sell > 1M (Sell is negative value usually, but prompt says > 1M sell, implying absolute value or specific logic. Assuming Net Value is signed.)
-        // Clarification: "Net Insider Transaction Value ... > $500k (Buy) or > $1M (Sell)"
-        // If NetValue is positive (Buy), check > 500k.
-        // If NetValue is negative (Sell), check < -1M (magnitude > 1M).
-        // Let's assume NetInsiderTransactionValue is signed (+ for buy, - for sell).
-        // So: (Net > 500,000) OR (Net < -1,000,000)
+        public bool HasInsiderFlag => InsiderSignalStrength > 0;
 
         public string InsiderEmoji => HasInsiderFlag ? "💼" : string.Empty;
 
         public string InsiderSentiment => NetInsiderTransactionValue > 0 ? "Accumulating" : "Distributing";
+
+        public double InsiderSignalStrength
+        {
+            get
+            {
+                decimal absValue = Math.Abs(NetInsiderTransactionValue);
+                double absValDouble = (double)absValue;
+
+                if (NetInsiderTransactionValue > 0) // Buy
+                {
+                    // "Genius" Logic for Buys:
+                    // Buys are high conviction signals. We use a Logarithmic Scale based on Absolute Dollar Value.
+                    // A $10M buy is a massive signal regardless of company size.
+                    // Range: $50k (Score 1.0) to $10M (Score 5.0)
+                    
+                    const double minVal = 50_000;
+                    const double maxVal = 10_000_000;
+
+                    if (absValDouble < minVal) return 0; // Ignore small buys
+                    if (absValDouble >= maxVal) return 5.0;
+
+                    // Logarithmic Interpolation
+                    double logVal = Math.Log10(absValDouble);
+                    double logMin = Math.Log10(minVal);
+                    double logMax = Math.Log10(maxVal);
+
+                    return 1.0 + ((logVal - logMin) / (logMax - logMin)) * 4.0;
+                }
+                else // Sell
+                {
+                    // "Genius" Logic for Sells:
+                    // Sells are often noise (tax, diversification). We need an Adaptive Scale based on Market Cap.
+                    // We define a "Max Threshold" (10/10 score) that scales with company size but has a ceiling.
+                    
+                    // Default to $100B (Large Cap) if Market Cap is missing to be conservative
+                    decimal capDecimal = MarketCap > 0 ? MarketCap : 100_000_000_000m; 
+                    
+                    // Target Max: 0.05% of Market Cap
+                    decimal maxThresholdDec = capDecimal * 0.0005m; 
+                    
+                    // Clamp the Max Threshold:
+                    // Floor: $10M (For Small Caps, selling $10M is huge)
+                    // Ceiling: $500M (For Mega Caps, selling $500M is huge, even if < 0.05%)
+                    if (maxThresholdDec < 10_000_000m) maxThresholdDec = 10_000_000m;
+                    if (maxThresholdDec > 500_000_000m) maxThresholdDec = 500_000_000m;
+
+                    double maxVal = (double)maxThresholdDec;
+                    double minVal = maxVal / 20.0; // Min threshold is 5% of the Max threshold
+
+                    if (absValDouble < minVal) return 0; // Ignore noise
+                    if (absValDouble >= maxVal) return 5.0;
+
+                    // Logarithmic Interpolation for Sells
+                    double logVal = Math.Log10(absValDouble);
+                    double logMin = Math.Log10(minVal);
+                    double logMax = Math.Log10(maxVal);
+
+                    return 1.0 + ((logVal - logMin) / (logMax - logMin)) * 4.0;
+                }
+            }
+        }
+
+        public string InsiderSignalStrengthDisplay => (InsiderSignalStrength * 2).ToString("0.0");
+
+        public string InsiderSignalColor => NetInsiderTransactionValue > 0 ? "#2ecc71" : "#e74c3c";
 
         // --- Yellow Flag: Relative Volume (RVOL) ---
 
@@ -512,10 +626,28 @@ namespace PortfolioWatch.Models
 
         public double RVOL => _averageVolumeByTimeOfDay > 0 ? (double)_currentVolume / _averageVolumeByTimeOfDay : 0;
 
-        public bool HasRVolFlag => RVOL > 1.5;
+        public bool HasRVolFlag => RVolSignalStrength > 0;
 
         public string RVolEmoji => HasRVolFlag ? "🏦" : string.Empty;
 
         public string RVOLDisplay => $"{RVOL:0.0}x";
+
+        public double RVolSignalStrength
+        {
+            get
+            {
+                // Continuous scale from 1.5x (Score 1.0) to 5.0x (Score 5.0)
+                // 10x was too high; 5x is already an extreme outlier.
+                if (RVOL < 1.5) return 0; // Ignore noise
+                if (RVOL >= 5.0) return 5.0;
+
+                return 1.0 + ((RVOL - 1.5) / (5.0 - 1.5)) * 4.0;
+            }
+        }
+
+        public string RVolSignalStrengthDisplay => (RVolSignalStrength * 2).ToString("0.0");
+
+        // RVOL validates the move. If price is up, it's a positive signal. If price is down, it's a negative signal.
+        public string RVolSignalColor => Change >= 0 ? "#2ecc71" : "#e74c3c";
     }
 }

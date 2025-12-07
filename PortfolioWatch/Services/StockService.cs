@@ -6,6 +6,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Globalization;
 using System.Net;
+using System.IO;
+using System.Windows.Media.Imaging;
 using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Services
@@ -493,35 +495,56 @@ namespace PortfolioWatch.Services
                                     ImageUrl = imageUrl
                                 };
 
-                                // Pre-load image
-                                if (!string.IsNullOrEmpty(imageUrl))
-                                {
-                                    try
-                                    {
-                                        var imageBytes = await _httpClient.GetByteArrayAsync(imageUrl);
-                                        using (var stream = new System.IO.MemoryStream(imageBytes))
-                                        {
-                                            var bitmap = new System.Windows.Media.Imaging.BitmapImage();
-                                            bitmap.BeginInit();
-                                            bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
-                                            bitmap.StreamSource = stream;
-                                            bitmap.EndInit();
-                                            bitmap.Freeze();
-                                            newsItem.ImageSource = bitmap;
-                                        }
-                                    }
-                                    catch
-                                    {
-                                        // Ignore image download failures
-                                    }
-                                }
+                                // Image pre-loading removed to improve startup speed
+                                // UI will bind to ImageUrl directly
 
                                 newsItems.Add(newsItem);
                             }
                         }
                     }
 
-                    stock.NewsItems = newsItems.OrderByDescending(n => n.PublishedAt).Take(2).ToList();
+                    var finalItems = newsItems.OrderByDescending(n => n.PublishedAt).Take(2).ToList();
+                    stock.NewsItems = finalItems;
+
+                    // Background Image Pre-caching (Non-blocking)
+                    _ = Task.Run(async () =>
+                    {
+                        foreach (var item in finalItems)
+                        {
+                            if (!string.IsNullOrEmpty(item.ImageUrl))
+                            {
+                                try
+                                {
+                                    var bytes = await _httpClient.GetByteArrayAsync(item.ImageUrl);
+                                    
+                                    if (System.Windows.Application.Current != null)
+                                    {
+                                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                                        {
+                                            try
+                                            {
+                                                var image = new BitmapImage();
+                                                using (var mem = new MemoryStream(bytes))
+                                                {
+                                                    mem.Position = 0;
+                                                    image.BeginInit();
+                                                    image.CreateOptions = BitmapCreateOptions.PreservePixelFormat;
+                                                    image.CacheOption = BitmapCacheOption.OnLoad;
+                                                    image.UriSource = null;
+                                                    image.StreamSource = mem;
+                                                    image.EndInit();
+                                                }
+                                                image.Freeze();
+                                                item.ImageSource = image;
+                                            }
+                                            catch { /* Ignore image creation errors */ }
+                                        });
+                                    }
+                                }
+                                catch { /* Ignore download errors */ }
+                            }
+                        }
+                    });
                 }
             }
             catch (Exception ex)
@@ -563,13 +586,16 @@ namespace PortfolioWatch.Services
                     {
                         if (DateTime.TryParse(dateReportedStr, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateReported))
                         {
-                            // Check if reported within last 3 days
-                            if ((DateTime.Now.Date - dateReported.Date).TotalDays <= 3 && (DateTime.Now.Date - dateReported.Date).TotalDays >= 0)
+                            // Check if reported within last 7 days
+                            if ((DateTime.Now.Date - dateReported.Date).TotalDays <= 7 && (DateTime.Now.Date - dateReported.Date).TotalDays >= 0)
                             {
                                 var eps = ParseDouble(lastReport, "eps");
                                 var forecast = ParseDouble(lastReport, "consensusForecast");
                                 var percentSurprise = ParseDouble(lastReport, "percentageSurprise");
                                 
+                                // Normalize percentage (API returns 23.5 for 23.5%, Model expects 0.235)
+                                stock.EarningsSurprisePercent = percentSurprise / 100.0;
+
                                 if (percentSurprise > 0)
                                 {
                                     stock.EarningsStatus = "Beat";
@@ -763,24 +789,6 @@ namespace PortfolioWatch.Services
                 using var doc = JsonDocument.Parse(response);
                 var result = doc.RootElement.GetProperty("quoteSummary").GetProperty("result")[0];
 
-                // Net Insider Transaction Value
-                // Try to get it from netSharePurchaseActivity
-                if (result.TryGetProperty("netSharePurchaseActivity", out var netActivity))
-                {
-                    long buyShares = 0;
-                    long sellShares = 0;
-
-                    if (netActivity.TryGetProperty("buyInfoShares", out var buyInfo) && buyInfo.TryGetProperty("raw", out var buyRaw))
-                        buyShares = (long)buyRaw.GetDouble();
-                    
-                    if (netActivity.TryGetProperty("sellInfoShares", out var sellInfo) && sellInfo.TryGetProperty("raw", out var sellRaw))
-                        sellShares = (long)sellRaw.GetDouble();
-
-                    // Estimate value based on current price (approximate)
-                    decimal netShares = buyShares - sellShares;
-                    stock.NetInsiderTransactionValue = netShares * stock.Price;
-                }
-
                 // Insider Transactions List
                 if (result.TryGetProperty("insiderTransactions", out var transactions) && transactions.TryGetProperty("transactions", out var transArray))
                 {
@@ -816,7 +824,25 @@ namespace PortfolioWatch.Services
                             }
                         }
                     }
-                    stock.InsiderTransactions = list.OrderByDescending(x => x.Date).Take(10).ToList();
+                    
+                    // Filter to last 6 months to be relevant
+                    var cutoff = DateTime.Now.AddMonths(-6);
+                    var recentTransactions = list.Where(x => x.Date >= cutoff).OrderByDescending(x => x.Date).Take(10).ToList();
+                    
+                    stock.InsiderTransactions = recentTransactions;
+
+                    // Calculate Net Insider Value from these specific transactions
+                    // This ensures our "Genius" signal logic matches the data shown to the user
+                    // and avoids the massive aggregate numbers from 'netSharePurchaseActivity'
+                    decimal netValue = 0;
+                    foreach (var tx in recentTransactions)
+                    {
+                        if (tx.TransactionType == "Buy")
+                            netValue += tx.Value;
+                        else
+                            netValue -= tx.Value;
+                    }
+                    stock.NetInsiderTransactionValue = netValue;
                 }
             }
             catch (Exception ex)
@@ -850,6 +876,16 @@ namespace PortfolioWatch.Services
                 if (result.TryGetProperty("price", out var priceModule) && priceModule.TryGetProperty("regularMarketVolume", out var volProp))
                 {
                     currentVolume = (long)volProp.GetProperty("raw").GetDouble();
+                }
+
+                // Market Cap
+                if (result.TryGetProperty("summaryDetail", out var summaryDetail) && summaryDetail.TryGetProperty("marketCap", out var capProp))
+                {
+                    stock.MarketCap = (decimal)capProp.GetProperty("raw").GetDouble();
+                }
+                else if (result.TryGetProperty("price", out var priceMod) && priceMod.TryGetProperty("marketCap", out var capProp2))
+                {
+                    stock.MarketCap = (decimal)capProp2.GetProperty("raw").GetDouble();
                 }
 
                 stock.AverageVolume = avgVolume;
@@ -919,6 +955,10 @@ namespace PortfolioWatch.Services
                 if (meta.TryGetProperty("regularMarketPrice", out var priceProp))
                     regularMarketPrice = priceProp.GetDouble();
                 
+                long regularMarketTime = 0;
+                if (meta.TryGetProperty("regularMarketTime", out var timeProp))
+                    regularMarketTime = timeProp.GetInt64();
+
                 if (meta.TryGetProperty("chartPreviousClose", out var prevCloseProp))
                     previousClose = prevCloseProp.GetDouble();
                 else if (meta.TryGetProperty("previousClose", out var prevCloseProp2))
@@ -970,23 +1010,45 @@ namespace PortfolioWatch.Services
                     {
                         var easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
                         var now = TimeZoneInfo.ConvertTime(DateTime.Now, easternZone);
-                        var today = now.Date;
-                        var marketOpen = today.AddHours(9).AddMinutes(30);
-                        var marketClose = today.AddHours(16);
-
-                        if (now < marketOpen)
+                        
+                        // Check if data is from a previous day
+                        bool isPreviousDayData = false;
+                        if (regularMarketTime > 0)
                         {
-                            stock.DayProgress = 0;
+                            var marketTime = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(regularMarketTime), easternZone).DateTime;
+                            if (marketTime.Date < now.Date)
+                            {
+                                isPreviousDayData = true;
+                            }
                         }
-                        else if (now > marketClose)
+
+                        // Also check for weekends explicitly just in case
+                        bool isWeekend = now.DayOfWeek == DayOfWeek.Saturday || now.DayOfWeek == DayOfWeek.Sunday;
+
+                        if (isPreviousDayData || isWeekend)
                         {
                             stock.DayProgress = 1.0;
                         }
                         else
                         {
-                            var totalMinutes = (marketClose - marketOpen).TotalMinutes;
-                            var elapsedMinutes = (now - marketOpen).TotalMinutes;
-                            stock.DayProgress = Math.Max(0, Math.Min(1.0, elapsedMinutes / totalMinutes));
+                            var today = now.Date;
+                            var marketOpen = today.AddHours(9).AddMinutes(30);
+                            var marketClose = today.AddHours(16);
+
+                            if (now < marketOpen)
+                            {
+                                stock.DayProgress = 0;
+                            }
+                            else if (now > marketClose)
+                            {
+                                stock.DayProgress = 1.0;
+                            }
+                            else
+                            {
+                                var totalMinutes = (marketClose - marketOpen).TotalMinutes;
+                                var elapsedMinutes = (now - marketOpen).TotalMinutes;
+                                stock.DayProgress = Math.Max(0, Math.Min(1.0, elapsedMinutes / totalMinutes));
+                            }
                         }
                     }
                     catch
