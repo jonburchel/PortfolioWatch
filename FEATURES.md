@@ -130,7 +130,10 @@ The application uses a system of emoji-based flags to alert the user to signific
 
 ### 4.2. Import/Export
 *   **Export**: Saves the current watchlist and settings to a user-selected JSON file.
-*   **Import**: Loads watchlist and settings from a JSON file, merging/overwriting current state.
+    *   **Standard Export**: Exports the portfolio exactly as is.
+    *   **Normalized Export**: Allows exporting the portfolio with share counts adjusted to match a target total value (e.g., $1,000,000) while maintaining the current asset allocation percentages. Useful for modeling or sharing strategies without revealing actual wealth.
+    *   **Metadata**: Exports include the Portfolio Name (`WindowTitle`) to ensure the context is preserved upon import.
+*   **Import**: Loads watchlist and settings from a JSON file, merging/overwriting current state and restoring the Portfolio Name.
 
 ### 4.3. Start with Windows
 *   **Implementation**: Uses Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`).

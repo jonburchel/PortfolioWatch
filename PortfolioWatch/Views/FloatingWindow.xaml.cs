@@ -125,7 +125,7 @@ namespace PortfolioWatch.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error resetting settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                new ConfirmationWindow("Error", $"Error resetting settings: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
             }
         }
     }

@@ -50,7 +50,7 @@
             </Grid.RowDefinitions>
 
             <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                <emoji:TextBlock Text="🔄" FontSize="18" Margin="0,0,10,0"/>
+                <emoji:TextBlock Text="{Binding IconText, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="18" Margin="0,0,10,0"/>
                 <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" 
                            Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="18" FontWeight="SemiBold"/>
             </StackPanel>

@@ -110,15 +110,18 @@ namespace PortfolioWatch.Services
             }
         }
 
-        public void ExportStocks(string filePath)
+        public void ExportStocks(string filePath, System.Collections.Generic.IEnumerable<Stock>? stocksToExport = null, string? portfolioName = null)
         {
             try
             {
+                var stocks = stocksToExport ?? _currentSettings.Stocks;
+                var name = portfolioName ?? _currentSettings.WindowTitle;
+
                 // Export only details, not history
-                var exportData = new System.Collections.Generic.List<object>();
-                foreach (var stock in _currentSettings.Stocks)
+                var stockList = new System.Collections.Generic.List<object>();
+                foreach (var stock in stocks)
                 {
-                    exportData.Add(new
+                    stockList.Add(new
                     {
                         stock.Symbol,
                         stock.Name,
@@ -128,6 +131,12 @@ namespace PortfolioWatch.Services
                         stock.Shares
                     });
                 }
+
+                var exportData = new
+                {
+                    PortfolioName = name,
+                    Stocks = stockList
+                };
 
                 var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(filePath, json);
@@ -143,10 +152,43 @@ namespace PortfolioWatch.Services
             try
             {
                 var json = File.ReadAllText(filePath);
-                var stocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(json);
-                if (stocks != null)
+                
+                // Try new format first
+                try 
                 {
-                    _currentSettings.Stocks = stocks;
+                    using (JsonDocument doc = JsonDocument.Parse(json))
+                    {
+                        if (doc.RootElement.TryGetProperty("PortfolioName", out var nameElement))
+                        {
+                            var name = nameElement.GetString();
+                            if (!string.IsNullOrWhiteSpace(name))
+                            {
+                                _currentSettings.WindowTitle = name;
+                            }
+                        }
+
+                        if (doc.RootElement.TryGetProperty("Stocks", out var stocksElement))
+                        {
+                            var stocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(stocksElement.GetRawText());
+                            if (stocks != null)
+                            {
+                                _currentSettings.Stocks = stocks;
+                                SaveSettings(_currentSettings);
+                                return;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback to old format (just a list of stocks)
+                }
+
+                // Old format fallback
+                var legacyStocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(json);
+                if (legacyStocks != null)
+                {
+                    _currentSettings.Stocks = legacyStocks;
                     SaveSettings(_currentSettings);
                 }
             }

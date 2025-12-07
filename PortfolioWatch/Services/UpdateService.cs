@@ -9,6 +9,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows;
+using PortfolioWatch.Views;
 
 namespace PortfolioWatch.Services
 {
@@ -230,7 +231,7 @@ del ""%~f0""
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to apply update: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                new ConfirmationWindow("Update Error", $"Failed to apply update: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
             }
         }
     }

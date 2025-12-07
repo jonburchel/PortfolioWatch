@@ -834,12 +834,91 @@ namespace PortfolioWatch.ViewModels
             {
                 try
                 {
-                    _settingsService.ExportStocks(dialog.FileName);
-                    System.Windows.MessageBox.Show("Export successful!", "Success", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                    _settingsService.ExportStocks(dialog.FileName, portfolioName: WindowTitle);
+                    new ConfirmationWindow("Success", "Export successful!", isAlert: true, icon: "✅").ShowDialog();
                 }
                 catch (Exception ex)
                 {
-                    System.Windows.MessageBox.Show($"Export failed: {ex.Message}", "Error", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                    new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
+                }
+            }
+        }
+
+        [RelayCommand]
+        private void ExportNormalizedData()
+        {
+            if (TotalPortfolioValue <= 0)
+            {
+                new ConfirmationWindow("Error", "Cannot normalize an empty portfolio.", isAlert: true, icon: "⚠️").ShowDialog();
+                return;
+            }
+
+            var inputWindow = new InputWindow(
+                "Enter the target portfolio value for normalization:", 
+                "Export normalized portfolio", 
+                "1,000,000",
+                input => 
+                {
+                    var clean = input.Replace("$", "").Replace(",", "");
+                    return decimal.TryParse(clean, out decimal val) && val > 0 ? null : "Please enter a valid positive number.";
+                });
+
+            if (inputWindow.ShowDialog() == true)
+            {
+                var cleanAmount = inputWindow.InputText.Replace("$", "").Replace(",", "");
+                if (decimal.TryParse(cleanAmount, out decimal targetValue))
+                {
+                    var dialog = new Microsoft.Win32.SaveFileDialog
+                    {
+                        FileName = $"PortfolioWatch_Normalized_{targetValue:0}Export",
+                        DefaultExt = ".json",
+                        Filter = "JSON Files (*.json)|*.json"
+                    };
+
+                    if (dialog.ShowDialog() == true)
+                    {
+                        try
+                        {
+                            var normalizedStocks = new System.Collections.Generic.List<Stock>();
+                            
+                            foreach (var stock in Stocks)
+                            {
+                                double newShares = 0;
+
+                                if (stock.Shares > 0 && stock.Price > 0)
+                                {
+                                    // Calculate weight in current portfolio
+                                    decimal weight = stock.MarketValue / TotalPortfolioValue;
+                                    
+                                    // Calculate new shares to maintain weight in target portfolio
+                                    // TargetStockValue = TargetPortfolioValue * Weight
+                                    // NewShares = TargetStockValue / Price
+                                    decimal targetStockValue = targetValue * weight;
+                                    newShares = (double)(targetStockValue / stock.Price);
+                                }
+
+                                // Create a copy with normalized shares (or 0 for watchlist items)
+                                var normalizedStock = new Stock
+                                {
+                                    Symbol = stock.Symbol,
+                                    Name = stock.Name,
+                                    Price = stock.Price,
+                                    Change = stock.Change,
+                                    ChangePercent = stock.ChangePercent,
+                                    Shares = newShares
+                                };
+                                normalizedStocks.Add(normalizedStock);
+                            }
+
+                            string normalizedName = $"{WindowTitle} (Normalized to {targetValue:C0})";
+                            _settingsService.ExportStocks(dialog.FileName, normalizedStocks, normalizedName);
+                            new ConfirmationWindow("Success", $"Export successful! Portfolio normalized to {targetValue:C0}.", isAlert: true, icon: "✅").ShowDialog();
+                        }
+                        catch (Exception ex)
+                        {
+                            new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
+                        }
+                    }
                 }
             }
         }
@@ -935,6 +1014,7 @@ namespace PortfolioWatch.ViewModels
                     var settings = _settingsService.LoadSettings();
                     _stockService.SetStocks(settings.Stocks);
                     Stocks = new ObservableCollection<Stock>(settings.Stocks);
+                    WindowTitle = settings.WindowTitle;
                     
                     // Re-subscribe
                     foreach (var stock in Stocks)

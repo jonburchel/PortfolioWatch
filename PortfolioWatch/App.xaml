@@ -73,6 +73,12 @@
                         <emoji:TextBlock Text="📤 Export Data..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
+
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ExportNormalizedDataCommand}">
+                    <MenuItem.Header>
+                        <emoji:TextBlock Text="⚖️ Export normalized portfolio..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    </MenuItem.Header>
+                </MenuItem>
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>
                 

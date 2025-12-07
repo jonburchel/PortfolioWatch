@@ -13,13 +13,24 @@ namespace PortfolioWatch.Views
             set { SetValue(MessageProperty, value); }
         }
 
+        public static readonly DependencyProperty IconTextProperty =
+            DependencyProperty.Register("IconText", typeof(string), typeof(ConfirmationWindow), new PropertyMetadata("🔄"));
+
+        public string IconText
+        {
+            get { return (string)GetValue(IconTextProperty); }
+            set { SetValue(IconTextProperty, value); }
+        }
+
         public bool ResetSettings => ResetSettingsCheckBox.IsChecked == true;
 
-        public ConfirmationWindow(string title, string message, bool showResetOption = false, bool isAlert = false)
+        public ConfirmationWindow(string title, string message, bool showResetOption = false, bool isAlert = false, string icon = "🔄")
         {
             InitializeComponent();
             Title = title;
             Message = message;
+            IconText = icon;
+
             if (showResetOption)
             {
                 ResetSettingsCheckBox.Visibility = Visibility.Visible;

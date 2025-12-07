@@ -76,7 +76,7 @@ namespace PortfolioWatch
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error initializing tray icon: {ex.Message}");
+                new ConfirmationWindow("Error", $"Error initializing tray icon: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
                 // Fallback or continue
                 _notifyIcon = new TaskbarIcon { ToolTipText = "Portfolio Watch" };
             }
@@ -298,7 +298,7 @@ namespace PortfolioWatch
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error showing floating window: {ex.Message}");
+                new ConfirmationWindow("Error", $"Error showing floating window: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
             }
 
             // Initialize ViewModel data asynchronously
