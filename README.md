@@ -12,8 +12,9 @@ PortfolioWatch offers a comprehensive set of tools for tracking the market and y
 
 ## Installation
 
-1.  Download the latest release from the [Releases](https://github.com/jonburchel/PortfolioWatch/releases/latest) page.
-3.  Run `PortfolioWatch.exe` (or `PortfolioWatch.with.NET.9.0.exe`, if you don't already have the [.NET 9 runtime](https://dotnet.microsoft.com/en-us/download/dotnet/9.0) installed).
+1. PortfolioWatch requires the [.NET 9 Runtime for Windows](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/sdk-9.0.308-windows-x64-installer) to run, so download and install that first, if it isn't already present. 
+1. Download `PortfolioWatch.exe` from the Assets below. 
+1. Run the executable (no installer required).
 
 ## Building from Source
 
