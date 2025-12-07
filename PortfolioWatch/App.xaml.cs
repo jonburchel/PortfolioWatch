@@ -301,6 +301,12 @@ namespace PortfolioWatch
                 MessageBox.Show($"Error showing floating window: {ex.Message}");
             }
 
+            // Initialize ViewModel data asynchronously
+            if (_mainWindow.DataContext is MainViewModel vm)
+            {
+                vm.Initialize();
+            }
+
             // Ensure Start with Windows
             if (settings.StartWithWindows)
             {

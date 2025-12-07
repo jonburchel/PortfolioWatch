@@ -313,14 +313,22 @@ namespace PortfolioWatch.ViewModels
             };
             _newsTimer.Tick += NewsTimer_Tick;
             
-            LoadData();
+            // LoadData(); // Deferred to Initialize()
             _timer.Start();
             _earningsTimer.Start();
             _newsTimer.Start();
         }
 
+        public void Initialize()
+        {
+            LoadData();
+        }
+
         private async void LoadData()
         {
+            // Yield execution to allow UI to render immediately
+            await Dispatcher.Yield();
+
             _isLoading = true;
             IsBusy = true;
             StatusMessage = "Loading data...";
