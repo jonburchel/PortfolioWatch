@@ -12,7 +12,7 @@ PortfolioWatch offers a comprehensive set of tools for tracking the market and y
 
 ## Installation
 
-1. PortfolioWatch requires the [.NET 9 Runtime for Windows](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/sdk-9.0.308-windows-x64-installer) to run, so download and install that first, if it isn't already present. 
+1. The app requires the [.NET 9 Runtime for Windows](https://dotnet.microsoft.com/en-us/download/dotnet/thank-you/sdk-9.0.308-windows-x64-installer). Install it first if necessary. 
 1. Download `PortfolioWatch.exe` from the Assets below. 
 1. Run the executable (no installer required).
 
