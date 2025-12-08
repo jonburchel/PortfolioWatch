@@ -28,6 +28,9 @@ namespace PortfolioWatch.ViewModels
         private bool _isEditing;
 
         [ObservableProperty]
+        private bool _isEditingTaxStatus;
+
+        [ObservableProperty]
         private bool _isIncludedInTotal;
 
         [ObservableProperty]

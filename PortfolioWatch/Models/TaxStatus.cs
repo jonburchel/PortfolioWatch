@@ -7,7 +7,7 @@ namespace PortfolioWatch.Models
     {
         Unspecified,
         NonTaxableRoth,
-        TaxableAfterTaxIRA,
+        TaxablePreTaxIRA,
         TaxableCapitalGains
     }
 
@@ -21,7 +21,7 @@ namespace PortfolioWatch.Models
         {
             TaxStatusType.Unspecified => "Unspecified",
             TaxStatusType.NonTaxableRoth => "Non-Taxable Roth",
-            TaxStatusType.TaxableAfterTaxIRA => "Taxable After-Tax IRA",
+            TaxStatusType.TaxablePreTaxIRA => "Taxable Pre-Tax IRA",
             TaxStatusType.TaxableCapitalGains => "Taxable Capital Gains",
             _ => "Unknown"
         };
@@ -30,9 +30,9 @@ namespace PortfolioWatch.Models
         public Color Color => Type switch
         {
             TaxStatusType.Unspecified => Colors.Gray,
-            TaxStatusType.NonTaxableRoth => Color.FromRgb(0, 255, 0), // Vibrant Green
-            TaxStatusType.TaxableAfterTaxIRA => Colors.Red,
-            TaxStatusType.TaxableCapitalGains => Colors.Orange, // Yellow/Amber
+            TaxStatusType.NonTaxableRoth => Color.FromRgb(34, 136, 51), // Accessible Green (#228833)
+            TaxStatusType.TaxablePreTaxIRA => Color.FromRgb(238, 102, 119), // Accessible Soft Red (#EE6677)
+            TaxStatusType.TaxableCapitalGains => Color.FromRgb(0, 119, 187), // Accessible Blue (#0077BB)
             _ => Colors.Transparent
         };
         

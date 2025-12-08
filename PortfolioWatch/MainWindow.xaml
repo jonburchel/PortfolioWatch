@@ -233,8 +233,21 @@
 
                                     <!-- Tax Status Pie Chart -->
                                     <Grid Grid.Column="2" Margin="0,0,6,0" VerticalAlignment="Center" Cursor="Hand" Background="Transparent"
-                                          Visibility="{Binding IsEditing, Converter={StaticResource InverseBoolToVis}}"
                                           MouseLeftButtonDown="TaxPie_MouseLeftButtonDown">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="{Binding IsEditing, Converter={StaticResource InverseBoolToVis}}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsEditingTaxStatus}" Value="True">
+                                                        <Setter Property="Effect">
+                                                            <Setter.Value>
+                                                                <DropShadowEffect Color="#FFD700" BlurRadius="10" ShadowDepth="0" Opacity="0.8"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
                                         <Image Source="{Binding TaxAllocations, Converter={StaticResource TaxAllocationsToPieChartConverter}}" Width="14" Height="14"/>
                                         <!-- Overlay Icon: Bank -->
                                         <Viewbox Width="8" Height="8" Margin="0,0,0,1">

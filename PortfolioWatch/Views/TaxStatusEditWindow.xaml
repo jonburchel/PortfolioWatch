@@ -6,7 +6,7 @@
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         mc:Ignorable="d"
-        Title="Edit Tax Status" SizeToContent="Height" Width="400"
+        Title="Edit Tax Status" SizeToContent="Height" Width="450"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
 
@@ -14,6 +14,99 @@
         <converters:PieSliceConverter x:Key="PieSliceConverter"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
+        
+        <Style x:Key="ValueTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Right"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="2"/>
+            <Setter Property="Width" Value="60"/>
+        </Style>
+
+        <Style x:Key="SliderThumbStyle" TargetType="{x:Type Thumb}">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Height" Value="18"/>
+            <Setter Property="Width" Value="18"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Grid>
+                            <Ellipse Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType={x:Type Slider}}}" 
+                                     Stroke="{DynamicResource WindowBackgroundBrush}" 
+                                     StrokeThickness="2"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SliderRepeatButtonStyle" TargetType="{x:Type RepeatButton}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type RepeatButton}">
+                        <Rectangle Fill="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ColoredSliderStyle" TargetType="{x:Type Slider}">
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="IsSnapToTickEnabled" Value="True"/>
+            <Setter Property="TickFrequency" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Slider}">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto" MinHeight="{TemplateBinding MinHeight}"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- Track Background (Unfilled part) -->
+                            <Border Grid.Row="1" Height="4" Background="{DynamicResource ControlBorderBrush}" CornerRadius="2" VerticalAlignment="Center"/>
+                            
+                            <!-- Track -->
+                            <Track x:Name="PART_Track" Grid.Row="1">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static Slider.DecreaseLarge}">
+                                        <RepeatButton.Style>
+                                            <Style TargetType="RepeatButton">
+                                                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                                <Setter Property="IsTabStop" Value="False"/>
+                                                <Setter Property="Focusable" Value="False"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="RepeatButton">
+                                                            <Border Height="4" Background="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Slider}}" CornerRadius="2" VerticalAlignment="Center"/>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </RepeatButton.Style>
+                                    </RepeatButton>
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource SliderRepeatButtonStyle}"/>
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource SliderThumbStyle}" VerticalAlignment="Center"/>
+                                </Track.Thumb>
+                            </Track>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border Background="{DynamicResource WindowBackgroundBrush}" CornerRadius="12" Margin="10">
@@ -25,72 +118,73 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <TextBlock Text="Tax Status and Allocation" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                <TextBlock Text="Tax Status and Allocation" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}" HorizontalAlignment="Center" Margin="0,0,0,15"/>
 
-                <!-- Allocations -->
-                <ItemsControl Grid.Row="2" ItemsSource="{Binding Allocations}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="60"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <Rectangle Width="12" Height="12" Fill="{Binding Brush}" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                                
-                                <TextBox Grid.Column="2" Text="{Binding Percentage, UpdateSourceTrigger=PropertyChanged}" 
-                                         Style="{StaticResource TitleTextBoxStyle}"
-                                         Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                         HorizontalContentAlignment="Right" VerticalAlignment="Center"
-                                         PreviewTextInput="NumberValidationTextBox"/>
-                                <TextBlock Grid.Column="3" Text="%" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="5,0,0,0"/>
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- Unspecified Allocation Display -->
+                <Grid Grid.Row="1" Margin="0,0,0,15">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Rectangle Width="12" Height="12" Fill="Gray" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Grid.Column="1" Text="Unspecified" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold"/>
+                    <TextBlock Grid.Column="2" Text="{Binding UnspecifiedPercentage, StringFormat={}{0:N3}%}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="Bold"/>
+                </Grid>
 
-                <!-- Total & Validation -->
-                <StackPanel Grid.Row="3" Margin="0,20,0,20">
-                    <Grid Margin="0,0,0,5">
-                        <TextBlock Text="Total Allocation:" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
-                        <TextBlock Text="{Binding TotalPercentage, StringFormat={}{0}%}" 
-                                   FontWeight="Bold" HorizontalAlignment="Right">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsTotalValid}" Value="False">
-                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Grid>
-                    <TextBlock Text="Total must equal 100%" Foreground="{DynamicResource NegativeColorBrush}" 
-                               Visibility="{Binding IsTotalValid, Converter={StaticResource InverseBoolToVis}}"
-                               HorizontalAlignment="Right" FontSize="11"/>
-                </StackPanel>
+                <!-- Sliders -->
+                <Grid Grid.Row="2" Margin="0,0,0,20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Non-Taxable Roth -->
+                    <Rectangle Grid.Row="0" Width="12" Height="12" Fill="#228833" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Non-Taxable Roth" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <Slider Grid.Row="0" Grid.Column="2" Value="{Binding NonTaxableRothPercentage}" Minimum="0" Maximum="100" Margin="5,0,10,0" VerticalAlignment="Center"
+                            Style="{StaticResource ColoredSliderStyle}" Foreground="#228833"/>
+                    <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding NonTaxableRothPercentage, StringFormat={}{0:N3}, UpdateSourceTrigger=LostFocus}" 
+                             Style="{StaticResource ValueTextBoxStyle}" PreviewTextInput="NumberValidationTextBox"/>
+
+                    <!-- Taxable Capital Gains -->
+                    <Rectangle Grid.Row="1" Width="12" Height="12" Fill="#0077BB" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,10,10,0"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="Taxable Capital Gains" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,10,0,0"/>
+                    <Slider Grid.Row="1" Grid.Column="2" Value="{Binding TaxableCapitalGainsPercentage}" Minimum="0" Maximum="100" Margin="5,10,10,0" VerticalAlignment="Center"
+                            Style="{StaticResource ColoredSliderStyle}" Foreground="#0077BB"/>
+                    <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding TaxableCapitalGainsPercentage, StringFormat={}{0:N3}, UpdateSourceTrigger=LostFocus}" 
+                             Style="{StaticResource ValueTextBoxStyle}" PreviewTextInput="NumberValidationTextBox" Margin="0,10,0,0"/>
+
+                    <!-- Taxable Pre-Tax IRA -->
+                    <Rectangle Grid.Row="2" Width="12" Height="12" Fill="#EE6677" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,10,10,0"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="Taxable Pre-Tax IRA" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,10,0,0"/>
+                    <Slider Grid.Row="2" Grid.Column="2" Value="{Binding TaxablePreTaxIRAPercentage}" Minimum="0" Maximum="100" Margin="5,10,10,0" VerticalAlignment="Center"
+                            Style="{StaticResource ColoredSliderStyle}" Foreground="#EE6677"/>
+                    <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding TaxablePreTaxIRAPercentage, StringFormat={}{0:N3}, UpdateSourceTrigger=LostFocus}" 
+                             Style="{StaticResource ValueTextBoxStyle}" PreviewTextInput="NumberValidationTextBox" Margin="0,10,0,0"/>
+                </Grid>
 
                 <!-- Buttons -->
-                <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Cancel" Click="CancelButton_Click" 
                             Background="Transparent" Foreground="{DynamicResource SecondaryForegroundBrush}" 
                             BorderThickness="0" Margin="0,0,10,0" Padding="10,5"/>
                     <Button Content="Save" Click="SaveButton_Click" 
                             Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" 
                             BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" 
-                            Padding="15,5" IsEnabled="{Binding IsTotalValid}">
+                            Padding="15,5">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="4"/>

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -34,66 +35,158 @@ namespace PortfolioWatch.Views
 
         private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
         {
-            Regex regex = new Regex("[^0-9]+");
+            // Allow digits and one decimal point
+            Regex regex = new Regex("[^0-9.]+");
             e.Handled = regex.IsMatch(e.Text);
         }
     }
 
     public partial class TaxStatusEditViewModel : ObservableObject
     {
-        [ObservableProperty]
-        private ObservableCollection<TaxAllocationViewModel> _allocations;
+        private double _nonTaxableRothPercentage;
+        private double _taxablePreTaxIRAPercentage;
+        private double _taxableCapitalGainsPercentage;
 
-        public double TotalPercentage => Allocations.Sum(a => a.Percentage);
+        public double UnspecifiedPercentage => Math.Max(0, 100 - (NonTaxableRothPercentage + TaxablePreTaxIRAPercentage + TaxableCapitalGainsPercentage));
 
-        public bool IsTotalValid => Math.Abs(TotalPercentage - 100) < 0.01;
+        public double NonTaxableRothPercentage
+        {
+            get => _nonTaxableRothPercentage;
+            set => UpdateAllocation(TaxStatusType.NonTaxableRoth, value);
+        }
+
+        public double TaxablePreTaxIRAPercentage
+        {
+            get => _taxablePreTaxIRAPercentage;
+            set => UpdateAllocation(TaxStatusType.TaxablePreTaxIRA, value);
+        }
+
+        public double TaxableCapitalGainsPercentage
+        {
+            get => _taxableCapitalGainsPercentage;
+            set => UpdateAllocation(TaxStatusType.TaxableCapitalGains, value);
+        }
 
         public TaxStatusEditViewModel(ObservableCollection<TaxAllocation> currentAllocations)
         {
-            Allocations = new ObservableCollection<TaxAllocationViewModel>();
+            // Initialize from existing allocations
+            var roth = currentAllocations.FirstOrDefault(a => a.Type == TaxStatusType.NonTaxableRoth);
+            var ira = currentAllocations.FirstOrDefault(a => a.Type == TaxStatusType.TaxablePreTaxIRA);
+            var gains = currentAllocations.FirstOrDefault(a => a.Type == TaxStatusType.TaxableCapitalGains);
 
-            // Ensure all types are present
-            foreach (TaxStatusType type in Enum.GetValues(typeof(TaxStatusType)))
+            _nonTaxableRothPercentage = roth?.Percentage ?? 0;
+            _taxablePreTaxIRAPercentage = ira?.Percentage ?? 0;
+            _taxableCapitalGainsPercentage = gains?.Percentage ?? 0;
+            
+            // Ensure we don't exceed 100 initially (sanity check)
+            double total = _nonTaxableRothPercentage + _taxablePreTaxIRAPercentage + _taxableCapitalGainsPercentage;
+            if (total > 100)
             {
-                var existing = currentAllocations.FirstOrDefault(a => a.Type == type);
-                var vm = new TaxAllocationViewModel(type, existing?.Percentage ?? 0);
-                vm.PropertyChanged += (s, e) =>
-                {
-                    if (e.PropertyName == nameof(TaxAllocationViewModel.Percentage))
-                    {
-                        OnPropertyChanged(nameof(TotalPercentage));
-                        OnPropertyChanged(nameof(IsTotalValid));
-                    }
-                };
-                Allocations.Add(vm);
+                double factor = 100.0 / total;
+                _nonTaxableRothPercentage *= factor;
+                _taxablePreTaxIRAPercentage *= factor;
+                _taxableCapitalGainsPercentage *= factor;
             }
         }
 
-        public System.Collections.Generic.List<TaxAllocation> GetAllocations()
+        private void UpdateAllocation(TaxStatusType type, double newValue)
         {
-            return Allocations.Where(a => a.Percentage > 0)
-                              .Select(a => new TaxAllocation { Type = a.Type, Percentage = a.Percentage })
-                              .ToList();
+            // Clamp new value between 0 and 100
+            newValue = Math.Max(0, Math.Min(100, newValue));
+
+            double oldValue = type switch
+            {
+                TaxStatusType.NonTaxableRoth => _nonTaxableRothPercentage,
+                TaxStatusType.TaxablePreTaxIRA => _taxablePreTaxIRAPercentage,
+                TaxStatusType.TaxableCapitalGains => _taxableCapitalGainsPercentage,
+                _ => 0
+            };
+
+            if (Math.Abs(newValue - oldValue) < 0.001) return;
+
+            double delta = newValue - oldValue;
+            double currentUnspecified = UnspecifiedPercentage;
+
+            if (delta < 0)
+            {
+                // Sliding left (or typing lower value): simply reduce the value, Unspecified increases automatically
+                SetBackingField(type, newValue);
+            }
+            else
+            {
+                // Sliding right (or typing higher value)
+                if (delta <= currentUnspecified + 0.001) // Tolerance for float math
+                {
+                    // Enough unspecified space
+                    SetBackingField(type, newValue);
+                }
+                else
+                {
+                    // Not enough unspecified space, need to take from others
+                    double neededFromOthers = delta - currentUnspecified;
+                    
+                    // Identify others
+                    var others = new List<(TaxStatusType Type, double Value)>();
+                    if (type != TaxStatusType.NonTaxableRoth) others.Add((TaxStatusType.NonTaxableRoth, _nonTaxableRothPercentage));
+                    if (type != TaxStatusType.TaxablePreTaxIRA) others.Add((TaxStatusType.TaxablePreTaxIRA, _taxablePreTaxIRAPercentage));
+                    if (type != TaxStatusType.TaxableCapitalGains) others.Add((TaxStatusType.TaxableCapitalGains, _taxableCapitalGainsPercentage));
+
+                    double othersSum = others.Sum(o => o.Value);
+
+                    if (othersSum > 0.001)
+                    {
+                        // Reduce others proportionally
+                        foreach (var other in others)
+                        {
+                            double reduction = neededFromOthers * (other.Value / othersSum);
+                            double newOtherValue = Math.Max(0, other.Value - reduction);
+                            SetBackingField(other.Type, newOtherValue);
+                        }
+                        // Set the target value
+                        SetBackingField(type, newValue);
+                    }
+                    else
+                    {
+                        // Cannot increase further because others are 0 and unspecified is 0
+                        // Cap the increase to available unspecified
+                        SetBackingField(type, oldValue + currentUnspecified);
+                    }
+                }
+            }
+
+            OnPropertyChanged(nameof(UnspecifiedPercentage));
+            OnPropertyChanged(nameof(NonTaxableRothPercentage));
+            OnPropertyChanged(nameof(TaxablePreTaxIRAPercentage));
+            OnPropertyChanged(nameof(TaxableCapitalGainsPercentage));
         }
-    }
 
-    public partial class TaxAllocationViewModel : ObservableObject
-    {
-        public TaxStatusType Type { get; }
-        public string Name { get; }
-        public System.Windows.Media.Brush Brush { get; }
-
-        [ObservableProperty]
-        private double _percentage;
-
-        public TaxAllocationViewModel(TaxStatusType type, double percentage)
+        private void SetBackingField(TaxStatusType type, double value)
         {
-            Type = type;
-            Percentage = percentage;
+            switch (type)
+            {
+                case TaxStatusType.NonTaxableRoth: _nonTaxableRothPercentage = value; break;
+                case TaxStatusType.TaxablePreTaxIRA: _taxablePreTaxIRAPercentage = value; break;
+                case TaxStatusType.TaxableCapitalGains: _taxableCapitalGainsPercentage = value; break;
+            }
+        }
+
+        public List<TaxAllocation> GetAllocations()
+        {
+            var list = new List<TaxAllocation>();
             
-            var temp = new TaxAllocation { Type = type };
-            Name = temp.Name;
-            Brush = temp.Brush;
+            if (UnspecifiedPercentage > 0.001) 
+                list.Add(new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = UnspecifiedPercentage });
+            
+            if (NonTaxableRothPercentage > 0.001)
+                list.Add(new TaxAllocation { Type = TaxStatusType.NonTaxableRoth, Percentage = NonTaxableRothPercentage });
+                
+            if (TaxablePreTaxIRAPercentage > 0.001)
+                list.Add(new TaxAllocation { Type = TaxStatusType.TaxablePreTaxIRA, Percentage = TaxablePreTaxIRAPercentage });
+                
+            if (TaxableCapitalGainsPercentage > 0.001)
+                list.Add(new TaxAllocation { Type = TaxStatusType.TaxableCapitalGains, Percentage = TaxableCapitalGainsPercentage });
+
+            return list;
         }
     }
 }

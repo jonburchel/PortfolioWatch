@@ -900,9 +900,17 @@ namespace PortfolioWatch
                         Top = logicalPoint.Y + 5
                     };
 
-                    if (dialog.ShowDialog() == true)
+                    tabVm.IsEditingTaxStatus = true;
+                    try
                     {
-                        tabVm.TaxAllocations = new System.Collections.ObjectModel.ObservableCollection<Models.TaxAllocation>(dialog.ViewModel.GetAllocations());
+                        if (dialog.ShowDialog() == true)
+                        {
+                            tabVm.TaxAllocations = new System.Collections.ObjectModel.ObservableCollection<Models.TaxAllocation>(dialog.ViewModel.GetAllocations());
+                        }
+                    }
+                    finally
+                    {
+                        tabVm.IsEditingTaxStatus = false;
                     }
                     e.Handled = true;
                 }
