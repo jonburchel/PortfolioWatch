@@ -445,6 +445,8 @@ namespace PortfolioWatch.ViewModels
         private void Tabs_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             UpdateIsSingleTab();
+            UpdateAllIncludedState();
+            CalculatePortfolioTotals();
         }
 
         private void UpdateIsSingleTab()
@@ -901,7 +903,7 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         public async Task Reset()
         {
-            var confirmationWindow = new ConfirmationWindow("Reset Application", "Are you sure you want to reset all settings and data? This cannot be undone.", isAlert: false);
+            var confirmationWindow = new ConfirmationWindow("Reset Application", "Are you sure you want to reset all settings and data? This cannot be undone.", showResetOption: true, isAlert: false);
             if (confirmationWindow.ShowDialog() != true) return;
 
             if (confirmationWindow.ResetSettings)
@@ -928,6 +930,10 @@ namespace PortfolioWatch.ViewModels
             Tabs.Clear();
             var defaultTab = new PortfolioTabViewModel(new PortfolioTab { Name = "Default watchlist" });
             Tabs.Add(defaultTab);
+            
+            // Add the "New Tab" button placeholder
+            Tabs.Add(new PortfolioTabViewModel(true));
+
             SelectedTab = defaultTab;
             defaultTab.IsEditing = true;
 

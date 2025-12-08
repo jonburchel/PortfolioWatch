@@ -304,6 +304,11 @@
                                 </MultiDataTrigger.Conditions>
                                 <Setter TargetName="DeleteButton" Property="Visibility" Value="Collapsed"/>
                             </MultiDataTrigger>
+
+                            <!-- Hide Delete Button if Single Tab -->
+                            <DataTrigger Binding="{Binding Data.IsSingleTab, Source={StaticResource Proxy}}" Value="True">
+                                <Setter TargetName="DeleteButton" Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
