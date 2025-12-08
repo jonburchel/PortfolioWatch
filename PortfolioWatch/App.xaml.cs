@@ -630,8 +630,8 @@ namespace PortfolioWatch
         {
             if (_mainWindow?.DataContext is MainViewModel vm)
             {
-                // Execute on UI thread
-                Dispatcher.Invoke(() => vm.RefreshCommand.Execute(null));
+                // Execute on UI thread asynchronously to prevent deadlocks with SystemEvents
+                Dispatcher.InvokeAsync(() => vm.RefreshCommand.Execute(null));
             }
         }
 

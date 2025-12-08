@@ -51,6 +51,8 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _isSearchPopupOpen;
 
+        private bool _isSorting;
+
         [ObservableProperty]
         private string _sortProperty = string.Empty;
 
@@ -695,29 +697,46 @@ namespace PortfolioWatch.ViewModels
             // We don't await this to allow the UI to be responsive immediately
             _ = Task.Run(async () => 
             {
-                var updateResult = await _stockService.UpdatePricesAsync(SelectedRange);
-                
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+                try
                 {
-                    if (!updateResult.Success)
-                    {
-                        StatusMessage = $"Update failed: {updateResult.ErrorMessage ?? "Unknown error"}";
-                    }
-                    else
-                    {
-                        StatusMessage = $"Last updated: {DateTime.Now:T}";
-                    }
+                    var updateResult = await _stockService.UpdatePricesAsync(SelectedRange);
                     
-                    CalculatePortfolioTotals();
-                    ApplySortInternal();
-                });
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+                    {
+                        if (!updateResult.Success)
+                        {
+                            StatusMessage = $"Update failed: {updateResult.ErrorMessage ?? "Unknown error"}";
+                        }
+                        else
+                        {
+                            StatusMessage = $"Last updated: {DateTime.Now:T}";
+                        }
+                        
+                        CalculatePortfolioTotals();
+                        ApplySortInternal();
+                    });
 
-                // Update auxiliary data in background (Earnings, News, Options, Insider, RVOL)
-                await _stockService.UpdateAuxiliaryDataAsync();
+                    // Update auxiliary data in background (Earnings, News, Options, Insider, RVOL)
+                    await _stockService.UpdateAuxiliaryDataAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Background update error: {ex}");
+                }
             });
 
             // Check for updates on startup
-            _ = CheckForUpdates(isManual: false);
+            _ = Task.Run(async () => 
+            {
+                try
+                {
+                    await CheckForUpdates(isManual: false);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Startup update check error: {ex}");
+                }
+            });
             }
             catch (Exception ex)
             {
@@ -730,6 +749,8 @@ namespace PortfolioWatch.ViewModels
 
         private void Stocks_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
+            if (_isSorting) return;
+
             if (e.NewItems != null)
             {
                 foreach (Stock stock in e.NewItems)
@@ -889,7 +910,17 @@ namespace PortfolioWatch.ViewModels
             // For now, let's do it every hour to keep flags fresh during the day
             if (DateTime.Now.Minute == 0) 
             {
-                _ = _stockService.UpdateAllDataAsync(SelectedRange);
+                _ = Task.Run(async () => 
+                {
+                    try
+                    {
+                        await _stockService.UpdateAllDataAsync(SelectedRange);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Periodic update error: {ex}");
+                    }
+                });
             }
         }
 
@@ -917,8 +948,18 @@ namespace PortfolioWatch.ViewModels
                 StatusMessage = $"Update failed: {result.ErrorMessage ?? "Unknown error"}";
             }
             ApplySortInternal();
-            _ = _stockService.UpdateEarningsAsync();
-            _ = _stockService.UpdateNewsAsync();
+            _ = Task.Run(async () => 
+            {
+                try
+                {
+                    await _stockService.UpdateEarningsAsync();
+                    await _stockService.UpdateNewsAsync();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Refresh auxiliary data error: {ex}");
+                }
+            });
         }
 
         [RelayCommand]
@@ -1929,68 +1970,76 @@ namespace PortfolioWatch.ViewModels
 
         private void ApplySortInternal()
         {
-            if (SelectedTab == null && !IsMergedView) return;
+            if ((SelectedTab == null && !IsMergedView) || _isSorting) return;
 
-            // Determine source list
-            IList<Stock> sourceCollection = IsMergedView ? MergedStocks : SelectedTab!.Stocks;
-            var sourceList = sourceCollection.ToList();
-            
-            System.Collections.Generic.List<Stock> sortedList;
-
-            if (SortProperty == "DayChangeValue" || SortProperty == "MarketValue")
+            _isSorting = true;
+            try
             {
-                var withShares = sourceList.Where(s => s.Shares > 0);
-                var withoutShares = sourceList.Where(s => s.Shares == 0);
+                // Determine source list
+                IList<Stock> sourceCollection = IsMergedView ? MergedStocks : SelectedTab!.Stocks;
+                var sourceList = sourceCollection.Where(s => s != null).ToList();
+                
+                System.Collections.Generic.List<Stock> sortedList;
 
-                Func<Stock, object> keySelector = SortProperty == "DayChangeValue"
-                    ? s => s.DayChangeValue
-                    : s => s.MarketValue;
-
-                var sortedWithShares = IsAscending
-                    ? withShares.OrderBy(keySelector)
-                    : withShares.OrderByDescending(keySelector);
-
-                // For portfolio sorts, 0-share rows sort by Day % in the same direction
-                Func<Stock, object> secondaryKeySelector = s => s.ChangePercent;
-
-                var sortedWithoutShares = IsAscending
-                    ? withoutShares.OrderBy(secondaryKeySelector)
-                    : withoutShares.OrderByDescending(secondaryKeySelector);
-
-                sortedList = sortedWithShares.Concat(sortedWithoutShares).ToList();
-            }
-            else
-            {
-                Func<Stock, object> keySelector = SortProperty switch
+                if (SortProperty == "DayChangeValue" || SortProperty == "MarketValue")
                 {
-                    "Name" => s => s.Name,
-                    "Change" => s => s.ChangePercent,
-                    _ => s => s.Symbol
-                };
+                    var withShares = sourceList.Where(s => s.Shares > 0);
+                    var withoutShares = sourceList.Where(s => s.Shares == 0);
 
-                sortedList = IsAscending
-                    ? sourceList.OrderBy(keySelector).ToList()
-                    : sourceList.OrderByDescending(keySelector).ToList();
+                    Func<Stock, object> keySelector = SortProperty == "DayChangeValue"
+                        ? s => s.DayChangeValue
+                        : s => s.MarketValue;
+
+                    var sortedWithShares = IsAscending
+                        ? withShares.OrderBy(keySelector)
+                        : withShares.OrderByDescending(keySelector);
+
+                    // For portfolio sorts, 0-share rows sort by Day % in the same direction
+                    Func<Stock, object> secondaryKeySelector = s => s.ChangePercent;
+
+                    var sortedWithoutShares = IsAscending
+                        ? withoutShares.OrderBy(secondaryKeySelector)
+                        : withoutShares.OrderByDescending(secondaryKeySelector);
+
+                    sortedList = sortedWithShares.Concat(sortedWithoutShares).ToList();
+                }
+                else
+                {
+                    Func<Stock, object> keySelector = SortProperty switch
+                    {
+                        "Name" => s => s.Name,
+                        "Change" => s => s.ChangePercent,
+                        _ => s => s.Symbol
+                    };
+
+                    sortedList = IsAscending
+                        ? sourceList.OrderBy(keySelector).ToList()
+                        : sourceList.OrderByDescending(keySelector).ToList();
+                }
+
+                // Update the collection in place
+                sourceCollection.Clear();
+                foreach (var s in sortedList)
+                {
+                    sourceCollection.Add(s);
+                }
+                
+                // Sync service (only if not merged view, as merged view is derived)
+                if (!IsMergedView)
+                {
+                    UpdateServiceStocks();
+                }
+
+                OnPropertyChanged(nameof(SymbolSortIcon));
+                OnPropertyChanged(nameof(NameSortIcon));
+                OnPropertyChanged(nameof(ChangeSortIcon));
+                OnPropertyChanged(nameof(DayChangeValueSortIcon));
+                OnPropertyChanged(nameof(MarketValueSortIcon));
             }
-
-            // Update the collection in place
-            sourceCollection.Clear();
-            foreach (var s in sortedList)
+            finally
             {
-                sourceCollection.Add(s);
+                _isSorting = false;
             }
-            
-            // Sync service (only if not merged view, as merged view is derived)
-            if (!IsMergedView)
-            {
-                UpdateServiceStocks();
-            }
-
-            OnPropertyChanged(nameof(SymbolSortIcon));
-            OnPropertyChanged(nameof(NameSortIcon));
-            OnPropertyChanged(nameof(ChangeSortIcon));
-            OnPropertyChanged(nameof(DayChangeValueSortIcon));
-            OnPropertyChanged(nameof(MarketValueSortIcon));
         }
 
     }
