@@ -140,6 +140,19 @@ The application uses a system of emoji-based flags to alert the user to signific
         *   Logic: Higher relative volume indicates institutional participation and validates the price move.
     *   **Color**: Green if price is up, Red if price is down.
 
+### 3.6. Tabbed Portfolio
+*   **Overview**: The application supports multiple portfolios organized via tabs, allowing users to categorize holdings (e.g., "Long Term", "Speculative", "Tech Sector").
+*   **Management**:
+    *   **Create**: Click the `+` button in the tab header to create a new empty portfolio tab.
+    *   **Rename**: Double-click a tab header to enter edit mode. Press Enter or click away to save.
+    *   **Delete**: Hovering over a tab reveals an `x` button. Deleting a tab requires confirmation if it contains stocks.
+    *   **Reorder**: Tabs can be reordered via drag-and-drop. Visual indicators show the drop target.
+    *   **Duplicate**: Right-click a tab to duplicate it (including all stocks and share counts).
+*   **Behaviors**:
+    *   **Include in Total**: Each tab has a checkbox to "Include in Total". Unchecking this excludes the tab's value from the global "Total Portfolio" aggregation.
+    *   **Per-Tab Visualization**: Each tab features its own mini pie chart in the header, visualizing the asset allocation within that specific portfolio.
+    *   **Scrolling**: The tab bar supports horizontal scrolling with dynamic arrow buttons that appear when tabs overflow the available width.
+
 ## 4. Data Persistence & Settings
 
 ### 4.1. Settings File
@@ -147,7 +160,7 @@ The application uses a system of emoji-based flags to alert the user to signific
 *   **Format**: JSON.
 *   **Content**:
     *   Window positions and dimensions.
-    *   Watchlist (Symbols, Shares).
+    *   Portfolios (Name, Stocks, Share Counts, "Include in Total" preference).
     *   User preferences (Theme, Opacity, Sort Order, Range).
     *   Update settings (Last check time, Snooze time).
 
