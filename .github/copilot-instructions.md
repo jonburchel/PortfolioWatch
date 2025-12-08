@@ -1,64 +1,81 @@
-# PortfolioWatch Technical Implementation Guide
+# PortfolioWatch Developer Guide & Copilot Instructions
 
-This document provides a technical overview of the PortfolioWatch project to assist with future development and maintenance.
+This document serves as the primary source of truth for navigating, understanding, and modifying the PortfolioWatch codebase. It is designed to help AI assistants and developers efficiently locate relevant files and understand the project's workflow.
 
-## Project Overview
+## 1. Environment & Workflow Preferences
 
-PortfolioWatch is a Windows Presentation Foundation (WPF) desktop application built with .NET 9.0. It is designed to track stock portfolios and market indices, providing real-time updates and visualizations.
+*   **Terminal**: Use **Git Bash** for all terminal commands.
+*   **Path Style**: Always use forward slashes `/` for file paths in commands.
+*   **Validation Workflow**: After making code changes, **ALWAYS** perform the following steps to validate:
+    1.  Run the build/publish script:
+        ```bash
+        ./publish.ps1
+        ```
+    2.  Launch the generated binary to verify the fix/feature:
+        ```bash
+        "F:/scratch_projects/portfolio-watch/Releases/FrameworkDependent/PortfolioWatch.exe"
+        ```
+    *Note: This ensures that the application builds correctly and runs in a production-like environment immediately after changes.*
 
-## Architecture
+## 2. Project Navigation Map
 
-The project follows the **Model-View-ViewModel (MVVM)** architectural pattern, utilizing the `CommunityToolkit.Mvvm` library for efficient state management and command handling.
+### Core Application Logic
+*   **Entry Point**: `PortfolioWatch/App.xaml.cs`
+    *   *Responsibility*: Startup logic, Single Instance Mutex, Theme switching, Exception handling.
+*   **Main Logic Hub**: `PortfolioWatch/ViewModels/MainViewModel.cs`
+    *   *Responsibility*: This is the "brain" of the application. It handles data fetching timers, UI commands (Add/Remove/Sort), and manages the `Stocks` collection. **Start here for most feature requests.**
+*   **Data Models**: `PortfolioWatch/Models/`
+    *   `Stock.cs`: The core entity. Contains properties for Price, Change, Shares, MarketValue, and Flags (Earnings, News, etc.).
+    *   `AppSettings.cs`: Defines the structure of the `settings.json` file.
 
-### Key Components
+### User Interface (Views)
+*   **Main Dashboard**: `PortfolioWatch/Views/MainWindow.xaml`
+    *   *Content*: The main grid, stock list (DataGrid/ListView), portfolio summary headers, and tab control.
+*   **Floating Widget**: `PortfolioWatch/Views/FloatingWindow.xaml`
+    *   *Content*: The small "Pyramid" icon window that stays on top. Handles the "Peeking" logic.
+*   **Dialogs**:
+    *   `InputWindow.xaml`: Generic text input (e.g., for renaming tabs).
+    *   `ConfirmationWindow.xaml`: Generic Yes/No prompts.
+    *   `ImportPromptWindow.xaml`: Specific dialog for handling import conflicts.
 
-1.  **Models (`PortfolioWatch/Models/`)**
-    *   `Stock.cs`: Represents a stock or index entity. Contains properties for symbol, price, change, shares owned, etc.
-    *   `AppSettings.cs`: Defines the application's configuration and user preferences.
+### Data & Services
+*   **Stock Data Fetching**: `PortfolioWatch/Services/StockService.cs`
+    *   *Responsibility*: Scrapes Yahoo Finance and Nasdaq. Handles HTTP requests and HTML parsing.
+*   **Persistence**: `PortfolioWatch/Services/SettingsService.cs`
+    *   *Responsibility*: Loads/Saves `settings.json` and manages Registry keys for "Start with Windows".
+*   **Updates**: `PortfolioWatch/Services/UpdateService.cs`
+    *   *Responsibility*: Checks GitHub Releases and handles the self-update process.
 
-2.  **ViewModels (`PortfolioWatch/ViewModels/`)**
-    *   `MainViewModel.cs`: The primary ViewModel for the application. It orchestrates data fetching, handles user interactions, and exposes observable collections for the UI.
+### Visual Helpers (Converters)
+Located in `PortfolioWatch/Converters/`. Key files:
+*   `SparklineConverter.cs`: Draws the mini-charts in the stock list.
+*   `PieSliceConverter.cs`: Draws the pie charts for asset allocation.
+*   `TaxAllocationsToPieChartConverter.cs`: Aggregates tax status data for the main chart.
 
-3.  **Views (`PortfolioWatch/Views/`)**
-    *   `MainWindow.xaml`: The main application window.
-    *   `FloatingWindow.xaml`: A compact, always-on-top window for quick monitoring.
-    *   `InputWindow.xaml` & `ConfirmationWindow.xaml`: Dialogs for user input and confirmation.
+## 3. Feature Reference
 
-4.  **Services (`PortfolioWatch/Services/`)**
-    *   `StockService.cs`: Handles fetching stock data from external APIs (e.g., Yahoo Finance).
-    *   `SettingsService.cs`: Manages loading and saving application settings.
+For a detailed breakdown of specific features and their behaviors, refer to **[FEATURES.md](../FEATURES.md)**. This file contains exhaustive details on:
+*   **Stock Flags**: Logic for Earnings, News, Options, Insider, and RVOL flags.
+*   **Portfolio Logic**: How Market Value, Day Gain, and Totals are calculated.
+*   **Tab System**: Behavior of the multi-portfolio tab interface.
+*   **Tax Allocation**: How tax status is tracked and visualized.
 
-5.  **Converters (`PortfolioWatch/Converters/`)**
-    *   `PieSliceConverter.cs`: Generates a dynamic pie slice geometry to visualize a stock's weight in the portfolio.
-    *   `SparklineConverter.cs`: Converts historical price data into a sparkline geometry.
-    *   `ValueConverters.cs` & `VisibilityConverters.cs`: Various helpers for formatting and UI logic.
+## 4. Development Guidelines
 
-6.  **Themes (`PortfolioWatch/Themes/`)**
-    *   Supports `DarkTheme.xaml` and `LightTheme.xaml` for user interface customization.
+*   **MVVM Pattern**: Strictly adhere to MVVM.
+    *   **Logic** goes in `ViewModels`.
+    *   **UI Structure** goes in `Views` (XAML).
+    *   **Code-Behind** (`.xaml.cs`) should be minimal (only for pure UI logic like window dragging or specific event handling that binding can't cover).
+*   **Async/Await**: Use `async` for all I/O operations (Network, File System) to keep the UI responsive.
+*   **Theming**: Use `DynamicResource` for colors (e.g., `{DynamicResource PrimaryTextBrush}`) to ensure compatibility with Light/Dark themes.
 
-## Technical Details
+## 5. Key File Locations
 
-*   **Framework:** .NET 9.0 (Windows)
-*   **UI Framework:** WPF
-*   **Dependencies:**
-    *   `CommunityToolkit.Mvvm`: MVVM implementation.
-    *   `Emoji.Wpf`: Emoji support in UI.
-    *   `Hardcodet.NotifyIcon.Wpf`: System tray icon support.
-*   **Build Configuration:**
-    *   Configured for single-file, self-contained publication (`win-x64`).
-
-## Key Features Implementation
-
-*   **Portfolio Visualization:** The `PieSliceConverter` calculates a `StreamGeometry` based on the stock's percentage of the total portfolio value. This is bound to a path in the `MainWindow`'s stock list.
-*   **Real-time Updates:** The `MainViewModel` uses a timer to periodically refresh stock data via the `StockService`.
-*   **Data Persistence:** Settings and portfolio data are persisted to a local JSON file managed by the `SettingsService`.
-
-## Development Guidelines
-
-*   **MVVM:** Always implement business logic in ViewModels and keep code-behind files minimal.
-*   **Binding:** Use data binding for all UI updates. Avoid direct UI manipulation.
-*   **Async/Await:** Use asynchronous programming for I/O bound operations (e.g., network requests) to keep the UI responsive.
-*   **Theming:** Ensure all new UI elements use dynamic resources for colors to support theme switching.
-
-## Feature details
-See FEATURES.md for a full breakdown of the most recent features.
+| Component | File Path |
+| :--- | :--- |
+| **Main ViewModel** | `PortfolioWatch/ViewModels/MainViewModel.cs` |
+| **Stock Model** | `PortfolioWatch/Models/Stock.cs` |
+| **Stock Service** | `PortfolioWatch/Services/StockService.cs` |
+| **Main Window XAML** | `PortfolioWatch/Views/MainWindow.xaml` |
+| **App Entry** | `PortfolioWatch/App.xaml.cs` |
+| **Build Script** | `publish.ps1` |

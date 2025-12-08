@@ -1,4 +1,5 @@
 # publish.ps1
+clear
 $project = "PortfolioWatch"
 $releaseDir = "Releases"
 
