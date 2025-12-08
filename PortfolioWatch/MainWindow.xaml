@@ -11,7 +11,7 @@
         TextOptions.TextFormattingMode="{DynamicResource ThemeTextFormattingMode}"
         mc:Ignorable="d"
         Title="Portfolio Watchlist" Height="600" Width="450"
-        MinHeight="200" MinWidth="450"
+        MinHeight="200" MinWidth="475"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ResizeMode="CanResize"
         Icon="/pyramid.png">
@@ -20,10 +20,6 @@
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" CornerRadius="0"/>
     </WindowChrome.WindowChrome>
 
-    <Window.DataContext>
-        <vm:MainViewModel/>
-    </Window.DataContext>
-
     <Window.Resources>
         <helpers:BindingProxy x:Key="Proxy" Data="{Binding}"/>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -31,6 +27,66 @@
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="12"/>
         </Style>
+
+        <Style x:Key="ThemedCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryForegroundBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SecondaryForegroundBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Border" 
+                                    Grid.Column="0"
+                                    Width="12" Height="12" 
+                                    Background="{TemplateBinding Background}" 
+                                    BorderBrush="{TemplateBinding BorderBrush}" 
+                                    BorderThickness="{TemplateBinding BorderThickness}" 
+                                    CornerRadius="2"
+                                    VerticalAlignment="{TemplateBinding VerticalContentAlignment}">
+                                <Path x:Name="CheckMark" 
+                                      Data="M 2,6 L 5,9 L 10,3" 
+                                      Stroke="{DynamicResource PositiveColorBrush}" 
+                                      StrokeThickness="1.5"
+                                      Visibility="Collapsed"
+                                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                                      Margin="0,-1,0,0"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1" 
+                                              Margin="5,0,0,0" 
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" 
+                                              HorizontalAlignment="Left" 
+                                              RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="{x:Null}">
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="CheckMark" Property="Opacity" Value="0.6"/>
+                                <Setter TargetName="CheckMark" Property="Stroke" Value="{DynamicResource SecondaryForegroundBrush}"/>
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource SecondaryForegroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Border" Property="BorderBrush" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <converters:DoubleToVisibilityConverter x:Key="DoubleToVis"/>
         <converters:InverseDoubleToVisibilityConverter x:Key="InverseDoubleToVis"/>
         <converters:SparklineConverter x:Key="SparklineConverter"/>
@@ -44,22 +100,6 @@
         <converters:NewsItemBorderConverter x:Key="NewsItemBorderConverter"/>
         <converters:NewsItemSpacingConverter x:Key="NewsItemSpacingConverter"/>
         <converters:SignalStrengthToOpacityConverter x:Key="SignalStrengthToOpacityConverter"/>
-
-        <Style x:Key="SignalStrengthIndicatorStyle" TargetType="ContentControl">
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ContentControl">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="1,0,-2,-1">
-                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="3" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=1}" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="4" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=2}" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="5" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=3}" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="6" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=4}" RadiusX="0.5" RadiusY="0.5"/>
-                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="7" Margin="0,0,0,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=5}" RadiusX="0.5" RadiusY="0.5"/>
-                        </StackPanel>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
         <Style x:Key="NarrowScrollBarStyle" TargetType="{x:Type ScrollBar}">
             <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
@@ -105,6 +145,263 @@
                                 </Track.Thumb>
                             </Track>
                         </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PortfolioTabItemStyle" TargetType="TabItem">
+            <Setter Property="AllowDrop" Value="True" />
+            <EventSetter Event="PreviewMouseMove" Handler="TabItem_PreviewMouseMove" />
+            <EventSetter Event="Drop" Handler="TabItem_Drop" />
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="TabItem_PreviewMouseLeftButtonDown" />
+            <EventSetter Event="PreviewMouseLeftButtonUp" Handler="TabItem_PreviewMouseLeftButtonUp" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Grid x:Name="Root" Background="Transparent" Margin="0,0,5,0" Cursor="Hand">
+                            <Border x:Name="TabBorder" 
+                                    Background="Transparent" 
+                                    BorderBrush="{DynamicResource ControlBorderBrush}" 
+                                    BorderThickness="1" 
+                                    CornerRadius="4" 
+                                    Padding="8,4"
+                                    Margin="0,2">
+                                <!-- Normal Tab Content -->
+                                <Grid x:Name="NormalContent">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Checkbox -->
+                                    <Grid VerticalAlignment="Center" Margin="0,0,6,0">
+                                        <Grid.Style>
+                                            <Style TargetType="Grid">
+                                                <Setter Property="Visibility" Value="{Binding Data.IsSingleTab, Source={StaticResource Proxy}, Converter={StaticResource InverseBoolToVis}}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Grid.Style>
+                                        <CheckBox IsChecked="{Binding IsIncludedInTotal}" 
+                                                  Style="{StaticResource ThemedCheckBoxStyle}"
+                                                  Visibility="{Binding IsEditing, Converter={StaticResource InverseBoolToVis}}"/>
+                                    </Grid>
+
+                                    <!-- Pie Chart -->
+                                    <Grid Grid.Column="1" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center"
+                                          Visibility="{Binding Data.IsMultiTabSelection, Source={StaticResource Proxy}, Converter={StaticResource BoolToVis}}">
+                                        <Ellipse Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1"/>
+                                        <Viewbox>
+                                            <Grid Width="22" Height="22">
+                                                <Path Fill="{DynamicResource PositiveColorBrush}" Data="{Binding PortfolioPercentage, Converter={StaticResource PieSliceConverter}}" />
+                                            </Grid>
+                                        </Viewbox>
+                                    </Grid>
+
+                                    <!-- Read-only Text -->
+                                    <TextBlock Grid.Column="2" x:Name="ContentText" Text="{Binding Name}" 
+                                               FontSize="13" FontWeight="SemiBold" 
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding IsEditing, Converter={StaticResource InverseBoolToVis}}"/>
+                                    
+                                    <!-- Editable Text -->
+                                    <TextBox Grid.Column="2" x:Name="EditBox" Text="{Binding Name, UpdateSourceTrigger=LostFocus}"
+                                             Style="{StaticResource TitleTextBoxStyle}"
+                                             FontSize="13" FontWeight="SemiBold"
+                                             Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                             Background="Transparent"
+                                             CaretBrush="{DynamicResource PrimaryForegroundBrush}"
+                                             VerticalAlignment="Center"
+                                             Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}"
+                                             KeyDown="TabHeader_KeyDown"
+                                             LostFocus="TabHeader_LostFocus"/>
+                                    
+                                    <!-- Delete Button (Hover) -->
+                                    <Button Grid.Column="3" x:Name="DeleteButton" 
+                                            Command="{Binding Data.RemoveTabCommand, Source={StaticResource Proxy}}" 
+                                            CommandParameter="{Binding}"
+                                            Background="Transparent" BorderThickness="0" 
+                                            Visibility="Collapsed"
+                                            VerticalAlignment="Center" Margin="6,0,0,0"
+                                            Width="16" Height="16">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="3">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource DeleteButtonHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                        <TextBlock Text="✕" Foreground="{DynamicResource NegativeColorBrush}" FontSize="9" FontWeight="Bold"/>
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Add Button Content -->
+                            <Grid x:Name="AddButtonContent" Visibility="Collapsed" ToolTip="New tab">
+                                <TextBlock x:Name="AddIcon" Text="+" FontSize="18" FontWeight="Bold" 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                           VerticalAlignment="Center" HorizontalAlignment="Center" Margin="8,0"/>
+                            </Grid>
+
+                            <Grid.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Duplicate Tab" Command="{Binding Data.DuplicateTabCommand, Source={StaticResource Proxy}}" CommandParameter="{Binding}" Style="{StaticResource NoIconMenuItemStyle}"/>
+                                </ContextMenu>
+                            </Grid.ContextMenu>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <!-- IsAddButton Trigger -->
+                            <DataTrigger Binding="{Binding IsAddButton}" Value="True">
+                                <Setter TargetName="TabBorder" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="AddButtonContent" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="Root" Property="ContextMenu" Value="{x:Null}"/>
+                            </DataTrigger>
+
+                            <!-- Selection Triggers -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ContentText" Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                                <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                            </Trigger>
+                            
+                            <!-- Hover Triggers -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ContentText" Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                                <Setter TargetName="DeleteButton" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+                            </Trigger>
+
+                            <!-- Add Button Hover Glow -->
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsAddButton}" Value="True"/>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="AddIcon" Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                                <Setter TargetName="AddIcon" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect Color="#007ACC" BlurRadius="10" ShadowDepth="0" Opacity="0.6"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </MultiDataTrigger>
+
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding IsAddButton}" Value="True"/>
+                                    <Condition Binding="{Binding RelativeSource={RelativeSource Self}, Path=IsMouseOver}" Value="True"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="DeleteButton" Property="Visibility" Value="Collapsed"/>
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PortfolioTabControlStyle" TargetType="TabControl">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            
+                            <!-- Header Panel -->
+                            <Grid Grid.Row="0" Margin="15,0,15,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <RepeatButton x:Name="ScrollLeftButton" Grid.Column="0" 
+                                              Width="20" Height="20" Margin="0,0,5,0" 
+                                              Click="ScrollLeftButton_Click" Visibility="Collapsed"
+                                              Background="Transparent" BorderThickness="0" 
+                                              Cursor="Hand" ToolTip="Scroll Left">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border x:Name="Border" Background="{TemplateBinding Background}" CornerRadius="3">
+                                                <Path Data="M 8,4 L 4,8 L 8,12" 
+                                                      Stroke="{DynamicResource SecondaryForegroundBrush}" 
+                                                      StrokeThickness="1.5" 
+                                                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                      Margin="1,0,0,0"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource PositiveBackgroundBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+
+                                <ScrollViewer x:Name="HeaderScrollViewer" Grid.Column="1" 
+                                              HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" 
+                                              PanningMode="HorizontalOnly" Height="Auto"
+                                              ScrollChanged="HeaderScrollViewer_ScrollChanged">
+                                     <TabPanel x:Name="HeaderPanel" IsItemsHost="True" Background="Transparent"/>
+                                </ScrollViewer>
+
+                                <RepeatButton x:Name="ScrollRightButton" Grid.Column="2" 
+                                              Width="20" Height="20" Margin="5,0,0,0" 
+                                              Click="ScrollRightButton_Click" Visibility="Collapsed"
+                                              Background="Transparent" BorderThickness="0" 
+                                              Cursor="Hand" ToolTip="Scroll Right">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border x:Name="Border" Background="{TemplateBinding Background}" CornerRadius="3">
+                                                <Path Data="M 4,4 L 8,8 L 4,12" 
+                                                      Stroke="{DynamicResource SecondaryForegroundBrush}" 
+                                                      StrokeThickness="1.5" 
+                                                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                      Margin="0,0,1,0"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Border" Property="Background" Value="{DynamicResource PositiveBackgroundBrush}"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Grid>
+
+                            <ContentPresenter x:Name="PART_SelectedContentHost" Grid.Row="1" ContentSource="SelectedContent"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SignalStrengthIndicatorStyle" TargetType="ContentControl">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ContentControl">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="1,0,-2,-1">
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="3" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=1}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="4" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=2}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="5" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=3}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="6" Margin="0,0,1,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=4}" RadiusX="0.5" RadiusY="0.5"/>
+                            <Rectangle VerticalAlignment="Bottom" Width="1.5" Height="7" Margin="0,0,0,0" Fill="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" Opacity="{Binding Content, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SignalStrengthToOpacityConverter}, ConverterParameter=5}" RadiusX="0.5" RadiusY="0.5"/>
+                        </StackPanel>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -309,8 +606,18 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <CheckBox IsChecked="{Binding IsAllIncluded, Mode=OneWay}" 
+                              Command="{Binding ToggleAllIncludedCommand}"
+                              Content="Include tabs in total"
+                              Style="{StaticResource ThemedCheckBoxStyle}"
+                              FontSize="11"
+                              VerticalAlignment="Center"
+                              Margin="0,0,15,0"
+                              ToolTip="Include all tabs in portfolio total"
+                              Visibility="{Binding IsSingleTab, Converter={StaticResource InverseBoolToVis}}"/>
+
                     <StackPanel Orientation="Horizontal" Margin="0,0,15,0" ToolTip="Toggle Portfolio Mode">
-                        <TextBlock Text="Portfolio" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">
+                        <TextBlock Text="Portfolio mode" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Style.Triggers>
@@ -345,26 +652,14 @@
             </Grid>
 
             <!-- List Area -->
-            <ScrollViewer x:Name="MainScrollViewer" AutomationProperties.AutomationId="MainScrollViewer" Grid.Row="3" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" Padding="10,0">
-                <ScrollViewer.Template>
-                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
-                        <Grid x:Name="Grid" Background="{TemplateBinding Background}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" CanContentScroll="{TemplateBinding CanContentScroll}" CanHorizontallyScroll="False" CanVerticallyScroll="False" ContentTemplate="{TemplateBinding ContentTemplate}" Content="{TemplateBinding Content}" Grid.Column="0" Margin="{TemplateBinding Padding}" Grid.Row="0"/>
-                            <ScrollBar x:Name="PART_VerticalScrollBar" AutomationProperties.AutomationId="VerticalScrollBar_Custom" Cursor="Arrow" Grid.Column="1" Maximum="{TemplateBinding ScrollableHeight}" Minimum="0" Grid.Row="0" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportHeight}" Style="{StaticResource NarrowScrollBarStyle}" Width="4" MinWidth="0" MaxWidth="4"/>
-                            <ScrollBar x:Name="PART_HorizontalScrollBar" AutomationProperties.AutomationId="HorizontalScrollBar_Custom" Cursor="Arrow" Grid.Column="0" Maximum="{TemplateBinding ScrollableWidth}" Minimum="0" Orientation="Horizontal" Grid.Row="1" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportWidth}" Style="{StaticResource NarrowScrollBarStyle}" Height="4" MinHeight="0" MaxHeight="4"/>
-                        </Grid>
-                    </ControlTemplate>
-                </ScrollViewer.Template>
-                <StackPanel>
-                    <!-- Indexes List -->
+            <Grid Grid.Row="3">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Indexes List -->
+                <StackPanel Grid.Row="0">
                     <ListView ItemsSource="{Binding Indexes}" 
                               Visibility="{Binding IsIndexesVisible, Converter={StaticResource BoolToVis}}"
                               Background="Transparent" BorderThickness="0" 
@@ -460,349 +755,429 @@
                     <!-- Separator -->
                     <Border Height="1" Background="{DynamicResource SeparatorBrush}" Margin="5,5,5,5" 
                             Visibility="{Binding IsIndexesVisible, Converter={StaticResource BoolToVis}}"/>
+                </StackPanel>
 
-                    <!-- Headers -->
-                    <Grid Margin="0,0,0,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="12"/>
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto" SharedSizeGroup="PriceColumn"/>
-                        </Grid.ColumnDefinitions>
+                <!-- Tabbed Portfolio -->
+                <TabControl Grid.Row="1" 
+                            ItemsSource="{Binding Tabs}" 
+                            SelectedItem="{Binding SelectedTab}"
+                            Style="{StaticResource PortfolioTabControlStyle}"
+                            ItemContainerStyle="{StaticResource PortfolioTabItemStyle}">
+                    <TabControl.ContentTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
 
-                        <!-- Symbol/Name Headers -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,10,0">
-                            <Button Command="{Binding SortBySymbolCommand}" Background="Transparent" BorderThickness="0" Margin="0,0,5,0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Symbol" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
-                                    <TextBlock Text="{Binding SymbolSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Command="{Binding SortByNameCommand}" Background="Transparent" BorderThickness="0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Name" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
-                                    <TextBlock Text="{Binding NameSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-
-                        <!-- Center Column Headers -->
-                        <Grid Grid.Column="2" Margin="0,0,10,0" Visibility="{Binding IsPortfolioMode, Converter={StaticResource BoolToVis}}">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="DayChangeColumn"/>
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock Grid.Column="1" Text="Shares" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" HorizontalAlignment="Right" TextAlignment="Right" Width="60" Margin="10,0,15,0"/>
-                            
-                            <Button Grid.Column="2" Command="{Binding SortByMarketValueCommand}" Background="Transparent" BorderThickness="0" Margin="10,0,15,0" HorizontalAlignment="Right">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Value" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
-                                    <TextBlock Text="{Binding MarketValueSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
-                                </StackPanel>
-                            </Button>
-                            
-                            <Button Grid.Column="3" Command="{Binding SortByDayChangeValueCommand}" Background="Transparent" BorderThickness="0" Margin="10,0,15,0" HorizontalAlignment="Right">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding DayChangeLabel}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
-                                    <TextBlock Text="{Binding DayChangeValueSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
-                                </StackPanel>
-                            </Button>
-                        </Grid>
-
-                        <!-- Price/Change Headers -->
-                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Command="{Binding SortByChangeCommand}" Background="Transparent" BorderThickness="0">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding ChangePercentLabel}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
-                                    <TextBlock Text="{Binding ChangeSortIcon}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- Stocks List -->
-                    <ListView ItemsSource="{Binding Stocks}" 
-                              Background="Transparent" BorderThickness="0" 
-                              ItemContainerStyle="{StaticResource StockItemStyle}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              BorderBrush="Transparent"
-                              PreviewMouseWheel="ListView_PreviewMouseWheel">
-                        <ListView.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:Stock}">
-                                <Grid Background="Transparent">
-                                    <Grid.InputBindings>
-                                        <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
-                                    </Grid.InputBindings>
+                                <!-- Headers -->
+                                <Grid Margin="10,0,10,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="12"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto" SharedSizeGroup="PriceColumn"/>
                                     </Grid.ColumnDefinitions>
-                                    
-                                    <!-- Delete Button -->
-                                    <Button Command="{Binding DataContext.RemoveStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
-                                            CommandParameter="{Binding}"
-                                            Background="Transparent" BorderThickness="0" Opacity="0" x:Name="DeleteBtn"
-                                            VerticalAlignment="Center" HorizontalAlignment="Center" Width="16" Height="16"
-                                            Margin="-2,0,0,0">
-                                        <Button.Template>
-                                            <ControlTemplate TargetType="Button">
-                                                <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="3">
-                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                </Border>
-                                                <ControlTemplate.Triggers>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource DeleteButtonHoverBrush}"/>
-                                                    </Trigger>
-                                                </ControlTemplate.Triggers>
-                                            </ControlTemplate>
-                                        </Button.Template>
-                                        <TextBlock Text="✕" Foreground="{DynamicResource NegativeColorBrush}" FontSize="9" FontWeight="Bold"/>
-                                    </Button>
 
-                                    <Grid Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <!-- Symbol/Name Headers -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,10,0">
+                                        <Button Command="{Binding DataContext.SortBySymbolCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="Transparent" BorderThickness="0" Margin="0,0,5,0">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
-                                                
-                                                <!-- News Flag -->
-                                                <emoji:TextBlock Text="{Binding NewsEmoji}" Margin="3,0,0,0" 
-                                                           Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}"
-                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
-                                                           MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
-                                                           MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown"/>
-
-                                                <!-- Earnings Flag -->
-                                                <Grid Margin="3,0,0,0" 
-                                                      Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}"
-                                                      Cursor="Hand" VerticalAlignment="Center"
-                                                      MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
-                                                      MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown"
-                                                      Background="Transparent">
-                                                    <emoji:TextBlock Text="{Binding EarningsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center">
-                                                        <emoji:TextBlock.Style>
-                                                            <Style TargetType="emoji:TextBlock">
-                                                                <Setter Property="Margin" Value="0,0,0,2"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding EarningsStatus}" Value="Upcoming">
-                                                                        <Setter Property="Margin" Value="0,2,0,0"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </emoji:TextBlock.Style>
-                                                    </emoji:TextBlock>
-                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
-                                                                    Content="{Binding EarningsSignalStrength}" 
-                                                                    Tag="{Binding EarningsFlagColor}"
-                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"
-                                                                    Visibility="{Binding EarningsStatus, Converter={StaticResource EarningsStatusVisibilityConverter}}"/>
-                                                </Grid>
-
-                                                <!-- Insider Flag -->
-                                                <Grid Margin="3,0,0,0" 
-                                                      Visibility="{Binding HasInsiderFlag, Converter={StaticResource BoolToVis}}"
-                                                      Cursor="Hand" VerticalAlignment="Center"
-                                                      MouseEnter="InsiderFlag_MouseEnter" MouseLeave="InsiderFlag_MouseLeave"
-                                                      MouseLeftButtonDown="InsiderFlag_MouseLeftButtonDown"
-                                                      Background="Transparent">
-                                                    <emoji:TextBlock Text="{Binding InsiderEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
-                                                                    Content="{Binding InsiderSignalStrength}" 
-                                                                    Tag="{Binding InsiderSignalColor}"
-                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
-                                                </Grid>
-
-                                                <!-- Options Flag -->
-                                                <Grid Margin="3,0,0,0" 
-                                                      Visibility="{Binding HasOptionsFlag, Converter={StaticResource BoolToVis}}"
-                                                      Cursor="Hand" VerticalAlignment="Center"
-                                                      MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
-                                                      MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"
-                                                      Background="Transparent">
-                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
-                                                                    Content="{Binding OptionsSignalStrength}" 
-                                                                    Tag="{Binding SignalStrengthColor}"
-                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
-                                                </Grid>
-
-                                                <!-- RVOL Flag -->
-                                                <Grid Margin="3,0,0,0" 
-                                                      Visibility="{Binding HasRVolFlag, Converter={StaticResource BoolToVis}}"
-                                                      Cursor="Hand" VerticalAlignment="Center"
-                                                      MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
-                                                      MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"
-                                                      Background="Transparent">
-                                                    <emoji:TextBlock Text="{Binding RVolEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
-                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
-                                                                    Content="{Binding RVolSignalStrength}" 
-                                                                    Tag="{Binding RVolSignalColor}"
-                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
-                                                </Grid>
+                                                <TextBlock Text="Symbol" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                                <TextBlock Text="{Binding DataContext.SymbolSortIcon, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
                                             </StackPanel>
-                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left"/>
-                                        </StackPanel>
-                                        
-                                        <!-- Pie Chart -->
-                                        <Grid Grid.Column="1" Width="22" Height="22" Margin="5,0,0,0" 
-                                              Visibility="{Binding Shares, Converter={StaticResource DoubleToVis}}"
-                                              MouseEnter="Pie_MouseEnter" MouseLeave="Pie_MouseLeave" Background="Transparent">
-                                            <Ellipse Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" 
-                                                     Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" />
-                                            <Path Fill="{DynamicResource PositiveColorBrush}" Data="{Binding PortfolioPercentage, Converter={StaticResource PieSliceConverter}}" />
-                                        </Grid>
-                                    </Grid>
+                                        </Button>
+                                        <Button Command="{Binding DataContext.SortByNameCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="Transparent" BorderThickness="0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Name" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                                <TextBlock Text="{Binding DataContext.NameSortIcon, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
 
-                                    <!-- Center Column (Sparkline or Portfolio Data) -->
-                                    <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                    <!-- Center Column Headers -->
+                                    <Grid Grid.Column="2" Margin="0,0,10,0" Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="DayChangeColumn"/>
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Sparkline Graph -->
-                                        <Grid Grid.Column="0" Height="20" Background="Transparent"
-                                              MouseMove="Graph_MouseMove" MouseLeave="Graph_MouseLeave">
-                                            <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill" IsHitTestVisible="False">
-                                                <Path.Data>
-                                                    <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
-                                                        <Binding Path="History"/>
-                                                        <Binding Path="PreviousClose"/>
-                                                    </MultiBinding>
-                                                </Path.Data>
-                                            </Path>
-                                            <Path StrokeThickness="1.5" Stretch="Fill" IsHitTestVisible="False">
-                                                <Path.Data>
-                                                    <MultiBinding Converter="{StaticResource SparklineConverter}">
-                                                        <Binding Path="History"/>
-                                                        <Binding Path="DayProgress"/>
-                                                        <Binding Path="PreviousClose"/>
-                                                        <Binding Path="Timestamps"/>
-                                                        <Binding Path="DataContext.SelectedRange" RelativeSource="{RelativeSource AncestorType=Window}"/>
-                                                    </MultiBinding>
-                                                </Path.Data>
-                                                <Path.Style>
-                                                    <Style TargetType="Path">
-                                                        <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Path.Style>
-                                            </Path>
-                                        </Grid>
-
-                                        <!-- Portfolio Data -->
-                                        <Grid Grid.Column="1" Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
-                                                <ColumnDefinition Width="Auto" SharedSizeGroup="DayChangeColumn"/>
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Shares Input -->
-                                            <Grid Grid.Column="0" Width="60" Margin="10,0,0,0">
-                                                <TextBox x:Name="SharesBox"
-                                                         Text="{Binding Shares, Converter={StaticResource ZeroToEmptyStringConverter}, ConverterParameter='#,##0.###', UpdateSourceTrigger=LostFocus}"
-                                                         Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
-                                                         HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
-                                                         Padding="2"
-                                                         FontWeight="SemiBold"
-                                                         KeyDown="SharesBox_KeyDown">
-                                                    <TextBox.Resources>
-                                                        <Style TargetType="Border">
-                                                            <Setter Property="CornerRadius" Value="3"/>
-                                                        </Style>
-                                                    </TextBox.Resources>
-                                                </TextBox>
-                                                
-                                                <!-- Overlay Button for "+" -->
-                                                <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
-                                                        IsHitTestVisible="False" FontSize="16" FontWeight="Bold">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button">
-                                                            <Setter Property="Visibility" Value="{Binding Shares, Converter={StaticResource InverseDoubleToVis}}"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding ElementName=SharesBox, Path=IsFocused}" Value="True">
-                                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Button.Style>
-                                                </Button>
-                                            </Grid>
-
-                                            <!-- Market Value -->
-                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{Binding MarketValue, StringFormat=C2}" 
-                                                       Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Right"/>
-
-                                            <!-- Day Change Value -->
-                                            <TextBlock Grid.Column="2" Margin="10,0,0,0" Text="{Binding DayChangeValue, StringFormat={}{0:+$#,##0.00;-$#,##0.00;$0.00}}" 
-                                                       FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
-                                        </Grid>
+                                        <TextBlock Grid.Column="1" Text="Shares" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" HorizontalAlignment="Right" TextAlignment="Right" Width="60" Margin="10,0,20,0"/>
+                                        
+                                        <Button Grid.Column="2" Command="{Binding DataContext.SortByMarketValueCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="Transparent" BorderThickness="0" Margin="10,0,20,0" HorizontalAlignment="Right">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Value" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                                <TextBlock Text="{Binding DataContext.MarketValueSortIcon, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
+                                            </StackPanel>
+                                        </Button>
+                                        
+                                        <Button Grid.Column="3" Command="{Binding DataContext.SortByDayChangeValueCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="Transparent" BorderThickness="0" Margin="10,0,20,0" HorizontalAlignment="Right">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DataContext.DayChangeLabel, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                                <TextBlock Text="{Binding DataContext.DayChangeValueSortIcon, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
+                                            </StackPanel>
+                                        </Button>
                                     </Grid>
 
-                                    <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"/>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                            <Border CornerRadius="3" Padding="3,0">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="{DynamicResource NegativeBackgroundBrush}"/>
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                <Setter Property="Background" Value="{DynamicResource PositiveBackgroundBrush}"/>
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                                <TextBlock Text="{Binding ChangePercent, StringFormat={}{0:+#,##0.00;-#,##0.00;0.00}%}" FontSize="10" FontWeight="Bold">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding IsUp}" Value="True">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </Border>
-                                        </StackPanel>
+                                    <!-- Price/Change Headers -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                                        <Button Command="{Binding DataContext.SortByChangeCommand, RelativeSource={RelativeSource AncestorType=Window}}" Background="Transparent" BorderThickness="0" Margin="0,0,20,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DataContext.ChangePercentLabel, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}"/>
+                                                <TextBlock Text="{Binding DataContext.ChangeSortIcon, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="9" Foreground="{DynamicResource TertiaryForegroundBrush}" Margin="2,0,0,0"/>
+                                            </StackPanel>
+                                        </Button>
                                     </StackPanel>
                                 </Grid>
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True">
-                                        <Setter TargetName="DeleteBtn" Property="Opacity" Value="1"/>
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </StackPanel>
-            </ScrollViewer>
+
+                                <!-- Stocks List -->
+                                <TextBlock Text="Add a stock from the search bar below to get started"
+                                           Grid.Row="1"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Top"
+                                           Margin="0,40,0,0"
+                                           Foreground="{DynamicResource TertiaryForegroundBrush}"
+                                           FontSize="14"
+                                           FontStyle="Italic"
+                                           IsHitTestVisible="False">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Stocks.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <ScrollViewer x:Name="MainScrollViewer" AutomationProperties.AutomationId="MainScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Disabled" Padding="10,0">
+                                    <ScrollViewer.Template>
+                                        <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                                            <Grid x:Name="Grid" Background="{TemplateBinding Background}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <ScrollContentPresenter x:Name="PART_ScrollContentPresenter" CanContentScroll="{TemplateBinding CanContentScroll}" CanHorizontallyScroll="False" CanVerticallyScroll="False" ContentTemplate="{TemplateBinding ContentTemplate}" Content="{TemplateBinding Content}" Grid.Column="0" Margin="{TemplateBinding Padding}" Grid.Row="0"/>
+                                                <ScrollBar x:Name="PART_VerticalScrollBar" AutomationProperties.AutomationId="VerticalScrollBar_Custom" Cursor="Arrow" Grid.Column="1" Maximum="{TemplateBinding ScrollableHeight}" Minimum="0" Grid.Row="0" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportHeight}" Style="{StaticResource NarrowScrollBarStyle}" Width="4" MinWidth="0" MaxWidth="4"/>
+                                                <ScrollBar x:Name="PART_HorizontalScrollBar" AutomationProperties.AutomationId="HorizontalScrollBar_Custom" Cursor="Arrow" Grid.Column="0" Maximum="{TemplateBinding ScrollableWidth}" Minimum="0" Orientation="Horizontal" Grid.Row="1" Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}" ViewportSize="{TemplateBinding ViewportWidth}" Style="{StaticResource NarrowScrollBarStyle}" Height="4" MinHeight="0" MaxHeight="4"/>
+                                            </Grid>
+                                        </ControlTemplate>
+                                    </ScrollViewer.Template>
+                                    <ListView ItemsSource="{Binding Stocks}" 
+                                              Background="Transparent" BorderThickness="0" 
+                                              ItemContainerStyle="{StaticResource StockItemStyle}"
+                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                              BorderBrush="Transparent"
+                                              PreviewMouseWheel="ListView_PreviewMouseWheel">
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type models:Stock}">
+                                                <Grid Background="Transparent">
+                                                    <Grid.InputBindings>
+                                                        <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                                    </Grid.InputBindings>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="12"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto" SharedSizeGroup="PriceColumn"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <!-- Delete Button -->
+                                                    <Button Command="{Binding DataContext.RemoveStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                            CommandParameter="{Binding}"
+                                                            Background="Transparent" BorderThickness="0" Opacity="0" x:Name="DeleteBtn"
+                                                            VerticalAlignment="Center" HorizontalAlignment="Center" Width="16" Height="16"
+                                                            Margin="-2,0,0,0">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="BtnBorder" Background="{TemplateBinding Background}" CornerRadius="3">
+                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="BtnBorder" Property="Background" Value="{DynamicResource DeleteButtonHoverBrush}"/>
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                        <TextBlock Text="✕" Foreground="{DynamicResource NegativeColorBrush}" FontSize="9" FontWeight="Bold"/>
+                                                    </Button>
+
+                                                    <Grid Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0" MinWidth="80">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                                                
+                                                                <!-- News Flag -->
+                                                                <emoji:TextBlock Text="{Binding NewsEmoji}" Margin="3,0,0,0" 
+                                                                           Visibility="{Binding HasNewsFlag, Converter={StaticResource BoolToVis}}"
+                                                                           Cursor="Hand" FontSize="10" Opacity="0.9" VerticalAlignment="Center"
+                                                                           MouseEnter="NewsFlag_MouseEnter" MouseLeave="NewsFlag_MouseLeave"
+                                                                           MouseLeftButtonDown="NewsFlag_MouseLeftButtonDown"/>
+
+                                                                <!-- Earnings Flag -->
+                                                                <Grid Margin="3,0,0,0" 
+                                                                      Visibility="{Binding HasEarningsFlag, Converter={StaticResource BoolToVis}}"
+                                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                                      MouseEnter="EarningsFlag_MouseEnter" MouseLeave="EarningsFlag_MouseLeave"
+                                                                      MouseLeftButtonDown="EarningsFlag_MouseLeftButtonDown"
+                                                                      Background="Transparent">
+                                                                    <emoji:TextBlock Text="{Binding EarningsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                                        <emoji:TextBlock.Style>
+                                                                            <Style TargetType="emoji:TextBlock">
+                                                                                <Setter Property="Margin" Value="0,0,0,2"/>
+                                                                                <Style.Triggers>
+                                                                                    <DataTrigger Binding="{Binding EarningsStatus}" Value="Upcoming">
+                                                                                        <Setter Property="Margin" Value="0,2,0,0"/>
+                                                                                    </DataTrigger>
+                                                                                </Style.Triggers>
+                                                                            </Style>
+                                                                        </emoji:TextBlock.Style>
+                                                                    </emoji:TextBlock>
+                                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                                    Content="{Binding EarningsSignalStrength}" 
+                                                                                    Tag="{Binding EarningsFlagColor}"
+                                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"
+                                                                                    Visibility="{Binding EarningsStatus, Converter={StaticResource EarningsStatusVisibilityConverter}}"/>
+                                                                </Grid>
+
+                                                                <!-- Insider Flag -->
+                                                                <Grid Margin="3,0,0,0" 
+                                                                      Visibility="{Binding HasInsiderFlag, Converter={StaticResource BoolToVis}}"
+                                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                                      MouseEnter="InsiderFlag_MouseEnter" MouseLeave="InsiderFlag_MouseLeave"
+                                                                      MouseLeftButtonDown="InsiderFlag_MouseLeftButtonDown"
+                                                                      Background="Transparent">
+                                                                    <emoji:TextBlock Text="{Binding InsiderEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                                    Content="{Binding InsiderSignalStrength}" 
+                                                                                    Tag="{Binding InsiderSignalColor}"
+                                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
+                                                                </Grid>
+
+                                                                <!-- Options Flag -->
+                                                                <Grid Margin="3,0,0,0" 
+                                                                      Visibility="{Binding HasOptionsFlag, Converter={StaticResource BoolToVis}}"
+                                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                                      MouseEnter="OptionsFlag_MouseEnter" MouseLeave="OptionsFlag_MouseLeave"
+                                                                      MouseLeftButtonDown="OptionsFlag_MouseLeftButtonDown"
+                                                                      Background="Transparent">
+                                                                    <emoji:TextBlock Text="{Binding OptionsEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                                    Content="{Binding OptionsSignalStrength}" 
+                                                                                    Tag="{Binding SignalStrengthColor}"
+                                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
+                                                                </Grid>
+
+                                                                <!-- RVOL Flag -->
+                                                                <Grid Margin="3,0,0,0" 
+                                                                      Visibility="{Binding HasRVolFlag, Converter={StaticResource BoolToVis}}"
+                                                                      Cursor="Hand" VerticalAlignment="Center"
+                                                                      MouseEnter="RVolFlag_MouseEnter" MouseLeave="RVolFlag_MouseLeave"
+                                                                      MouseLeftButtonDown="RVolFlag_MouseLeftButtonDown"
+                                                                      Background="Transparent">
+                                                                    <emoji:TextBlock Text="{Binding RVolEmoji}" FontSize="10" Opacity="0.9" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,2"/>
+                                                                    <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
+                                                                                    Content="{Binding RVolSignalStrength}" 
+                                                                                    Tag="{Binding RVolSignalColor}"
+                                                                                    HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
+                                                                </Grid>
+                                                            </StackPanel>
+                                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left"/>
+                                                        </StackPanel>
+                                                        
+                                                        <!-- Pie Chart -->
+                                                        <Grid Grid.Column="1" Width="22" Height="22" Margin="5,0,0,0" 
+                                                              Visibility="{Binding Shares, Converter={StaticResource DoubleToVis}}"
+                                                              MouseEnter="Pie_MouseEnter" MouseLeave="Pie_MouseLeave" Background="Transparent">
+                                                            <Ellipse Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                                                     Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" />
+                                                            <Path Fill="{DynamicResource PositiveColorBrush}" Data="{Binding PortfolioPercentage, Converter={StaticResource PieSliceConverter}}" />
+                                                        </Grid>
+                                                    </Grid>
+
+                                                    <!-- Center Column (Sparkline or Portfolio Data) -->
+                                                    <Grid Grid.Column="2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- Sparkline Graph -->
+                                                        <Grid Grid.Column="0" Height="20" Background="Transparent"
+                                                              MouseMove="Graph_MouseMove" MouseLeave="Graph_MouseLeave">
+                                                            <Path Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" StrokeDashArray="2 2" Stretch="Fill" IsHitTestVisible="False">
+                                                                <Path.Data>
+                                                                    <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
+                                                                        <Binding Path="History"/>
+                                                                        <Binding Path="PreviousClose"/>
+                                                                    </MultiBinding>
+                                                                </Path.Data>
+                                                            </Path>
+                                                            <Path StrokeThickness="1.5" Stretch="Fill" IsHitTestVisible="False">
+                                                                <Path.Data>
+                                                                    <MultiBinding Converter="{StaticResource SparklineConverter}">
+                                                                        <Binding Path="History"/>
+                                                                        <Binding Path="DayProgress"/>
+                                                                        <Binding Path="PreviousClose"/>
+                                                                        <Binding Path="Timestamps"/>
+                                                                        <Binding Path="DataContext.SelectedRange" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                                    </MultiBinding>
+                                                                </Path.Data>
+                                                                <Path.Style>
+                                                                    <Style TargetType="Path">
+                                                                        <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                                <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Path.Style>
+                                                            </Path>
+                                                        </Grid>
+
+                                                        <!-- Portfolio Data -->
+                                                        <Grid Grid.Column="1" Visibility="{Binding DataContext.IsPortfolioMode, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVis}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="ValueColumn"/>
+                                                                <ColumnDefinition Width="Auto" SharedSizeGroup="DayChangeColumn"/>
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Shares Input -->
+                                                            <Grid Grid.Column="0" Width="60" Margin="10,0,0,0">
+                                                                <TextBox x:Name="SharesBox"
+                                                                         Text="{Binding Shares, Converter={StaticResource ZeroToEmptyStringConverter}, ConverterParameter='#,##0.###', UpdateSourceTrigger=LostFocus}"
+                                                                         Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
+                                                                         HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
+                                                                         Padding="2"
+                                                                         FontWeight="SemiBold"
+                                                                         KeyDown="SharesBox_KeyDown">
+                                                                    <TextBox.Resources>
+                                                                        <Style TargetType="Border">
+                                                                            <Setter Property="CornerRadius" Value="3"/>
+                                                                        </Style>
+                                                                    </TextBox.Resources>
+                                                                </TextBox>
+                                                                
+                                                                <!-- Overlay Button for "+" -->
+                                                                <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
+                                                                        IsHitTestVisible="False" FontSize="16" FontWeight="Bold">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button">
+                                                                            <Setter Property="Visibility" Value="{Binding Shares, Converter={StaticResource InverseDoubleToVis}}"/>
+                                                                            <Setter Property="Template">
+                                                                                <Setter.Value>
+                                                                                    <ControlTemplate TargetType="Button">
+                                                                                        <Grid Background="Transparent">
+                                                                                            <TextBlock x:Name="PlusText" Text="+" 
+                                                                                                       FontSize="16" FontWeight="Bold" 
+                                                                                                       Foreground="{TemplateBinding Foreground}"
+                                                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                        </Grid>
+                                                                                        <ControlTemplate.Triggers>
+                                                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True">
+                                                                                                <Setter TargetName="PlusText" Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                                                                                                <Setter TargetName="PlusText" Property="Effect">
+                                                                                                    <Setter.Value>
+                                                                                                        <DropShadowEffect Color="#007ACC" BlurRadius="8" ShadowDepth="0" Opacity="0.6"/>
+                                                                                                    </Setter.Value>
+                                                                                                </Setter>
+                                                                                            </DataTrigger>
+                                                                                        </ControlTemplate.Triggers>
+                                                                                    </ControlTemplate>
+                                                                                </Setter.Value>
+                                                                            </Setter>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding ElementName=SharesBox, Path=IsFocused}" Value="True">
+                                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                </Button>
+                                                            </Grid>
+
+                                                            <!-- Market Value -->
+                                                            <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{Binding MarketValue, StringFormat=C2}" 
+                                                                       Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+
+                                                            <!-- Day Change Value -->
+                                                            <TextBlock Grid.Column="2" Margin="10,0,0,0" Text="{Binding DayChangeValue, StringFormat={}{0:+$#,##0.00;-$#,##0.00;$0.00}}" 
+                                                                       FontSize="11" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                                <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                    </Grid>
+
+                                                    <StackPanel Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Price, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"/>
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                            <Border CornerRadius="3" Padding="3,0">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Setter Property="Background" Value="{DynamicResource NegativeBackgroundBrush}"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                                <Setter Property="Background" Value="{DynamicResource PositiveBackgroundBrush}"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock Text="{Binding ChangePercent, StringFormat={}{0:+#,##0.00;-#,##0.00;0.00}%}" FontSize="10" FontWeight="Bold">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsUp}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListViewItem}, Path=IsMouseOver}" Value="True">
+                                                        <Setter TargetName="DeleteBtn" Property="Opacity" Value="1"/>
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </ScrollViewer>
+                            </Grid>
+                        </DataTemplate>
+                    </TabControl.ContentTemplate>
+                </TabControl>
+            </Grid>
 
             <!-- Pinning Tooltip -->
             <Popup x:Name="PinningTooltip" Placement="Bottom" StaysOpen="False" AllowsTransparency="True">

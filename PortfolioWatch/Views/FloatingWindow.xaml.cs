@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Runtime.InteropServices;
 using PortfolioWatch.ViewModels;
 
 namespace PortfolioWatch.Views
@@ -52,6 +53,9 @@ namespace PortfolioWatch.Views
             {
                 MainBorder.ContextMenu.DataContext = this.DataContext;
             }
+
+            MainBorder.MouseMove += Border_MouseMove;
+            MainBorder.MouseLeftButtonUp += Border_MouseLeftButtonUp;
         }
 
         private void Border_MouseEnter(object sender, MouseEventArgs e)
@@ -70,29 +74,79 @@ namespace PortfolioWatch.Views
             OpenRequested?.Invoke(this, new OpenEventArgs(false));
         }
 
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetCursorPos(ref Win32Point pt);
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct Win32Point
+        {
+            public Int32 X;
+            public Int32 Y;
+        };
+
+        private Point _dragStartMousePos;
+        private Point _dragStartWindowPos;
+        private bool _isMouseDown;
+
         private void Border_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ButtonState == MouseButtonState.Pressed)
             {
                 _hoverTimer.Stop();
+                _isMouseDown = true;
+                
+                Win32Point w32Mouse = new Win32Point();
+                GetCursorPos(ref w32Mouse);
+                _dragStartMousePos = new Point(w32Mouse.X, w32Mouse.Y);
+                _dragStartWindowPos = new Point(this.Left, this.Top);
 
-                var startLeft = this.Left;
-                var startTop = this.Top;
+                ((UIElement)sender).CaptureMouse();
+            }
+        }
 
-                IsUserMoving = true;
-                DragStarted?.Invoke(this, EventArgs.Empty);
-                try
+        private void Border_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (_isMouseDown)
+            {
+                Win32Point w32Mouse = new Win32Point();
+                GetCursorPos(ref w32Mouse);
+                Point currentMousePos = new Point(w32Mouse.X, w32Mouse.Y);
+
+                double deltaX = currentMousePos.X - _dragStartMousePos.X;
+                double deltaY = currentMousePos.Y - _dragStartMousePos.Y;
+
+                if (!IsUserMoving)
                 {
-                    this.DragMove();
+                    if (Math.Abs(deltaX) > SystemParameters.MinimumHorizontalDragDistance ||
+                        Math.Abs(deltaY) > SystemParameters.MinimumVerticalDragDistance)
+                    {
+                        IsUserMoving = true;
+                        DragStarted?.Invoke(this, EventArgs.Empty);
+                    }
                 }
-                finally
+
+                if (IsUserMoving)
+                {
+                    this.Left = _dragStartWindowPos.X + deltaX;
+                    this.Top = _dragStartWindowPos.Y + deltaY;
+                }
+            }
+        }
+
+        private void Border_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_isMouseDown)
+            {
+                _isMouseDown = false;
+                ((UIElement)sender).ReleaseMouseCapture();
+
+                if (IsUserMoving)
                 {
                     IsUserMoving = false;
                     DragEnded?.Invoke(this, EventArgs.Empty);
                 }
-
-                // Only treat as a click if we didn't move significantly
-                if (Math.Abs(this.Left - startLeft) < 2 && Math.Abs(this.Top - startTop) < 2)
+                else
                 {
                     OpenRequested?.Invoke(this, new OpenEventArgs(true));
                 }

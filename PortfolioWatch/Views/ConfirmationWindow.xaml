@@ -6,10 +6,10 @@
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         TextOptions.TextFormattingMode="Display"
         mc:Ignorable="d"
-        Title="Confirm" Height="180" Width="350"
+        Title="Confirm" Width="450" SizeToContent="Height" MinHeight="200"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize" Topmost="True">
+        ResizeMode="CanResize" Topmost="True">
 
     <Window.Resources>
         <Style TargetType="Button">
@@ -35,6 +35,9 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="Expander">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+        </Style>
     </Window.Resources>
 
     <Border Background="{DynamicResource WindowBackgroundBrush}" CornerRadius="8" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1">
@@ -45,26 +48,64 @@
         <Grid Margin="20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                <emoji:TextBlock Text="{Binding IconText, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="18" Margin="0,0,10,0"/>
-                <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" 
-                           Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="18" FontWeight="SemiBold"/>
-            </StackPanel>
+            <!-- Header -->
+            <Grid Grid.Row="0" Margin="0,0,0,15">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel Orientation="Horizontal">
+                    <emoji:TextBlock Text="{Binding IconText, RelativeSource={RelativeSource AncestorType=Window}}" FontSize="18" Margin="0,0,10,0"/>
+                    <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=Window}}" 
+                               Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="18" FontWeight="SemiBold"/>
+                </StackPanel>
 
+                <Button Grid.Column="1" Click="CloseButton_Click" Background="Transparent" Padding="5" Margin="5,-5,-5,0" VerticalAlignment="Top">
+                    <TextBlock Text="✕" FontSize="14"/>
+                </Button>
+            </Grid>
+
+            <!-- Message -->
             <TextBlock Grid.Row="1" Text="{Binding Message, RelativeSource={RelativeSource AncestorType=Window}}" 
-                       Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                       Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,0,0,15"/>
 
-            <CheckBox x:Name="ResetSettingsCheckBox" Grid.Row="2" Content="Reset app settings (theme, position, etc.)" 
-                      Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,15,0,0"
+            <!-- Details Expander -->
+            <Expander x:Name="DetailsExpander" Grid.Row="2" Header="Show Details" Margin="0,0,0,15">
+                <StackPanel Margin="0,10,0,0">
+                    <TextBox Text="{Binding Details, RelativeSource={RelativeSource AncestorType=Window}}"
+                             IsReadOnly="True" TextWrapping="Wrap" Height="100" VerticalScrollBarVisibility="Auto"
+                             Background="{DynamicResource ControlBackgroundBrush}"
+                             Foreground="{DynamicResource SecondaryForegroundBrush}"
+                             BorderThickness="0" Padding="5"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0" HorizontalAlignment="Right">
+                        <Button Content="Copy Message" Click="CopyMessage_Click" Margin="0,0,10,0" FontSize="11" Padding="10,5"/>
+                        <Button Content="Copy Details" Click="CopyDetails_Click" FontSize="11" Padding="10,5"/>
+                    </StackPanel>
+                </StackPanel>
+            </Expander>
+
+            <!-- Reset Checkbox -->
+            <CheckBox x:Name="ResetSettingsCheckBox" Grid.Row="3" Content="Reset app settings (theme, position, etc.)" 
+                      Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,0,15"
                       VerticalAlignment="Center" HorizontalAlignment="Left" Visibility="Collapsed"/>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+            <!-- Action Buttons -->
+            <StackPanel Grid.Row="4" x:Name="ActionButtonsPanel" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button x:Name="NoButton" Content="No" Click="NoButton_Click" Margin="0,0,10,0" Background="Transparent"/>
                 <Button x:Name="YesButton" Content="Yes" Click="YesButton_Click" Background="{DynamicResource NegativeColorBrush}" Foreground="White"/>
+            </StackPanel>
+
+            <!-- Progress Panel -->
+            <StackPanel Grid.Row="4" x:Name="ProgressPanel" Visibility="Collapsed" VerticalAlignment="Center">
+                <ProgressBar IsIndeterminate="True" Height="4" Background="Transparent" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"/>
+                <TextBlock Text="Please wait..." HorizontalAlignment="Center" Margin="0,10,0,0" FontSize="12" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
             </StackPanel>
         </Grid>
     </Border>

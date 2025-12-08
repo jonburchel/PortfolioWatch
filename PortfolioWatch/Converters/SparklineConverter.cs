@@ -38,18 +38,30 @@ namespace PortfolioWatch.Converters
                     ctx.BeginFigure(new Point(0, 0), false, false);
                     ctx.BeginFigure(new Point(width, height), false, false);
 
-                    if (selectedRange == "1d" || timestamps == null || timestamps.Count != history.Count)
+                    if (selectedRange == "1d" || timestamps == null || timestamps.Count != history.Count || timestamps.Count == 0)
                     {
                         // Original logic for 1d or missing timestamps
                         double totalWidth = width * dayProgress;
                         double step = history.Count > 1 ? totalWidth / (history.Count - 1) : 0;
 
-                        ctx.BeginFigure(new Point(0, height - ((history[0] - min) / range * height)), false, false);
-                        for (int i = 1; i < history.Count; i++)
+                        bool isFigureStarted = false;
+                        for (int i = 0; i < history.Count; i++)
                         {
                             double x = i * step;
                             double y = height - ((history[i] - min) / range * height);
-                            ctx.LineTo(new Point(x, y), true, true);
+
+                            if (double.IsNaN(x) || double.IsInfinity(x) || double.IsNaN(y) || double.IsInfinity(y))
+                                continue;
+
+                            if (!isFigureStarted)
+                            {
+                                ctx.BeginFigure(new Point(x, y), false, false);
+                                isFigureStarted = true;
+                            }
+                            else
+                            {
+                                ctx.LineTo(new Point(x, y), true, true);
+                            }
                         }
                     }
                     else
@@ -78,6 +90,9 @@ namespace PortfolioWatch.Converters
                             double timeOffset = (timestamps[i] - startTime).TotalSeconds;
                             double x = (timeOffset / totalSeconds) * width;
                             double y = height - ((history[i] - min) / range * height);
+
+                            if (double.IsNaN(x) || double.IsInfinity(x) || double.IsNaN(y) || double.IsInfinity(y))
+                                continue;
 
                             // Clamp x to be safe, though it might be negative if data is older than range (unlikely with Yahoo logic)
                             // or > width if slightly off.

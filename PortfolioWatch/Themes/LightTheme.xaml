@@ -6,7 +6,7 @@
     <SolidColorBrush x:Key="WindowBorderBrush" Color="#CCCCCC"/>
     
     <!-- Text -->
-    <TextFormattingMode x:Key="ThemeTextFormattingMode">Ideal</TextFormattingMode>
+    <TextFormattingMode x:Key="ThemeTextFormattingMode">Display</TextFormattingMode>
     <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="Black"/>
     <SolidColorBrush x:Key="SecondaryForegroundBrush" Color="#606060"/>
     <SolidColorBrush x:Key="TertiaryForegroundBrush" Color="#808080"/>

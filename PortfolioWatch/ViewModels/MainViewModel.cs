@@ -25,6 +25,12 @@ namespace PortfolioWatch.ViewModels
         private CancellationTokenSource? _searchCts;
 
         [ObservableProperty]
+        private ObservableCollection<PortfolioTabViewModel> _tabs = new();
+
+        [ObservableProperty]
+        private PortfolioTabViewModel? _selectedTab;
+
+        [ObservableProperty]
         private ObservableCollection<Stock> _stocks = new ObservableCollection<Stock>();
 
         [ObservableProperty]
@@ -105,6 +111,115 @@ namespace PortfolioWatch.ViewModels
 
         [ObservableProperty]
         private string _changePercentLabel = "Day %";
+
+        [ObservableProperty]
+        private bool? _isAllIncluded = true;
+
+        [ObservableProperty]
+        private bool _isSingleTab;
+
+        [ObservableProperty]
+        private bool _isMultiTabSelection;
+
+        public event EventHandler? RequestSearchFocus;
+
+        partial void OnSelectedTabChanged(PortfolioTabViewModel? oldValue, PortfolioTabViewModel? newValue)
+        {
+            if (oldValue != null && !oldValue.IsAddButton)
+            {
+                // Restore the previous state of the old tab
+                oldValue.RestoreIncludedState();
+            }
+
+            if (newValue != null)
+            {
+                if (newValue.IsAddButton)
+                {
+                    AddTab();
+                    return;
+                }
+
+                // Save the current state of the new tab before forcing it to true
+                newValue.SaveIncludedState();
+                
+                // Always include the selected tab
+                newValue.IsIncludedInTotal = true;
+                
+                UpdateAllIncludedState();
+
+                Stocks = newValue.Stocks;
+                
+                UpdateServiceStocks();
+                
+                CalculatePortfolioTotals();
+                ApplySortInternal();
+            }
+        }
+
+        [RelayCommand]
+        private void ToggleAllIncluded()
+        {
+            if (IsAllIncluded == true)
+            {
+                // Fully Checked -> Uncheck All (Empty)
+                foreach (var tab in Tabs)
+                {
+                    if (!tab.IsAddButton)
+                    {
+                        tab.IsIncludedInTotal = false;
+                    }
+                }
+            }
+            else
+            {
+                // Indeterminate (null) or Unchecked (false) -> Check All (Solid)
+                foreach (var tab in Tabs)
+                {
+                    if (!tab.IsAddButton)
+                    {
+                        tab.IsIncludedInTotal = true;
+                    }
+                }
+            }
+            UpdateAllIncludedState();
+            CalculatePortfolioTotals();
+            SaveStocks();
+        }
+
+        private void UpdateAllIncludedState()
+        {
+            var validTabs = Tabs.Where(t => !t.IsAddButton).ToList();
+            if (validTabs.Count == 0) 
+            {
+                IsAllIncluded = false;
+                IsMultiTabSelection = false;
+                return;
+            }
+
+            bool allChecked = validTabs.All(t => t.IsIncludedInTotal);
+            var checkedTabs = validTabs.Where(t => t.IsIncludedInTotal).ToList();
+            IsMultiTabSelection = checkedTabs.Count > 1;
+            
+            if (allChecked)
+            {
+                IsAllIncluded = true;
+            }
+            else
+            {
+                // Check if ONLY the active tab is checked
+                if (checkedTabs.Count == 1 && checkedTabs[0] == SelectedTab)
+                {
+                    IsAllIncluded = false; // Empty check (Only active tab included)
+                }
+                else
+                {
+                    // Mixed state (some checked, not just active)
+                    // Requirement says "can only ever be a solid check ... or a gray check".
+                    // We'll treat mixed as gray/indeterminate for now as it's not "All".
+                    IsAllIncluded = null; 
+                }
+            }
+        }
 
         partial void OnSelectedRangeChanged(string value)
         {
@@ -317,6 +432,58 @@ namespace PortfolioWatch.ViewModels
             _timer.Start();
             _earningsTimer.Start();
             _newsTimer.Start();
+
+            // Initialize with a placeholder tab to avoid empty TabControl issues
+            var placeholderTab = new PortfolioTabViewModel(new PortfolioTab { Name = "Loading..." });
+            Tabs.Add(placeholderTab);
+            SelectedTab = placeholderTab;
+
+            Tabs.CollectionChanged += Tabs_CollectionChanged;
+            UpdateIsSingleTab();
+        }
+
+        private void Tabs_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            UpdateIsSingleTab();
+        }
+
+        private void UpdateIsSingleTab()
+        {
+            IsSingleTab = Tabs.Count(t => !t.IsAddButton) <= 1;
+        }
+
+        [RelayCommand]
+        private void DuplicateTab(PortfolioTabViewModel tab)
+        {
+            if (tab == null || tab.IsAddButton) return;
+
+            var newTab = new PortfolioTabViewModel(new PortfolioTab 
+            { 
+                Name = $"{tab.Name} (Copy)",
+                Stocks = new System.Collections.Generic.List<Stock>(tab.Stocks.Select(s => s.Clone()))
+            });
+
+            // Subscribe to events
+            newTab.PropertyChanged += Tab_PropertyChanged;
+            newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+            foreach (var stock in newTab.Stocks)
+            {
+                stock.PropertyChanged += Stock_PropertyChanged;
+            }
+
+            // Insert before the Add Button (last index)
+            if (Tabs.Count > 0)
+            {
+                Tabs.Insert(Tabs.Count - 1, newTab);
+            }
+            else
+            {
+                Tabs.Add(newTab);
+            }
+
+            SelectedTab = newTab;
+            UpdateServiceStocks();
+            SaveStocks();
         }
 
         public void Initialize()
@@ -326,14 +493,16 @@ namespace PortfolioWatch.ViewModels
 
         private async void LoadData()
         {
-            // Yield execution to allow UI to render immediately
-            await Dispatcher.Yield();
+            try
+            {
+                // Yield execution to allow UI to render immediately
+                await Dispatcher.Yield();
 
-            _isLoading = true;
-            IsBusy = true;
-            StatusMessage = "Loading data...";
-            
-            var settings = _settingsService.LoadSettings();
+                _isLoading = true;
+                IsBusy = true;
+                StatusMessage = "Loading data...";
+                
+                var settings = _settingsService.LoadSettings();
             
             // Restore sort settings
             SortProperty = settings.SortColumn;
@@ -358,35 +527,70 @@ namespace PortfolioWatch.ViewModels
                 StatusMessage = $"Failed to load indexes: {indexesResult.ErrorMessage ?? "Unknown error"}";
             }
 
-            if (!settings.IsFirstRun && settings.Stocks != null)
+            // Load Tabs
+            Tabs.Clear();
+            if (settings.Tabs != null && settings.Tabs.Count > 0)
             {
-                // Use saved stocks (even if empty)
-                _stockService.SetStocks(settings.Stocks);
-                Stocks = new ObservableCollection<Stock>(settings.Stocks);
+                foreach (var tab in settings.Tabs)
+                {
+                    var tabVm = new PortfolioTabViewModel(tab);
+                    // Subscribe to events
+                    tabVm.PropertyChanged += Tab_PropertyChanged;
+                    tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                    foreach (var stock in tabVm.Stocks)
+                    {
+                        stock.PropertyChanged += Stock_PropertyChanged;
+                    }
+                    Tabs.Add(tabVm);
+                }
             }
             else
             {
-                // First run or invalid settings: Use default stocks from service
-                var defaultStocksResult = await _stockService.GetStocksAsync();
-                if (defaultStocksResult.Success && defaultStocksResult.Data != null)
+                // Should be handled by SettingsService migration, but fallback here
+                var defaultTab = new PortfolioTabViewModel(new PortfolioTab { Name = "Default portfolio watchlist" });
+                
+                // Try to load legacy stocks or defaults
+                if (!settings.IsFirstRun && settings.Stocks != null && settings.Stocks.Count > 0)
                 {
-                    Stocks = new ObservableCollection<Stock>(defaultStocksResult.Data);
-                    // Save defaults
-                    SaveStocks();
+                    foreach (var s in settings.Stocks) defaultTab.Stocks.Add(s);
                 }
                 else
                 {
-                    StatusMessage = $"Failed to load default stocks: {defaultStocksResult.ErrorMessage ?? "Unknown error"}";
-                    Stocks = new ObservableCollection<Stock>();
+                    var defaultStocksResult = await _stockService.GetStocksAsync();
+                    if (defaultStocksResult.Success && defaultStocksResult.Data != null)
+                    {
+                        foreach (var s in defaultStocksResult.Data) defaultTab.Stocks.Add(s);
+                    }
                 }
+                
+                defaultTab.PropertyChanged += Tab_PropertyChanged;
+                defaultTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                foreach (var stock in defaultTab.Stocks)
+                {
+                    stock.PropertyChanged += Stock_PropertyChanged;
+                }
+                Tabs.Add(defaultTab);
             }
 
-            // Subscribe to property changes for existing stocks
-            foreach (var stock in Stocks)
+            // Add the "New Tab" button placeholder
+            Tabs.Add(new PortfolioTabViewModel(true));
+
+            // Select tab based on saved index
+            if (settings.SelectedTabIndex >= 0 && settings.SelectedTabIndex < Tabs.Count)
             {
-                stock.PropertyChanged += Stock_PropertyChanged;
+                SelectedTab = Tabs[settings.SelectedTabIndex];
             }
-            Stocks.CollectionChanged += Stocks_CollectionChanged;
+            else
+            {
+                SelectedTab = Tabs.FirstOrDefault();
+            }
+
+            if (SelectedTab != null)
+            {
+                Stocks = SelectedTab.Stocks;
+            }
+            
+            UpdateServiceStocks();
 
             // Restore IsIndexesVisible after stocks are loaded to prevent overwriting with empty list
             IsIndexesVisible = settings.IsIndexesVisible;
@@ -399,24 +603,45 @@ namespace PortfolioWatch.ViewModels
             // Apply sort
             ApplySortInternal();
             
-            // Initial fetch - Update ALL data (Prices, Options, Insider, RVOL, etc.)
-            var updateResult = await _stockService.UpdateAllDataAsync(SelectedRange);
-            if (!updateResult.Success)
-            {
-                StatusMessage = $"Update failed: {updateResult.ErrorMessage ?? "Unknown error"}";
-            }
-            else
-            {
-                StatusMessage = $"Last updated: {DateTime.Now:T}";
-            }
-            
-            CalculatePortfolioTotals();
-
+            // Unblock UI immediately with cached data
             IsBusy = false;
             _isLoading = false;
 
+            // Initial fetch - Update Prices in background
+            // We don't await this to allow the UI to be responsive immediately
+            _ = Task.Run(async () => 
+            {
+                var updateResult = await _stockService.UpdatePricesAsync(SelectedRange);
+                
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => 
+                {
+                    if (!updateResult.Success)
+                    {
+                        StatusMessage = $"Update failed: {updateResult.ErrorMessage ?? "Unknown error"}";
+                    }
+                    else
+                    {
+                        StatusMessage = $"Last updated: {DateTime.Now:T}";
+                    }
+                    
+                    CalculatePortfolioTotals();
+                    ApplySortInternal();
+                });
+
+                // Update auxiliary data in background (Earnings, News, Options, Insider, RVOL)
+                await _stockService.UpdateAuxiliaryDataAsync();
+            });
+
             // Check for updates on startup
             _ = CheckForUpdates(isManual: false);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Error loading data: {ex.Message}";
+                Debug.WriteLine($"LoadData Error: {ex}");
+                _isLoading = false;
+                IsBusy = false;
+            }
         }
 
         private void Stocks_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -460,6 +685,32 @@ namespace PortfolioWatch.ViewModels
             }
         }
 
+        private void Tab_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(PortfolioTabViewModel.IsIncludedInTotal))
+            {
+                // Enforce: Active tab CANNOT be unchecked
+                if (sender is PortfolioTabViewModel tab && tab == SelectedTab && !tab.IsIncludedInTotal)
+                {
+                    tab.IsIncludedInTotal = true;
+                    return; // UpdateAllIncludedState will be called when we set it back to true
+                }
+
+                UpdateAllIncludedState();
+                CalculatePortfolioTotals();
+            }
+        }
+
+        private void UpdateServiceStocks()
+        {
+            var allStocks = new System.Collections.Generic.List<Stock>();
+            foreach (var tab in Tabs)
+            {
+                allStocks.AddRange(tab.Stocks);
+            }
+            _stockService.SetStocks(allStocks);
+        }
+
         private void SaveStocks()
         {
             var settings = _settingsService.CurrentSettings;
@@ -481,7 +732,15 @@ namespace PortfolioWatch.ViewModels
 
         private void SyncViewModelToSettings(AppSettings settings)
         {
-            settings.Stocks = Stocks.ToList();
+            // Save Tabs (exclude the Add Button placeholder)
+            settings.Tabs = Tabs.Where(t => !t.IsAddButton).Select(t => t.ToModel()).ToList();
+            
+            // Legacy support (save current tab stocks to root stocks)
+            if (SelectedTab != null && !SelectedTab.IsAddButton)
+            {
+                settings.Stocks = SelectedTab.Stocks.ToList();
+            }
+            
             settings.SortColumn = SortProperty;
             settings.SortAscending = IsAscending;
             settings.WindowTitle = WindowTitle;
@@ -490,6 +749,7 @@ namespace PortfolioWatch.ViewModels
             settings.Theme = CurrentTheme;
             settings.WindowOpacity = WindowOpacity;
             settings.SelectedRange = SelectedRange;
+            settings.SelectedTabIndex = SelectedTab != null ? Tabs.IndexOf(SelectedTab) : 0;
             settings.IsFirstRun = false;
         }
 
@@ -563,6 +823,63 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
+        private void SelectSearchResult(StockSearchResult result)
+        {
+            if (result != null)
+            {
+                AddStockInternal(result.Symbol, result.Name);
+            }
+        }
+
+        private async void AddStockInternal(string symbol, string name)
+        {
+            if (SelectedTab == null || SelectedTab.IsAddButton) return;
+
+            // Check if already exists in current tab
+            if (SelectedTab.Stocks.Any(s => s.Symbol == symbol))
+            {
+                StatusMessage = $"{symbol} is already in the list.";
+                NewSymbol = string.Empty;
+                IsSearchPopupOpen = false;
+                return;
+            }
+
+            var stock = new Stock
+            {
+                Symbol = symbol,
+                Name = name,
+                Price = 0,
+                Change = 0,
+                ChangePercent = 0
+            };
+
+            // Subscribe to events
+            stock.PropertyChanged += Stock_PropertyChanged;
+
+            SelectedTab.Stocks.Add(stock);
+            NewSymbol = string.Empty;
+            IsSearchPopupOpen = false;
+            
+            SaveStocks();
+            UpdateServiceStocks();
+
+            // Fetch data immediately
+            var result = await _stockService.GetQuotesAsync(new[] { symbol });
+            if (result.Success && result.Data != null && result.Data.Count > 0)
+            {
+                var quote = result.Data[0];
+                stock.Price = (decimal)(quote.Price ?? 0);
+                stock.Change = (decimal)(quote.Change ?? 0);
+                stock.ChangePercent = quote.ChangePercent ?? 0;
+                
+                // Also fetch auxiliary data
+                await _stockService.UpdateAuxiliaryDataAsync();
+            }
+            
+            ApplySortInternal();
+        }
+
+        [RelayCommand]
         private async System.Threading.Tasks.Task AddStock()
         {
             if (!string.IsNullOrWhiteSpace(NewSymbol))
@@ -582,69 +899,10 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
-        private void SelectSearchResult(StockSearchResult result)
+        public async Task Reset()
         {
-            if (result != null)
-            {
-                AddStockInternal(result.Symbol, result.Name);
-            }
-        }
-
-        private async void AddStockInternal(string symbol, string? name = null)
-        {
-            // Check if already exists
-            if (Stocks.Any(s => s.Symbol.Equals(symbol, StringComparison.OrdinalIgnoreCase)))
-            {
-                NewSymbol = string.Empty;
-                IsSearchPopupOpen = false;
-                StatusMessage = $"Stock {symbol} already exists in watchlist.";
-                return;
-            }
-
-            var stock = _stockService.CreateStock(symbol, name, SelectedRange);
-            Stocks.Add(stock);
-            
-            // Sync service
-            _stockService.SetStocks(Stocks.ToList());
-            
-            SaveStocks();
-            NewSymbol = string.Empty;
-            IsSearchPopupOpen = false;
-            StatusMessage = $"Added {symbol}... fetching data";
-            
-            // Re-sort
-            ApplySortInternal();
-
-            // Explicitly wait for full data update to ensure UI populates
-            await _stockService.UpdateAllDataAsync(SelectedRange);
-            StatusMessage = $"Added {symbol}";
-        }
-
-        [RelayCommand]
-        private void RemoveStock(Stock stock)
-        {
-            if (stock != null && Stocks.Contains(stock))
-            {
-                stock.PropertyChanged -= Stock_PropertyChanged;
-                Stocks.Remove(stock);
-                _stockService.SetStocks(Stocks.ToList());
-                SaveStocks();
-                CalculatePortfolioTotals();
-            }
-        }
-
-        [RelayCommand]
-        public async System.Threading.Tasks.Task Reset()
-        {
-            var confirmationWindow = new ConfirmationWindow(
-                "Confirm Reset",
-                "Are you sure you want to reset your portfolio? This action cannot be undone.",
-                showResetOption: true);
-
-            if (confirmationWindow.ShowDialog() != true)
-            {
-                return;
-            }
+            var confirmationWindow = new ConfirmationWindow("Reset Application", "Are you sure you want to reset all settings and data? This cannot be undone.", isAlert: false);
+            if (confirmationWindow.ShowDialog() != true) return;
 
             if (confirmationWindow.ResetSettings)
             {
@@ -653,7 +911,7 @@ namespace PortfolioWatch.ViewModels
                 _settingsService.SaveSettings(settings);
 
                 // Reset properties
-                WindowTitle = "Watchlist";
+                WindowTitle = "Your watchlist";
                 SortProperty = string.Empty;
                 IsAscending = true;
                 IsIndexesVisible = true;
@@ -666,18 +924,26 @@ namespace PortfolioWatch.ViewModels
                 App.CurrentApp.ResetWindowPositions();
             }
 
+            // Reset Tabs
+            Tabs.Clear();
+            var defaultTab = new PortfolioTabViewModel(new PortfolioTab { Name = "Default watchlist" });
+            Tabs.Add(defaultTab);
+            SelectedTab = defaultTab;
+            defaultTab.IsEditing = true;
+
             // Load default stocks (hardcoded defaults)
             var defaultStocks = _stockService.GetDefaultStocks();
             
-            // Force UI update by clearing and adding
-            Stocks.Clear();
             foreach (var stock in defaultStocks)
             {
                 stock.Shares = 0; // Ensure shares are 0
-                Stocks.Add(stock);
+                defaultTab.Stocks.Add(stock);
+                stock.PropertyChanged += Stock_PropertyChanged;
             }
+            defaultTab.PropertyChanged += Tab_PropertyChanged;
+            defaultTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
             
-            _stockService.SetStocks(Stocks.ToList());
+            UpdateServiceStocks();
 
             // Save defaults
             SaveStocks();
@@ -823,6 +1089,8 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private void ExportData()
         {
+            SaveStocks(); // Ensure latest changes (like tab renames) are persisted before export
+
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 FileName = "PortfolioWatch_Export",
@@ -847,6 +1115,8 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private void ExportNormalizedData()
         {
+            SaveStocks(); // Ensure latest changes are persisted
+
             if (TotalPortfolioValue <= 0)
             {
                 new ConfirmationWindow("Error", "Cannot normalize an empty portfolio.", isAlert: true, icon: "⚠️").ShowDialog();
@@ -1008,36 +1278,222 @@ namespace PortfolioWatch.ViewModels
             {
                 try
                 {
-                    _settingsService.ImportStocks(dialog.FileName);
-                    
-                    // Reload data
-                    var settings = _settingsService.LoadSettings();
-                    _stockService.SetStocks(settings.Stocks);
-                    Stocks = new ObservableCollection<Stock>(settings.Stocks);
-                    WindowTitle = settings.WindowTitle;
-                    
-                    // Re-subscribe
-                    foreach (var stock in Stocks)
+                    var importedSettings = _settingsService.ParseImportFile(dialog.FileName);
+                    if (importedSettings == null || importedSettings.Tabs.Count == 0)
                     {
-                        stock.PropertyChanged += Stock_PropertyChanged;
+                        throw new Exception("No valid portfolio data found in file.");
                     }
-                    
+
+                    var prompt = new ImportPromptWindow();
+                    if (prompt.ShowDialog() != true || prompt.Result == ImportAction.Cancel)
+                    {
+                        return;
+                    }
+
+                    if (prompt.Result == ImportAction.Replace)
+                    {
+                        Tabs.Clear();
+                        WindowTitle = importedSettings.WindowTitle;
+                    }
+
+                    foreach (var tab in importedSettings.Tabs)
+                    {
+                        var tabVm = new PortfolioTabViewModel(tab);
+                        tabVm.PropertyChanged += Tab_PropertyChanged;
+                        tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                        foreach (var stock in tabVm.Stocks)
+                        {
+                            stock.PropertyChanged += Stock_PropertyChanged;
+                        }
+                        
+                        // Insert before the Add Button (last index) if it exists
+                        if (Tabs.Count > 0 && Tabs.Last().IsAddButton)
+                        {
+                            Tabs.Insert(Tabs.Count - 1, tabVm);
+                        }
+                        else
+                        {
+                            Tabs.Add(tabVm);
+                        }
+                    }
+
+                    // Ensure Add Button exists if we replaced everything
+                    if (!Tabs.Any(t => t.IsAddButton))
+                    {
+                        Tabs.Add(new PortfolioTabViewModel(true));
+                    }
+
+                    if (Tabs.Count > 0 && SelectedTab == null)
+                    {
+                        SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
+                    }
+
+                    UpdateServiceStocks();
+                    SaveStocks();
                     CalculatePortfolioTotals();
                     ApplySortInternal();
 
-                    // Refresh data immediately
-                    StatusMessage = "Refreshing imported data...";
-                    await _stockService.UpdateAllDataAsync(SelectedRange);
-                    StatusMessage = "Import complete.";
+                    // Show modal dialog for the async update process
+                    var progressDialog = new ConfirmationWindow("Importing", "Importing and analyzing...", isAlert: true)
+                    {
+                        AutoRunTask = async () =>
+                        {
+                            StatusMessage = "Refreshing imported data...";
+                            await _stockService.UpdateAllDataAsync(SelectedRange);
+                            
+                            // Recalculate totals and graph after fresh data is loaded
+                            CalculatePortfolioTotals();
+                            ApplySortInternal();
+                            
+                            StatusMessage = "Import complete.";
+                        },
+                        SuccessMessage = "Import successful!"
+                    };
                     
-                    var alert = new ConfirmationWindow("Success", "Import successful!", isAlert: true);
-                    alert.ShowDialog();
+                    progressDialog.ShowDialog();
                 }
                 catch (Exception ex)
                 {
                     var alert = new ConfirmationWindow("Error", $"Import failed: {ex.Message}", isAlert: true);
                     alert.ShowDialog();
                 }
+            }
+        }
+
+        [RelayCommand]
+        private void AddTab()
+        {
+            // Close any existing edit sessions
+            foreach (var t in Tabs) t.IsEditing = false;
+
+            // Generate unique name "Portfolio X"
+            int counter = 1;
+            string newName;
+            do
+            {
+                newName = $"Portfolio {counter}";
+                counter++;
+            } while (Tabs.Any(t => t.Name.Equals(newName, StringComparison.OrdinalIgnoreCase)));
+
+            var newTab = new PortfolioTabViewModel(new PortfolioTab { Name = newName });
+            newTab.PropertyChanged += Tab_PropertyChanged;
+            newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+            
+            // Insert before the Add Button (last index)
+            if (Tabs.Count > 0)
+            {
+                Tabs.Insert(Tabs.Count - 1, newTab);
+            }
+            else
+            {
+                Tabs.Add(newTab);
+            }
+            
+            SelectedTab = newTab;
+            newTab.IsEditing = true; // Enable editing mode immediately
+            NewSymbol = "Dow Jones";
+            RequestSearchFocus?.Invoke(this, EventArgs.Empty);
+            SaveStocks();
+        }
+
+        [RelayCommand]
+        private void RemoveTab(PortfolioTabViewModel tab)
+        {
+            if (tab.IsAddButton) return;
+
+            // Count actual tabs (excluding add button)
+            var actualTabsCount = Tabs.Count(t => !t.IsAddButton);
+            if (actualTabsCount <= 1)
+            {
+                StatusMessage = "Cannot remove the last tab.";
+                return;
+            }
+
+            bool shouldRemove = true;
+            if (tab.Stocks.Count > 0)
+            {
+                var confirm = new ConfirmationWindow("Remove Tab", $"Are you sure you want to remove '{tab.Name}'?", isAlert: false);
+                shouldRemove = confirm.ShowDialog() == true;
+            }
+
+            if (shouldRemove)
+            {
+                // If the tab to remove is currently selected, select another one FIRST
+                if (SelectedTab == tab)
+                {
+                    int indexToRemove = Tabs.IndexOf(tab);
+                    PortfolioTabViewModel? newSelectedTab = null;
+
+                    // Try to select the previous tab
+                    if (indexToRemove > 0)
+                    {
+                        newSelectedTab = Tabs[indexToRemove - 1];
+                    }
+                    // Or the next one (which is now at the same index, but we haven't removed yet, so index+1)
+                    else if (indexToRemove + 1 < Tabs.Count)
+                    {
+                        newSelectedTab = Tabs[indexToRemove + 1];
+                    }
+
+                    // Ensure we don't select the Add Button if possible
+                    if (newSelectedTab != null && newSelectedTab.IsAddButton)
+                    {
+                        // If we picked the add button, try to find the first non-add button
+                        newSelectedTab = Tabs.FirstOrDefault(t => t != tab && !t.IsAddButton);
+                    }
+
+                    if (newSelectedTab != null)
+                    {
+                        SelectedTab = newSelectedTab;
+                    }
+                }
+
+                Tabs.Remove(tab);
+                UpdateServiceStocks();
+                SaveStocks();
+            }
+        }
+
+        [RelayCommand]
+        private void RenameTab(PortfolioTabViewModel tab)
+        {
+            if (tab.IsAddButton) return;
+
+            // If we are already editing, just save
+            if (tab.IsEditing)
+            {
+                tab.IsEditing = false;
+                SaveStocks();
+                return;
+            }
+
+            // Close any other edit sessions
+            foreach (var t in Tabs) 
+            {
+                if (t != tab) t.IsEditing = false;
+            }
+
+            // Otherwise, enable editing mode
+            tab.IsEditing = true;
+        }
+
+        public void MoveTab(PortfolioTabViewModel tab, int newIndex)
+        {
+            if (tab == null || tab.IsAddButton) return;
+
+            int oldIndex = Tabs.IndexOf(tab);
+            if (oldIndex < 0) return;
+
+            // Ensure we don't move past the Add Button
+            // The Add Button should always be at Tabs.Count - 1
+            int addButtonIndex = Tabs.Count - 1;
+            if (newIndex >= addButtonIndex) newIndex = addButtonIndex - 1;
+            if (newIndex < 0) newIndex = 0;
+
+            if (oldIndex != newIndex)
+            {
+                Tabs.Move(oldIndex, newIndex);
+                SaveStocks();
             }
         }
 
@@ -1054,7 +1510,11 @@ namespace PortfolioWatch.ViewModels
             double maxDayProgress = 0;
             Stock? stockWithMaxHistory = null;
 
-            foreach (var stock in Stocks)
+            var includedStocks = Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal)
+                                     .SelectMany(t => t.Stocks)
+                                     .ToList();
+
+            foreach (var stock in includedStocks)
             {
                 totalValue += stock.MarketValue;
                 totalDayChangeValue += stock.DayChangeValue;
@@ -1073,7 +1533,7 @@ namespace PortfolioWatch.ViewModels
             // Aggregate history
             // 1. Collect all unique timestamps
             var allTimestamps = new System.Collections.Generic.HashSet<DateTime>();
-            foreach (var stock in Stocks)
+            foreach (var stock in includedStocks)
             {
                 if (stock.Shares > 0 && stock.Timestamps != null)
                 {
@@ -1092,7 +1552,7 @@ namespace PortfolioWatch.ViewModels
                 foreach (var ts in portfolioTimestamps)
                 {
                     double pointValue = 0;
-                    foreach (var stock in Stocks)
+                    foreach (var stock in includedStocks)
                     {
                         if (stock.Shares > 0)
                         {
@@ -1158,7 +1618,7 @@ namespace PortfolioWatch.ViewModels
             IsPortfolioUp = TotalPortfolioChange >= 0;
 
             // Calculate individual stock percentages
-            foreach (var stock in Stocks)
+            foreach (var stock in includedStocks)
             {
                 if (totalValue > 0)
                 {
@@ -1167,6 +1627,20 @@ namespace PortfolioWatch.ViewModels
                 else
                 {
                     stock.PortfolioPercentage = 0;
+                }
+            }
+
+            // Calculate tab percentages
+            foreach (var tab in Tabs.Where(t => !t.IsAddButton))
+            {
+                if (tab.IsIncludedInTotal && totalValue > 0)
+                {
+                    decimal tabValue = tab.Stocks.Sum(s => s.MarketValue);
+                    tab.PortfolioPercentage = (double)(tabValue / totalValue);
+                }
+                else
+                {
+                    tab.PortfolioPercentage = 0;
                 }
             }
         }
@@ -1218,7 +1692,6 @@ namespace PortfolioWatch.ViewModels
             System.Windows.Application.Current.Shutdown();
         }
 
-
         private void ApplySort(string property)
         {
             if (SortProperty == property)
@@ -1244,10 +1717,15 @@ namespace PortfolioWatch.ViewModels
 
         private void ApplySortInternal()
         {
+            if (SelectedTab == null) return;
+
+            var sourceList = SelectedTab.Stocks.ToList();
+            System.Collections.Generic.List<Stock> sortedList;
+
             if (SortProperty == "DayChangeValue" || SortProperty == "MarketValue")
             {
-                var withShares = Stocks.Where(s => s.Shares > 0);
-                var withoutShares = Stocks.Where(s => s.Shares == 0);
+                var withShares = sourceList.Where(s => s.Shares > 0);
+                var withoutShares = sourceList.Where(s => s.Shares == 0);
 
                 Func<Stock, object> keySelector = SortProperty == "DayChangeValue"
                     ? s => s.DayChangeValue
@@ -1264,7 +1742,7 @@ namespace PortfolioWatch.ViewModels
                     ? withoutShares.OrderBy(secondaryKeySelector)
                     : withoutShares.OrderByDescending(secondaryKeySelector);
 
-                Stocks = new ObservableCollection<Stock>(sortedWithShares.Concat(sortedWithoutShares));
+                sortedList = sortedWithShares.Concat(sortedWithoutShares).ToList();
             }
             else
             {
@@ -1275,15 +1753,23 @@ namespace PortfolioWatch.ViewModels
                     _ => s => s.Symbol
                 };
 
-                var sorted = IsAscending
-                    ? Stocks.OrderBy(keySelector).ToList()
-                    : Stocks.OrderByDescending(keySelector).ToList();
+                sortedList = IsAscending
+                    ? sourceList.OrderBy(keySelector).ToList()
+                    : sourceList.OrderByDescending(keySelector).ToList();
+            }
 
-                Stocks = new ObservableCollection<Stock>(sorted);
+            // Update SelectedTab.Stocks in place to maintain reference
+            SelectedTab.Stocks.Clear();
+            foreach (var s in sortedList)
+            {
+                SelectedTab.Stocks.Add(s);
             }
             
-            // Sync service so updates happen on sorted list (order doesn't matter for updates but good for consistency)
-            _stockService.SetStocks(Stocks.ToList());
+            // Stocks property already points to SelectedTab.Stocks, but we might need to notify if we replaced the collection instance (we didn't)
+            // But we cleared and added, so CollectionChanged events fired.
+            
+            // Sync service
+            UpdateServiceStocks();
 
             OnPropertyChanged(nameof(SymbolSortIcon));
             OnPropertyChanged(nameof(NameSortIcon));

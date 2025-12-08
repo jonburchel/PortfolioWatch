@@ -247,6 +247,13 @@ namespace PortfolioWatch.Services
             await EnsureCrumbAsync();
             await Task.WhenAll(
                 UpdateStockDataAsync(stock, range),
+                UpdateStockAuxiliaryDataAsync(stock)
+            );
+        }
+
+        private async Task UpdateStockAuxiliaryDataAsync(Stock stock)
+        {
+            await Task.WhenAll(
                 UpdateStockEarningsAsync(stock),
                 UpdateStockNewsAsync(stock),
                 UpdateOptionsDataAsync(stock),
@@ -325,6 +332,21 @@ namespace PortfolioWatch.Services
             catch (Exception ex)
             {
                 return ServiceResult<bool>.Fail($"Failed to update news: {ex.Message}");
+            }
+        }
+
+        public async Task<ServiceResult<bool>> UpdateAuxiliaryDataAsync()
+        {
+            try
+            {
+                await EnsureCrumbAsync();
+                var tasks = _stocks.Concat(_indexes).Select(stock => UpdateStockAuxiliaryDataAsync(stock));
+                await Task.WhenAll(tasks);
+                return ServiceResult<bool>.Ok(true);
+            }
+            catch (Exception ex)
+            {
+                return ServiceResult<bool>.Fail($"Failed to update auxiliary data: {ex.Message}");
             }
         }
 

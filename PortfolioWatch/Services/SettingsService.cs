@@ -32,14 +32,51 @@ namespace PortfolioWatch.Services
                     if (settings != null)
                     {
                         _currentSettings = settings;
+                        
+                        // Migration: If no tabs exist but we have stocks, create a default tab
+                        if ((_currentSettings.Tabs == null || _currentSettings.Tabs.Count == 0) && 
+                            _currentSettings.Stocks != null && _currentSettings.Stocks.Count > 0)
+                        {
+                            if (_currentSettings.Tabs == null) _currentSettings.Tabs = new System.Collections.Generic.List<PortfolioTab>();
+                            
+                            _currentSettings.Tabs.Add(new PortfolioTab
+                            {
+                                Name = !string.IsNullOrWhiteSpace(_currentSettings.WindowTitle) ? _currentSettings.WindowTitle : "Portfolio",
+                                Stocks = new System.Collections.Generic.List<Stock>(_currentSettings.Stocks)
+                            });
+                        }
                     }
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Failed to load settings: {ex.Message}");
-                // Ignore errors and use defaults
+                // Fall through to safety checks
             }
+
+            // Ensure Tabs collection exists
+            if (_currentSettings.Tabs == null) _currentSettings.Tabs = new System.Collections.Generic.List<PortfolioTab>();
+
+            // Sanitize: Remove null tabs and ensure non-null Stocks collections
+            _currentSettings.Tabs.RemoveAll(t => t == null);
+            foreach (var tab in _currentSettings.Tabs)
+            {
+                if (tab.Stocks == null) tab.Stocks = new System.Collections.Generic.List<Stock>();
+                else tab.Stocks.RemoveAll(s => s == null || string.IsNullOrWhiteSpace(s.Symbol));
+            }
+
+            // Also sanitize legacy Stocks list if present
+            if (_currentSettings.Stocks != null)
+            {
+                _currentSettings.Stocks.RemoveAll(s => s == null || string.IsNullOrWhiteSpace(s.Symbol));
+            }
+
+            // Ensure at least one tab exists if everything is empty
+            if (_currentSettings.Tabs.Count == 0)
+            {
+                _currentSettings.Tabs.Add(new PortfolioTab { Name = "Portfolio" });
+            }
+
             return _currentSettings;
         }
 
@@ -114,14 +151,15 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                var stocks = stocksToExport ?? _currentSettings.Stocks;
-                var name = portfolioName ?? _currentSettings.WindowTitle;
+                // If specific stocks are provided (e.g. normalized export), export just that list as a single "tab" structure or legacy structure
+                // But the requirement says "include the tab details".
+                
+                object exportData;
 
-                // Export only details, not history
-                var stockList = new System.Collections.Generic.List<object>();
-                foreach (var stock in stocks)
+                if (stocksToExport != null)
                 {
-                    stockList.Add(new
+                    // Exporting specific list (e.g. normalized) - treat as single portfolio
+                    var stockList = stocksToExport.Select(stock => new
                     {
                         stock.Symbol,
                         stock.Name,
@@ -129,14 +167,46 @@ namespace PortfolioWatch.Services
                         stock.Change,
                         stock.ChangePercent,
                         stock.Shares
-                    });
-                }
+                    }).ToList();
 
-                var exportData = new
+                    exportData = new
+                    {
+                        PortfolioName = portfolioName ?? "Exported Portfolio",
+                        Stocks = stockList,
+                        // Wrap in a Tabs structure for consistency if imported back
+                        Tabs = new[] 
+                        { 
+                            new 
+                            { 
+                                Name = portfolioName ?? "Exported Portfolio", 
+                                Stocks = stockList 
+                            } 
+                        }
+                    };
+                }
+                else
                 {
-                    PortfolioName = name,
-                    Stocks = stockList
-                };
+                    // Full export of current settings
+                    var tabsExport = _currentSettings.Tabs.Select(t => new
+                    {
+                        t.Name,
+                        Stocks = t.Stocks.Select(stock => new
+                        {
+                            stock.Symbol,
+                            stock.Name,
+                            stock.Price,
+                            stock.Change,
+                            stock.ChangePercent,
+                            stock.Shares
+                        }).ToList()
+                    }).ToList();
+
+                    exportData = new
+                    {
+                        PortfolioName = _currentSettings.WindowTitle, // Main window title
+                        Tabs = tabsExport
+                    };
+                }
 
                 var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(filePath, json);
@@ -147,54 +217,97 @@ namespace PortfolioWatch.Services
             }
         }
 
-        public void ImportStocks(string filePath)
+        public AppSettings? ParseImportFile(string filePath)
         {
             try
             {
                 var json = File.ReadAllText(filePath);
-                
-                // Try new format first
-                try 
-                {
-                    using (JsonDocument doc = JsonDocument.Parse(json))
-                    {
-                        if (doc.RootElement.TryGetProperty("PortfolioName", out var nameElement))
-                        {
-                            var name = nameElement.GetString();
-                            if (!string.IsNullOrWhiteSpace(name))
-                            {
-                                _currentSettings.WindowTitle = name;
-                            }
-                        }
+                var importedSettings = new AppSettings();
+                bool foundData = false;
 
-                        if (doc.RootElement.TryGetProperty("Stocks", out var stocksElement))
+                using (JsonDocument doc = JsonDocument.Parse(json))
+                {
+                    // Check for "Tabs"
+                    if (doc.RootElement.TryGetProperty("Tabs", out var tabsElement))
+                    {
+                        var tabs = JsonSerializer.Deserialize<System.Collections.Generic.List<PortfolioTab>>(tabsElement.GetRawText());
+                        if (tabs != null && tabs.Count > 0)
                         {
-                            var stocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(stocksElement.GetRawText());
-                            if (stocks != null)
+                            importedSettings.Tabs = tabs;
+                            foundData = true;
+                        }
+                    }
+
+                    // Check for "Stocks" (Legacy or Single Export)
+                    if (doc.RootElement.TryGetProperty("Stocks", out var stocksElement))
+                    {
+                        var stocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(stocksElement.GetRawText());
+                        if (stocks != null && stocks.Count > 0)
+                        {
+                            // If we already have tabs, we might ignore this or treat it as a fallback?
+                            // If we don't have tabs, create a tab from this.
+                            if (!foundData)
                             {
-                                _currentSettings.Stocks = stocks;
-                                SaveSettings(_currentSettings);
-                                return;
+                                string name = "Imported";
+                                if (doc.RootElement.TryGetProperty("PortfolioName", out var nameElement))
+                                {
+                                    name = nameElement.GetString() ?? "Imported";
+                                }
+
+                                importedSettings.Tabs.Add(new PortfolioTab
+                                {
+                                    Name = name,
+                                    Stocks = stocks
+                                });
+                                foundData = true;
                             }
                         }
                     }
-                }
-                catch
-                {
-                    // Fallback to old format (just a list of stocks)
+                    
+                    // Check for "PortfolioName" for WindowTitle
+                    if (doc.RootElement.TryGetProperty("PortfolioName", out var pNameElement))
+                    {
+                        importedSettings.WindowTitle = pNameElement.GetString() ?? "Watchlist";
+                    }
                 }
 
-                // Old format fallback
-                var legacyStocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(json);
-                if (legacyStocks != null)
+                // Fallback: Array of stocks (Legacy)
+                if (!foundData)
                 {
-                    _currentSettings.Stocks = legacyStocks;
-                    SaveSettings(_currentSettings);
+                    try
+                    {
+                        var legacyStocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(json);
+                        if (legacyStocks != null && legacyStocks.Count > 0)
+                        {
+                            importedSettings.Tabs.Add(new PortfolioTab
+                            {
+                                Name = "Imported",
+                                Stocks = legacyStocks
+                            });
+                            foundData = true;
+                        }
+                    }
+                    catch { }
                 }
+
+                if (foundData)
+                {
+                    // Sanitize imported settings
+                    if (importedSettings.Tabs == null) importedSettings.Tabs = new System.Collections.Generic.List<PortfolioTab>();
+                    importedSettings.Tabs.RemoveAll(t => t == null);
+                    foreach (var tab in importedSettings.Tabs)
+                    {
+                        if (tab.Stocks == null) tab.Stocks = new System.Collections.Generic.List<Stock>();
+                        else tab.Stocks.RemoveAll(s => s == null || string.IsNullOrWhiteSpace(s.Symbol));
+                    }
+                    return importedSettings;
+                }
+
+                return null;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Failed to import stocks: {ex.Message}");
+                throw new Exception($"Failed to parse import file: {ex.Message}");
             }
         }
     }

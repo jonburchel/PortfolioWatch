@@ -649,5 +649,43 @@ namespace PortfolioWatch.Models
 
         // RVOL validates the move. If price is up, it's a positive signal. If price is down, it's a negative signal.
         public string RVolSignalColor => Change >= 0 ? "#2ecc71" : "#e74c3c";
+
+        public Stock Clone()
+        {
+            return new Stock
+            {
+                Symbol = this.Symbol,
+                Name = this.Name,
+                Price = this.Price,
+                Change = this.Change,
+                ChangePercent = this.ChangePercent,
+                DayProgress = this.DayProgress,
+                History = new List<double>(this.History),
+                Timestamps = new List<DateTime>(this.Timestamps),
+                Shares = this.Shares,
+                MarketCap = this.MarketCap,
+                PortfolioPercentage = this.PortfolioPercentage,
+                EarningsDate = this.EarningsDate,
+                EarningsStatus = this.EarningsStatus,
+                EarningsMessage = this.EarningsMessage,
+                EarningsSurprisePercent = this.EarningsSurprisePercent,
+                NewsItems = new List<NewsItem>(this.NewsItems),
+                OptionsImpactDate = this.OptionsImpactDate,
+                UnusualOptionsVolume = this.UnusualOptionsVolume,
+                GammaExposureCritical = this.GammaExposureCritical,
+                MaxPainPrice = this.MaxPainPrice,
+                CallVolume = this.CallVolume,
+                PutVolume = this.PutVolume,
+                TotalVolume = this.TotalVolume,
+                CallIV = this.CallIV,
+                PutIV = this.PutIV,
+                OpenInterest = this.OpenInterest,
+                AverageVolume = this.AverageVolume,
+                NetInsiderTransactionValue = this.NetInsiderTransactionValue,
+                InsiderTransactions = new List<InsiderTransaction>(this.InsiderTransactions),
+                CurrentVolume = this.CurrentVolume,
+                AverageVolumeByTimeOfDay = this.AverageVolumeByTimeOfDay
+            };
+        }
     }
 }

@@ -10,9 +10,18 @@ namespace PortfolioWatch.Models
         Dark
     }
 
+    public class PortfolioTab
+    {
+        public System.Guid Id { get; set; } = System.Guid.NewGuid();
+        public string Name { get; set; } = "Portfolio";
+        public bool IsIncludedInTotal { get; set; } = true;
+        public List<Stock> Stocks { get; set; } = new List<Stock>();
+    }
+
     public class AppSettings
     {
-        public List<Stock> Stocks { get; set; } = new List<Stock>();
+        public List<PortfolioTab> Tabs { get; set; } = new List<PortfolioTab>();
+        public List<Stock> Stocks { get; set; } = new List<Stock>(); // Kept for backward compatibility
         public double WindowLeft { get; set; } = -9;
         public double WindowTop { get; set; } = SystemParameters.WorkArea.Bottom + 34 - 800;
         public double WindowWidth { get; set; } = 600;
@@ -27,6 +36,7 @@ namespace PortfolioWatch.Models
         public AppTheme Theme { get; set; } = AppTheme.System;
         public double WindowOpacity { get; set; } = 0.85;
         public string SelectedRange { get; set; } = "1d";
+        public int SelectedTabIndex { get; set; } = 0;
         
         // Update Settings
         public bool IsUpdateCheckEnabled { get; set; } = true;

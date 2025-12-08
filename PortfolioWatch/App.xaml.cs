@@ -38,6 +38,44 @@ namespace PortfolioWatch
         public App()
         {
             _settingsService = new SettingsService();
+            
+            // Global exception handling
+            DispatcherUnhandledException += App_DispatcherUnhandledException;
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+            TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+        }
+
+        private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
+        {
+            HandleException(e.Exception, "Dispatcher");
+            e.Handled = true;
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            HandleException(e.ExceptionObject as Exception, "AppDomain");
+        }
+
+        private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            HandleException(e.Exception, "TaskScheduler");
+            e.SetObserved();
+        }
+
+        private void HandleException(Exception? ex, string source)
+        {
+            if (ex == null) return;
+            
+            try
+            {
+                string message = $"An unexpected error occurred ({source}):\n{ex.Message}\n\nStack Trace:\n{ex.StackTrace}";
+                MessageBox.Show(message, "Portfolio Watch Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            catch
+            {
+                // Last resort
+                Debug.WriteLine($"CRITICAL ERROR ({source}): {ex}");
+            }
         }
 
         protected override void OnStartup(StartupEventArgs e)
@@ -87,19 +125,14 @@ namespace PortfolioWatch
             // Apply Theme
             ApplyTheme(settings.Theme);
 
-            // Initialize Windows
-            _mainWindow = new MainWindow();
+            // Create VM explicitly
+            var vm = new MainViewModel();
+
+            // Initialize Floating Window FIRST
             _floatingWindow = new FloatingWindow();
-            
-            // Share DataContext
-            _floatingWindow.DataContext = _mainWindow.DataContext;
+            _floatingWindow.DataContext = vm;
 
-            // Context Menu for Tray Icon
-            var contextMenu = (System.Windows.Controls.ContextMenu)FindResource("SharedContextMenu");
-            contextMenu.DataContext = _mainWindow.DataContext;
-            _notifyIcon.ContextMenu = contextMenu;
-
-            // Apply Settings
+            // Apply Settings to Floating Window
             if (settings.WindowLeft != 0 && settings.WindowTop != 0)
             {
                 _floatingWindow.Left = settings.WindowLeft;
@@ -110,42 +143,23 @@ namespace PortfolioWatch
                 // Default position: Bottom Left, slightly overlapping taskbar
                 var desktopWorkingArea = SystemParameters.WorkArea;
                 _floatingWindow.Left = -10;
+                
+                // Ensure Height is valid
+                double fwHeight = _floatingWindow.Height;
+                if (double.IsNaN(fwHeight)) fwHeight = 100; // Default from XAML
+
                 // Lower edge 50px BELOW top of taskbar (WorkArea.Bottom)
-                _floatingWindow.Top = desktopWorkingArea.Bottom + 50 - _floatingWindow.Height;
+                _floatingWindow.Top = desktopWorkingArea.Bottom + 50 - fwHeight;
             }
 
             _intendedLeft = _floatingWindow.Left;
             _intendedTop = _floatingWindow.Top;
-            
-            if (settings.WindowHeight > 0)
-            {
-                _mainWindow.Height = settings.WindowHeight;
-            }
-            if (settings.WindowWidth > 0)
-            {
-                _mainWindow.Width = settings.WindowWidth;
-            }
 
-            // Wire up events
+            // Wire up Floating Window events that don't depend on MainWindow yet
             _floatingWindow.OpenRequested += FloatingWindow_OpenRequested;
             _floatingWindow.DragStarted += FloatingWindow_DragStarted;
             _floatingWindow.DragEnded += FloatingWindow_DragEnded;
             
-            // Ensure pinning state is reset when main window is hidden
-            _mainWindow.IsVisibleChanged += (s, args) =>
-            {
-                if (!_mainWindow.IsVisible)
-                {
-                    _mainWindow.IsPinned = false;
-                    _floatingWindow.IsPinned = false;
-                }
-                else
-                {
-                    RefreshData();
-                }
-            };
-            _notifyIcon.TrayLeftMouseUp += (s, args) => ShowMainWindow(true);
-
             // Handle FloatingWindow MouseLeave to trigger MainWindow auto-hide
             _floatingWindow.MouseLeave += (s, args) => 
             {
@@ -155,7 +169,7 @@ namespace PortfolioWatch
                 }
             };
 
-            // Window Syncing
+            // Window Syncing (Floating Window side)
             _floatingWindow.LocationChanged += (s, args) =>
             {
                 if (_isSyncing || _mainWindow == null) return;
@@ -189,6 +203,54 @@ namespace PortfolioWatch
                 _isSyncing = false;
             };
 
+            // Show Floating Window immediately
+            try 
+            {
+                _floatingWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                new ConfirmationWindow("Error", $"Error showing floating window: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
+            }
+
+            // Defer MainWindow creation and heavy initialization
+            Dispatcher.InvokeAsync(() => 
+            {
+                InitializeMainWindow(settings, vm);
+            }, System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void InitializeMainWindow(AppSettings settings, MainViewModel vm)
+        {
+            _mainWindow = new MainWindow();
+            _mainWindow.DataContext = vm;
+
+            // Context Menu for Tray Icon
+            var contextMenu = (System.Windows.Controls.ContextMenu)FindResource("SharedContextMenu");
+            contextMenu.DataContext = vm;
+            if (_notifyIcon != null) _notifyIcon.ContextMenu = contextMenu;
+
+            // Apply Settings to MainWindow
+            if (settings.WindowHeight > 0) _mainWindow.Height = settings.WindowHeight;
+            if (settings.WindowWidth > 0) _mainWindow.Width = settings.WindowWidth;
+
+            // Wire up remaining events
+            _mainWindow.IsVisibleChanged += (s, args) =>
+            {
+                if (!_mainWindow.IsVisible)
+                {
+                    _mainWindow.IsPinned = false;
+                    if (_floatingWindow != null) _floatingWindow.IsPinned = false;
+                }
+                else
+                {
+                    RefreshData();
+                }
+            };
+
+            if (_notifyIcon != null) _notifyIcon.TrayLeftMouseUp += (s, args) => ShowMainWindow(true);
+
+            // Window Syncing (MainWindow side)
             _mainWindow.LocationChanged += (s, args) =>
             {
                 if (_isSyncing || _floatingWindow == null) return;
@@ -200,23 +262,19 @@ namespace PortfolioWatch
                     // Move FloatingWindow based on current relative orientation
                     if (_currentIsBelow)
                     {
-                        // MW is Below. FW should be Above.
                         _floatingWindow.Top = _mainWindow.Top - _floatingWindow.ActualHeight + 20;
                     }
                     else
                     {
-                        // MW is Above. FW should be Below.
                         _floatingWindow.Top = _mainWindow.Top - 20 + _mainWindow.Height;
                     }
 
                     if (_currentIsRight)
                     {
-                        // MW is Right. FW should be Left.
                         _floatingWindow.Left = _mainWindow.Left - 20;
                     }
                     else
                     {
-                        // MW is Left. FW should be Right.
                         _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 20 - _floatingWindow.ActualWidth;
                     }
 
@@ -227,61 +285,27 @@ namespace PortfolioWatch
                 }
             };
             
-            // Also sync when MainWindow resizes
             _mainWindow.SizeChanged += (s, args) =>
             {
                 if (_isSyncing || _floatingWindow == null) return;
                 
                 _isSyncing = true;
                 
-                // When MainWindow resizes, we want to move the FloatingWindow to maintain the gap
-                // instead of moving the MainWindow back to the old anchor.
-                
                 if (_currentIsBelow)
                 {
-                    // MainWindow is BELOW FloatingWindow.
-                    // FloatingWindow should be 20px ABOVE MainWindow (Overlap by 20px to match "Below" behavior).
-                    // FW.Bottom = MW.Top + 20
-                    // FW.Top + FW.Height = MW.Top + 20
-                    // FW.Top = MW.Top + 20 - FW.Height
                     _floatingWindow.Top = _mainWindow.Top + 20 - _floatingWindow.ActualHeight;
                 }
                 else
                 {
-                    // MainWindow is ABOVE FloatingWindow.
-                    // FloatingWindow should be 20px BELOW MainWindow.
-                    // FW.Top = MW.Top + MW.Height + 20
-                    // Note: We use 20px gap. Previous logic used 20px overlap/offset?
-                    // Let's check UpdateMainWindowPosition logic:
-                    // if (!_currentIsBelow) _mainWindow.Top = fwTop + 20 - _mainWindow.Height;
-                    // This implies fwTop = _mainWindow.Top + _mainWindow.Height - 20;
-                    // So there is a 20px OVERLAP (or offset from bottom).
-                    // The user said "stay the same number of pixels above or below".
-                    // If the current logic establishes a -20px gap (overlap), we should maintain that.
-                    
-                    // Let's stick to the formula derived from UpdateMainWindowPosition to be consistent.
-                    // fwTop = _mainWindow.Top + _mainWindow.Height - 20;
-                    
                     _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height - 20;
                 }
 
-                // We might also need to adjust Left if alignment depends on Width?
-                // UpdateMainWindowPosition logic:
-                // if (_currentIsRight) _mainWindow.Left = fwLeft + 20;
-                // else _mainWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 20;
-                
                 if (_currentIsRight)
                 {
-                    // Aligned Left edges.
-                    // If MW Left changes (resizing left edge), we need to move FW.
-                    // fwLeft = MW.Left - 20
                     _floatingWindow.Left = _mainWindow.Left - 20;
                 }
                 else
                 {
-                    // Aligned Right edges.
-                    // If MW Width changes, we need to move FW?
-                    // fwLeft = _mainWindow.Left + _mainWindow.Width + 20 - fwWidth
                     _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 20 - _floatingWindow.ActualWidth;
                 }
 
@@ -291,21 +315,8 @@ namespace PortfolioWatch
                 _isSyncing = false;
             };
 
-            // Show Floating Window
-            try 
-            {
-                _floatingWindow.Show();
-            }
-            catch (Exception ex)
-            {
-                new ConfirmationWindow("Error", $"Error showing floating window: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
-            }
-
-            // Initialize ViewModel data asynchronously
-            if (_mainWindow.DataContext is MainViewModel vm)
-            {
-                vm.Initialize();
-            }
+            // Initialize VM data
+            vm.Initialize();
 
             // Ensure Start with Windows
             if (settings.StartWithWindows)
@@ -452,7 +463,7 @@ namespace PortfolioWatch
             _isSyncing = true;
 
             // Reset Main Window Size
-            _mainWindow.Width = 800;
+            _mainWindow.Width = 450;
             _mainWindow.Height = 600;
             _mainWindow.UpdateLayout();
 
@@ -478,44 +489,65 @@ namespace PortfolioWatch
         {
             if (_mainWindow == null || _floatingWindow == null) return;
 
-            var workArea = SystemParameters.WorkArea;
-            var fwLeft = _floatingWindow.Left;
-            var fwTop = _floatingWindow.Top;
-            var fwWidth = _floatingWindow.ActualWidth;
-            var fwHeight = _floatingWindow.ActualHeight;
-
-            // Vertical
-            var spaceAbove = fwTop - workArea.Top;
-            var spaceBelow = workArea.Bottom - (fwTop + fwHeight);
-            
-            _currentIsBelow = spaceBelow > spaceAbove;
-
-            if (_currentIsBelow)
+            try
             {
-                // Position Below
-                _mainWindow.Top = fwTop + fwHeight - 20;
+                var workArea = SystemParameters.WorkArea;
+                var fwLeft = _floatingWindow.Left;
+                var fwTop = _floatingWindow.Top;
+                var fwWidth = _floatingWindow.ActualWidth;
+                var fwHeight = _floatingWindow.ActualHeight;
+
+                // Defensive checks for NaN
+                if (double.IsNaN(fwLeft)) fwLeft = 0;
+                if (double.IsNaN(fwTop)) fwTop = 0;
+                if (fwWidth <= 0) fwWidth = 100; // Fallback
+                if (fwHeight <= 0) fwHeight = 100; // Fallback
+
+                // Vertical
+                var spaceAbove = fwTop - workArea.Top;
+                var spaceBelow = workArea.Bottom - (fwTop + fwHeight);
+                
+                _currentIsBelow = spaceBelow > spaceAbove;
+
+                double mwHeight = _mainWindow.ActualHeight;
+                if (mwHeight <= 0) mwHeight = _mainWindow.Height;
+                if (double.IsNaN(mwHeight)) mwHeight = 600; // Fallback
+
+                if (_currentIsBelow)
+                {
+                    // Position Below
+                    _mainWindow.Top = fwTop + fwHeight - 20;
+                }
+                else
+                {
+                    // Position Above
+                    _mainWindow.Top = fwTop + 20 - mwHeight;
+                }
+
+                // Horizontal
+                var spaceLeft = fwLeft - workArea.Left;
+                var spaceRight = workArea.Right - (fwLeft + fwWidth);
+
+                _currentIsRight = spaceRight > spaceLeft; // More space to the right -> Put window on right (Left aligned)
+
+                double mwWidth = _mainWindow.ActualWidth;
+                if (mwWidth <= 0) mwWidth = _mainWindow.Width;
+                if (double.IsNaN(mwWidth)) mwWidth = 450; // Fallback
+
+                if (_currentIsRight)
+                {
+                    // Align Left edges (Window extends right)
+                    _mainWindow.Left = fwLeft + 20;
+                }
+                else
+                {
+                    // Align Right edges (Window extends left)
+                    _mainWindow.Left = fwLeft + fwWidth - mwWidth - 20;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // Position Above
-                _mainWindow.Top = fwTop + 20 - _mainWindow.Height;
-            }
-
-            // Horizontal
-            var spaceLeft = fwLeft - workArea.Left;
-            var spaceRight = workArea.Right - (fwLeft + fwWidth);
-
-            _currentIsRight = spaceRight > spaceLeft; // More space to the right -> Put window on right (Left aligned)
-
-            if (_currentIsRight)
-            {
-                // Align Left edges (Window extends right)
-                _mainWindow.Left = fwLeft + 20;
-            }
-            else
-            {
-                // Align Right edges (Window extends left)
-                _mainWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 20;
+                Debug.WriteLine($"Error updating main window position: {ex.Message}");
             }
         }
 

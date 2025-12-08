@@ -9,7 +9,8 @@
         Title="Update Available" Height="220" Width="400"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="NoResize">
+        ResizeMode="NoResize"
+        Topmost="True">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
