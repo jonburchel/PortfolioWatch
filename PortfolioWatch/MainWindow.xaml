@@ -237,7 +237,7 @@
                                           MouseLeftButtonDown="TaxPie_MouseLeftButtonDown">
                                         <Image Source="{Binding TaxAllocations, Converter={StaticResource TaxAllocationsToPieChartConverter}}" Width="14" Height="14"/>
                                         <!-- Overlay Icon: Bank -->
-                                        <Viewbox Width="8" Height="8" Margin="0,0,2,1">
+                                        <Viewbox Width="8" Height="8" Margin="0,0,0,1">
                                             <Path Data="M11.5,1L2,6V8H21V6L11.5,1M4,10V18H7V10H4M9,10V18H12V10H9M14,10V18H17V10H14M19,10V18H22V10H19M2,20V22H21V20H2Z" 
                                                   Fill="{DynamicResource PrimaryForegroundBrush}" 
                                                   Opacity="0.5"/>
@@ -613,7 +613,7 @@
                         <Image Source="{Binding AggregateTaxAllocations, Converter={StaticResource TaxAllocationsToPieChartConverter}}" 
                                Width="28" Height="28"/>
                         <!-- Overlay Icon: Bank -->
-                        <Viewbox Width="14" Height="14" Margin="0,0,4,0">
+                        <Viewbox Width="14" Height="14" Margin="0,0,0,0">
                             <Path Data="M11.5,1L2,6V8H21V6L11.5,1M4,10V18H7V10H4M9,10V18H12V10H9M14,10V18H17V10H14M19,10V18H22V10H19M2,20V22H21V20H2Z" 
                                   Fill="{DynamicResource PrimaryForegroundBrush}" 
                                   Opacity="0.5"/>

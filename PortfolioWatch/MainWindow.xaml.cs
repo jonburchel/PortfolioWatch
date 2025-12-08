@@ -915,6 +915,8 @@ namespace PortfolioWatch
             {
                 if (element.ToolTip is ToolTip toolTip)
                 {
+                    toolTip.DataContext = element.DataContext;
+                    toolTip.PlacementTarget = element;
                     toolTip.IsOpen = true;
                     e.Handled = true;
                 }
