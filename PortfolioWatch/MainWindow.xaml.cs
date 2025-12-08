@@ -10,6 +10,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows.Documents;
 
 namespace PortfolioWatch
 {
@@ -78,6 +79,9 @@ namespace PortfolioWatch
         }
 
         private DispatcherTimer _autoHideTimer;
+        private DispatcherTimer _tabScrollTimer;
+        private int _scrollDirection = 0; // -1 left, 1 right
+        private ScrollViewer? _headerScrollViewer;
         private PopupController _newsController = null!;
         private PopupController _earningsController = null!;
         private PopupController _optionsController = null!;
@@ -125,6 +129,9 @@ namespace PortfolioWatch
                 }
             };
 
+            _tabScrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+            _tabScrollTimer.Tick += TabScrollTimer_Tick;
+
             _newsController = new PopupController(NewsPopup, 500);
             _earningsController = new PopupController(EarningsPopup, 500);
             _optionsController = new PopupController(OptionsPopup, 400);
@@ -158,6 +165,17 @@ namespace PortfolioWatch
                 SearchBox.Focus();
                 SearchBox.SelectAll();
             }), DispatcherPriority.Input);
+        }
+
+        private void SearchBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                if (vm.NewSymbol == "Dow Jones")
+                {
+                    vm.NewSymbol = string.Empty;
+                }
+            }
         }
 
         private void AnimateIn()
@@ -289,20 +307,91 @@ namespace PortfolioWatch
         private Point _startPoint;
         private bool _wasSelectedOnDown;
         private ViewModels.PortfolioTabViewModel? _draggedTab;
+        private Helpers.DragAdorner? _dragAdorner;
+        private bool _isDragging;
 
         private void TabItem_PreviewMouseMove(object sender, MouseEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed && sender is FrameworkElement element)
+            if (e.LeftButton == MouseButtonState.Pressed && sender is System.Windows.Controls.TabItem tabItem)
             {
                 Point position = e.GetPosition(null);
-                if (Math.Abs(position.X - _startPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
-                    Math.Abs(position.Y - _startPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
+
+                if (!_isDragging)
                 {
-                    if (element.DataContext is ViewModels.PortfolioTabViewModel tab && !tab.IsAddButton)
+                    if (Math.Abs(position.X - _startPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                        Math.Abs(position.Y - _startPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
                     {
-                        _draggedTab = tab;
-                        DragDrop.DoDragDrop(element, tab, DragDropEffects.Move);
-                        _draggedTab = null;
+                        if (tabItem.DataContext is ViewModels.PortfolioTabViewModel tab && !tab.IsAddButton)
+                        {
+                            _isDragging = true;
+                            _draggedTab = tab;
+
+                            var adornerLayer = AdornerLayer.GetAdornerLayer(tabItem);
+                            if (adornerLayer != null)
+                            {
+                                _dragAdorner = new Helpers.DragAdorner(tabItem, tabItem, 0.7);
+                                adornerLayer.Add(_dragAdorner);
+                            }
+
+                            tabItem.CaptureMouse();
+                        }
+                    }
+                }
+                else
+                {
+                    double offsetX = position.X - _startPoint.X;
+                    double offsetY = position.Y - _startPoint.Y;
+                    _dragAdorner?.UpdatePosition(offsetX, offsetY);
+
+                    var tabControl = ItemsControl.ItemsControlFromItemContainer(tabItem) as TabControl;
+                    if (tabControl != null)
+                    {
+                        if (_headerScrollViewer == null)
+                        {
+                            _headerScrollViewer = tabControl.Template.FindName("HeaderScrollViewer", tabControl) as ScrollViewer;
+                        }
+
+                        if (_headerScrollViewer != null)
+                        {
+                            Point posInScrollViewer = e.GetPosition(_headerScrollViewer);
+                            if (posInScrollViewer.X < 20)
+                            {
+                                _scrollDirection = -1;
+                                if (!_tabScrollTimer.IsEnabled) _tabScrollTimer.Start();
+                            }
+                            else if (posInScrollViewer.X > _headerScrollViewer.ViewportWidth - 20)
+                            {
+                                _scrollDirection = 1;
+                                if (!_tabScrollTimer.IsEnabled) _tabScrollTimer.Start();
+                            }
+                            else
+                            {
+                                _scrollDirection = 0;
+                                _tabScrollTimer.Stop();
+                            }
+                        }
+
+                        Point posInTabControl = e.GetPosition(tabControl);
+                            VisualTreeHelper.HitTest(tabControl, null, (result) =>
+                            {
+                                var targetTabItem = FindVisualParent<System.Windows.Controls.TabItem>(result.VisualHit);
+                                if (targetTabItem != null && targetTabItem != tabItem)
+                                {
+                                    if (targetTabItem.DataContext is ViewModels.PortfolioTabViewModel targetTab)
+                                    {
+                                        if (DataContext is ViewModels.MainViewModel vm)
+                                        {
+                                            int targetIndex = vm.Tabs.IndexOf(targetTab);
+                                            int sourceIndex = vm.Tabs.IndexOf(_draggedTab!);
+                                            if (targetIndex != -1 && sourceIndex != -1 && targetIndex != sourceIndex)
+                                            {
+                                                vm.MoveTab(_draggedTab!, targetIndex);
+                                            }
+                                        }
+                                    }
+                                }
+                                return HitTestResultBehavior.Continue;
+                            }, new PointHitTestParameters(posInTabControl));
                     }
                 }
             }
@@ -311,8 +400,8 @@ namespace PortfolioWatch
         private void TabItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             _startPoint = e.GetPosition(null);
-            
-            if (sender is System.Windows.Controls.TabItem tabItem && 
+
+            if (sender is System.Windows.Controls.TabItem tabItem &&
                 tabItem.DataContext is ViewModels.PortfolioTabViewModel)
             {
                 _wasSelectedOnDown = tabItem.IsSelected;
@@ -321,8 +410,23 @@ namespace PortfolioWatch
 
         private void TabItem_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            if (sender is System.Windows.Controls.TabItem tabItem && 
-                tabItem.DataContext is ViewModels.PortfolioTabViewModel tab && 
+            if (_isDragging && sender is System.Windows.Controls.TabItem draggedItem)
+            {
+                _tabScrollTimer.Stop();
+                draggedItem.ReleaseMouseCapture();
+                if (_dragAdorner != null)
+                {
+                    AdornerLayer.GetAdornerLayer(draggedItem)?.Remove(_dragAdorner);
+                    _dragAdorner = null;
+                }
+                _isDragging = false;
+                _draggedTab = null;
+                e.Handled = true;
+                return;
+            }
+
+            if (sender is System.Windows.Controls.TabItem tabItem &&
+                tabItem.DataContext is ViewModels.PortfolioTabViewModel tab &&
                 !tab.IsAddButton)
             {
                 Point position = e.GetPosition(null);
@@ -345,8 +449,14 @@ namespace PortfolioWatch
                         }
                     }
 
+                    // Only enter edit mode if clicking the text block explicitly
+                    if (!(e.OriginalSource is TextBlock))
+                    {
+                        return;
+                    }
+
                     tab.IsEditing = true;
-                    
+
                     Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
                     {
                         var textBox = FindVisualChild<System.Windows.Controls.TextBox>(tabItem);
@@ -376,27 +486,19 @@ namespace PortfolioWatch
             {
                 var child = VisualTreeHelper.GetChild(parent, i);
                 if (child is T typedChild) return typedChild;
-                
+
                 var result = FindVisualChild<T>(child);
                 if (result != null) return result;
             }
             return null;
         }
 
-        private void TabItem_Drop(object sender, DragEventArgs e)
+        private static T? FindVisualParent<T>(DependencyObject child) where T : DependencyObject
         {
-            if (_draggedTab == null) return;
-
-            if (sender is FrameworkElement element && 
-                element.DataContext is ViewModels.PortfolioTabViewModel targetTab && 
-                !targetTab.IsAddButton)
-            {
-                if (DataContext is ViewModels.MainViewModel vm)
-                {
-                    int targetIndex = vm.Tabs.IndexOf(targetTab);
-                    vm.MoveTab(_draggedTab, targetIndex);
-                }
-            }
+            DependencyObject parentObject = VisualTreeHelper.GetParent(child);
+            if (parentObject == null) return null;
+            if (parentObject is T parent) return parent;
+            return FindVisualParent<T>(parentObject);
         }
 
         private void ListViewItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -777,6 +879,114 @@ namespace PortfolioWatch
         {
             _rVolController.OnMouseLeavePopup();
         }
+
+        private void TaxPie_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && 
+                element.DataContext is ViewModels.PortfolioTabViewModel tabVm)
+            {
+                Point point = element.PointToScreen(new Point(0, element.ActualHeight));
+                var source = PresentationSource.FromVisual(this);
+                if (source?.CompositionTarget != null)
+                {
+                    var matrix = source.CompositionTarget.TransformFromDevice;
+                    var logicalPoint = matrix.Transform(point);
+
+                    var dialog = new Views.TaxStatusEditWindow(tabVm.TaxAllocations)
+                    {
+                        Owner = this,
+                        WindowStartupLocation = WindowStartupLocation.Manual,
+                        Left = logicalPoint.X,
+                        Top = logicalPoint.Y + 5
+                    };
+
+                    if (dialog.ShowDialog() == true)
+                    {
+                        tabVm.TaxAllocations = new System.Collections.ObjectModel.ObservableCollection<Models.TaxAllocation>(dialog.ViewModel.GetAllocations());
+                    }
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void AggregateTaxPie_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                if (element.ToolTip is ToolTip toolTip)
+                {
+                    toolTip.IsOpen = true;
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void AggregateTaxPie_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                if (element.ToolTip is ToolTip toolTip)
+                {
+                    toolTip.IsOpen = false;
+                }
+            }
+        }
+
+        private void PieChart_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element)
+            {
+                if (element.ToolTip is ToolTip toolTip)
+                {
+                    toolTip.IsOpen = true;
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void Window_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control && DataContext is ViewModels.MainViewModel vm)
+            {
+                if (e.Delta > 0)
+                    vm.UIScale = Math.Min(2.0, vm.UIScale + 0.1);
+                else
+                    vm.UIScale = Math.Max(0.5, vm.UIScale - 0.1);
+                
+                e.Handled = true;
+            }
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control && DataContext is ViewModels.MainViewModel vm)
+            {
+                if (e.Key == Key.OemPlus || e.Key == Key.Add)
+                {
+                    vm.UIScale = Math.Min(2.0, vm.UIScale + 0.1);
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.OemMinus || e.Key == Key.Subtract)
+                {
+                    vm.UIScale = Math.Max(0.5, vm.UIScale - 0.1);
+                    e.Handled = true;
+                }
+                else if (e.Key == Key.D0 || e.Key == Key.NumPad0)
+                {
+                    vm.UIScale = 1.0;
+                    e.Handled = true;
+                }
+            }
+        }
+
+        private void TabScrollTimer_Tick(object? sender, EventArgs e)
+        {
+            if (_headerScrollViewer != null && _scrollDirection != 0)
+            {
+                _headerScrollViewer.ScrollToHorizontalOffset(_headerScrollViewer.HorizontalOffset + (_scrollDirection * 5));
+            }
+        }
+
         private class PopupController
         {
             private readonly Popup _popup;

@@ -1,0 +1,104 @@
+<Window x:Class="PortfolioWatch.Views.TaxStatusEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
+        xmlns:converters="clr-namespace:PortfolioWatch.Converters"
+        mc:Ignorable="d"
+        Title="Edit Tax Status" SizeToContent="Height" Width="400"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+
+    <Window.Resources>
+        <converters:PieSliceConverter x:Key="PieSliceConverter"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis"/>
+    </Window.Resources>
+
+    <Border Background="{DynamicResource WindowBackgroundBrush}" CornerRadius="12" Margin="10">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="15" ShadowDepth="0" Opacity="0.5"/>
+        </Border.Effect>
+        <Border Background="Transparent" CornerRadius="12" BorderBrush="{DynamicResource WindowBorderBrush}" BorderThickness="1" ClipToBounds="True">
+            <Grid Margin="20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <TextBlock Text="Tax Status and Allocation" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+
+                <!-- Allocations -->
+                <ItemsControl Grid.Row="2" ItemsSource="{Binding Allocations}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <Rectangle Width="12" Height="12" Fill="{Binding Brush}" RadiusX="2" RadiusY="2" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                
+                                <TextBox Grid.Column="2" Text="{Binding Percentage, UpdateSourceTrigger=PropertyChanged}" 
+                                         Style="{StaticResource TitleTextBoxStyle}"
+                                         Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                         HorizontalContentAlignment="Right" VerticalAlignment="Center"
+                                         PreviewTextInput="NumberValidationTextBox"/>
+                                <TextBlock Grid.Column="3" Text="%" VerticalAlignment="Center" Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="5,0,0,0"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Total & Validation -->
+                <StackPanel Grid.Row="3" Margin="0,20,0,20">
+                    <Grid Margin="0,0,0,5">
+                        <TextBlock Text="Total Allocation:" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                        <TextBlock Text="{Binding TotalPercentage, StringFormat={}{0}%}" 
+                                   FontWeight="Bold" HorizontalAlignment="Right">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsTotalValid}" Value="False">
+                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                    <TextBlock Text="Total must equal 100%" Foreground="{DynamicResource NegativeColorBrush}" 
+                               Visibility="{Binding IsTotalValid, Converter={StaticResource InverseBoolToVis}}"
+                               HorizontalAlignment="Right" FontSize="11"/>
+                </StackPanel>
+
+                <!-- Buttons -->
+                <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Cancel" Click="CancelButton_Click" 
+                            Background="Transparent" Foreground="{DynamicResource SecondaryForegroundBrush}" 
+                            BorderThickness="0" Margin="0,0,10,0" Padding="10,5"/>
+                    <Button Content="Save" Click="SaveButton_Click" 
+                            Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                            BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" 
+                            Padding="15,5" IsEnabled="{Binding IsTotalValid}">
+                        <Button.Resources>
+                            <Style TargetType="Border">
+                                <Setter Property="CornerRadius" Value="4"/>
+                            </Style>
+                        </Button.Resources>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Border>
+</Window>

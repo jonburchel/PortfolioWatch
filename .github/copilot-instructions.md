@@ -59,3 +59,6 @@ The project follows the **Model-View-ViewModel (MVVM)** architectural pattern, u
 *   **Binding:** Use data binding for all UI updates. Avoid direct UI manipulation.
 *   **Async/Await:** Use asynchronous programming for I/O bound operations (e.g., network requests) to keep the UI responsive.
 *   **Theming:** Ensure all new UI elements use dynamic resources for colors to support theme switching.
+
+## Feature details
+See FEATURES.md for a full breakdown of the most recent features.

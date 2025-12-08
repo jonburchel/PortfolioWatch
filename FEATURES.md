@@ -29,6 +29,7 @@ The application consists of two synchronized windows:
         *   **Pinning**: When pinned (via clicking the Floating Window), it stays visible and ignores auto-hide logic.
         *   **Positioning**: Automatically positions itself relative to the Floating Window (Top-Right or Bottom-Right logic depending on screen space, though currently hardcoded to offset).
         *   **Animations**: Fade-in animation on load.
+        *   **Sizing**: Enforces a minimum size of 550x550 pixels to ensure usability.
 
 ### 2.2. Theming
 *   **Themes**: Supports Light, Dark, and System (follows Windows setting) themes.
@@ -153,6 +154,28 @@ The application uses a system of emoji-based flags to alert the user to signific
     *   **Per-Tab Visualization**: Each tab features its own mini pie chart in the header, visualizing the asset allocation within that specific portfolio.
     *   **Scrolling**: The tab bar supports horizontal scrolling with dynamic arrow buttons that appear when tabs overflow the available width.
 
+### 3.7. Tax Status Allocation
+*   **Overview**: Provides a high-level view of the portfolio's tax exposure by categorizing assets into tax buckets (e.g., Taxable, Roth, Traditional IRA).
+*   **Configuration**:
+    *   **Per-Tab Settings**: Each portfolio tab can be assigned a specific tax allocation profile (e.g., "100% Roth" or "50% Taxable / 50% Traditional").
+    *   **Edit Dialog**: Accessed via the context menu on a tab header, allowing users to define custom percentage splits across various tax status types.
+*   **Aggregation Logic**:
+    *   The application calculates a global tax allocation by weighting each tab's allocation against the total market value of the stocks contained within that tab.
+    *   **Example**: If Tab A ($10k) is 100% Roth and Tab B ($10k) is 100% Taxable, the global allocation is 50% Roth / 50% Taxable.
+*   **Visualization**:
+    *   **Aggregate Chart**: A dedicated pie chart in the main dashboard visualizes the total portfolio's tax breakdown.
+
+### 3.8. Merged Portfolio View
+*   **Toggle**: "Merged View" checkbox in the main UI.
+*   **Functionality**:
+    *   **Aggregation**: Dynamically combines stocks from all tabs that have "Include in Total" checked.
+    *   **Grouping**: Stocks with the same symbol across different tabs are grouped into a single entry, with their share counts summed.
+    *   **Visuals**:
+        *   Hides the tab headers to reinforce the unified nature of the view.
+        *   Displays a "Merged View (Read-Only)" banner at the top of the list.
+    *   **Read-Only**: Share counts in this view are read-only. To modify holdings, users must switch back to the specific tab where the stock resides.
+    *   **Import Behavior**: Importing data while in Merged View automatically disables the view and switches to the imported tab (or the first valid tab) to prevent confusion.
+
 ## 4. Data Persistence & Settings
 
 ### 4.1. Settings File
@@ -168,6 +191,7 @@ The application uses a system of emoji-based flags to alert the user to signific
 *   **Export**: Saves the current watchlist and settings to a user-selected JSON file.
     *   **Standard Export**: Exports the portfolio exactly as is.
     *   **Normalized Export**: Allows exporting the portfolio with share counts adjusted to match a target total value (e.g., $1,000,000) while maintaining the current asset allocation percentages. Useful for modeling or sharing strategies without revealing actual wealth.
+        *   **Tax Allocations**: Includes tax allocation details in the export. If exported from Merged View, it uses the aggregated tax allocations; otherwise, it uses the active tab's allocations.
     *   **Metadata**: Exports include the Portfolio Name (`WindowTitle`) to ensure the context is preserved upon import.
 *   **Import**: Loads watchlist and settings from a JSON file, merging/overwriting current state and restoring the Portfolio Name.
 

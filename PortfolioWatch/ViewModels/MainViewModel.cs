@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -95,6 +96,17 @@ namespace PortfolioWatch.ViewModels
         private double _windowOpacity = 0.8;
 
         [ObservableProperty]
+        private double _uIScale = 1.0;
+
+        partial void OnUIScaleChanged(double value)
+        {
+            if (!_isLoading) SaveStocks();
+        }
+
+        [RelayCommand]
+        private void ResetScale() => UIScale = 1.0;
+
+        [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsSystemTheme))]
         [NotifyPropertyChangedFor(nameof(IsLightTheme))]
         [NotifyPropertyChangedFor(nameof(IsDarkTheme))]
@@ -121,7 +133,68 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _isMultiTabSelection;
 
+        [ObservableProperty]
+        private bool _isMergedView;
+
+        [ObservableProperty]
+        private ObservableCollection<Stock> _mergedStocks = new();
+
+        [ObservableProperty]
+        private ObservableCollection<TaxAllocation> _aggregateTaxAllocations = new();
+
         public event EventHandler? RequestSearchFocus;
+
+        partial void OnIsMergedViewChanged(bool value)
+        {
+            if (value)
+            {
+                GenerateMergedView();
+                Stocks = MergedStocks;
+            }
+            else
+            {
+                if (SelectedTab != null)
+                {
+                    Stocks = SelectedTab.Stocks;
+                }
+            }
+            CalculatePortfolioTotals();
+        }
+
+        private void GenerateMergedView()
+        {
+            var includedTabs = Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal).ToList();
+            var allStocks = includedTabs.SelectMany(t => t.Stocks).ToList();
+
+            var grouped = allStocks.GroupBy(s => s.Symbol);
+            var mergedList = new System.Collections.Generic.List<Stock>();
+
+            foreach (var group in grouped)
+            {
+                var first = group.First();
+                var totalShares = group.Sum(s => s.Shares);
+
+                // Create a new stock instance for the merged view
+                // We clone the first one to get all properties (History, etc.)
+                // then update the shares.
+                var mergedStock = first.Clone();
+                mergedStock.Shares = totalShares;
+                
+                // Ensure calculated fields are correct
+                // (Clone copies properties, but Shares setter triggers recalculations)
+                
+                mergedList.Add(mergedStock);
+            }
+
+            MergedStocks = new ObservableCollection<Stock>(mergedList);
+            
+            // If we are currently in merged view, update the main Stocks collection reference
+            if (IsMergedView)
+            {
+                Stocks = MergedStocks;
+                ApplySortInternal(); // Re-apply sort to the new merged list
+            }
+        }
 
         partial void OnSelectedTabChanged(PortfolioTabViewModel? oldValue, PortfolioTabViewModel? newValue)
         {
@@ -147,12 +220,16 @@ namespace PortfolioWatch.ViewModels
                 
                 UpdateAllIncludedState();
 
-                Stocks = newValue.Stocks;
+                if (!IsMergedView)
+                {
+                    Stocks = newValue.Stocks;
+                }
                 
                 UpdateServiceStocks();
                 
                 CalculatePortfolioTotals();
                 ApplySortInternal();
+                if (!_isLoading) SaveStocks();
             }
         }
 
@@ -462,12 +539,14 @@ namespace PortfolioWatch.ViewModels
             var newTab = new PortfolioTabViewModel(new PortfolioTab 
             { 
                 Name = $"{tab.Name} (Copy)",
-                Stocks = new System.Collections.Generic.List<Stock>(tab.Stocks.Select(s => s.Clone()))
+                Stocks = new System.Collections.Generic.List<Stock>(tab.Stocks.Select(s => s.Clone())),
+                TaxAllocations = new System.Collections.Generic.List<TaxAllocation>(tab.TaxAllocations.Select(t => new TaxAllocation { Type = t.Type, Percentage = t.Percentage }))
             });
 
             // Subscribe to events
             newTab.PropertyChanged += Tab_PropertyChanged;
             newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+            newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
             foreach (var stock in newTab.Stocks)
             {
                 stock.PropertyChanged += Stock_PropertyChanged;
@@ -539,6 +618,7 @@ namespace PortfolioWatch.ViewModels
                     // Subscribe to events
                     tabVm.PropertyChanged += Tab_PropertyChanged;
                     tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                    tabVm.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
                     foreach (var stock in tabVm.Stocks)
                     {
                         stock.PropertyChanged += Stock_PropertyChanged;
@@ -567,6 +647,7 @@ namespace PortfolioWatch.ViewModels
                 
                 defaultTab.PropertyChanged += Tab_PropertyChanged;
                 defaultTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                defaultTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
                 foreach (var stock in defaultTab.Stocks)
                 {
                     stock.PropertyChanged += Stock_PropertyChanged;
@@ -600,6 +681,7 @@ namespace PortfolioWatch.ViewModels
             StartWithWindows = _settingsService.IsStartupEnabled();
             CurrentTheme = settings.Theme;
             WindowOpacity = settings.WindowOpacity;
+            UIScale = settings.UIScale;
             SelectedRange = settings.SelectedRange;
 
             // Apply sort
@@ -700,7 +782,32 @@ namespace PortfolioWatch.ViewModels
 
                 UpdateAllIncludedState();
                 CalculatePortfolioTotals();
+                if (!_isLoading) SaveStocks();
             }
+            else if (e.PropertyName == nameof(PortfolioTabViewModel.TaxAllocations))
+            {
+                CalculatePortfolioTotals();
+                SaveStocks();
+            }
+        }
+
+        public void UpdateTabTaxAllocations(PortfolioTabViewModel tabVm, IEnumerable<TaxAllocation> allocations)
+        {
+            // Create new collection to trigger property change for converters
+            var newAllocations = new ObservableCollection<TaxAllocation>();
+            foreach (var allocation in allocations)
+            {
+                newAllocations.Add(allocation);
+            }
+            tabVm.TaxAllocations = newAllocations;
+
+            SaveStocks();
+            CalculatePortfolioTotals(); // Re-calculate aggregate
+        }
+
+        private void Tab_RequestEditTaxStatus(object? sender, EventArgs e)
+        {
+            // Deprecated: Handled by View for better positioning
         }
 
         private void UpdateServiceStocks()
@@ -750,6 +857,7 @@ namespace PortfolioWatch.ViewModels
             settings.IsPortfolioMode = IsPortfolioMode;
             settings.Theme = CurrentTheme;
             settings.WindowOpacity = WindowOpacity;
+            settings.UIScale = UIScale;
             settings.SelectedRange = SelectedRange;
             settings.SelectedTabIndex = SelectedTab != null ? Tabs.IndexOf(SelectedTab) : 0;
             settings.IsFirstRun = false;
@@ -901,6 +1009,16 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
+        private void RemoveStock(Stock stock)
+        {
+            if (stock == null || SelectedTab == null || SelectedTab.IsAddButton) return;
+
+            SelectedTab.Stocks.Remove(stock);
+            UpdateServiceStocks();
+            SaveStocks();
+        }
+
+        [RelayCommand]
         public async Task Reset()
         {
             var confirmationWindow = new ConfirmationWindow("Reset Application", "Are you sure you want to reset all settings and data? This cannot be undone.", showResetOption: true, isAlert: false);
@@ -920,6 +1038,7 @@ namespace PortfolioWatch.ViewModels
                 IsPortfolioMode = false;
                 CurrentTheme = AppTheme.System;
                 WindowOpacity = 0.8;
+                UIScale = 1.0;
                 SelectedRange = "1d";
                 
                 // Reset window positions
@@ -1187,7 +1306,23 @@ namespace PortfolioWatch.ViewModels
                             }
 
                             string normalizedName = $"{WindowTitle} (Normalized to {targetValue:C0})";
-                            _settingsService.ExportStocks(dialog.FileName, normalizedStocks, normalizedName);
+                            
+                            // Determine tax allocations to include
+                            IEnumerable<TaxAllocation> taxAllocations;
+                            if (IsMergedView)
+                            {
+                                taxAllocations = AggregateTaxAllocations;
+                            }
+                            else if (SelectedTab != null)
+                            {
+                                taxAllocations = SelectedTab.TaxAllocations;
+                            }
+                            else
+                            {
+                                taxAllocations = new[] { new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = 100 } };
+                            }
+
+                            _settingsService.ExportStocks(dialog.FileName, normalizedStocks, normalizedName, taxAllocations);
                             new ConfirmationWindow("Success", $"Export successful! Portfolio normalized to {targetValue:C0}.", isAlert: true, icon: "✅").ShowDialog();
                         }
                         catch (Exception ex)
@@ -1272,7 +1407,7 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
-        private async Task ImportData()
+        private void ImportData()
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -1329,9 +1464,21 @@ namespace PortfolioWatch.ViewModels
                         Tabs.Add(new PortfolioTabViewModel(true));
                     }
 
-                    if (Tabs.Count > 0 && SelectedTab == null)
+                    // Disable Merged View on import
+                    IsMergedView = false;
+
+                    // Set active tab
+                    if (Tabs.Count > 0)
                     {
-                        SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
+                        // Try to restore selected index from import if valid
+                        if (importedSettings.SelectedTabIndex >= 0 && importedSettings.SelectedTabIndex < Tabs.Count && !Tabs[importedSettings.SelectedTabIndex].IsAddButton)
+                        {
+                            SelectedTab = Tabs[importedSettings.SelectedTabIndex];
+                        }
+                        else
+                        {
+                            SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
+                        }
                     }
 
                     UpdateServiceStocks();
@@ -1384,6 +1531,7 @@ namespace PortfolioWatch.ViewModels
             var newTab = new PortfolioTabViewModel(new PortfolioTab { Name = newName });
             newTab.PropertyChanged += Tab_PropertyChanged;
             newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+            newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
             
             // Insert before the Add Button (last index)
             if (Tabs.Count > 0)
@@ -1505,6 +1653,15 @@ namespace PortfolioWatch.ViewModels
 
         private void CalculatePortfolioTotals()
         {
+            // If in Merged View, regenerate the merged list to reflect any price/share changes
+            // This is a bit expensive but ensures accuracy. 
+            // Optimization: Only do this if triggered by data update, not just selection change?
+            // For now, safety first.
+            if (IsMergedView)
+            {
+                GenerateMergedView();
+            }
+
             if (!IsPortfolioMode) return;
 
             decimal totalValue = 0;
@@ -1649,6 +1806,55 @@ namespace PortfolioWatch.ViewModels
                     tab.PortfolioPercentage = 0;
                 }
             }
+
+            // Calculate Aggregate Tax Allocations
+            var taxAllocations = new Dictionary<TaxStatusType, double>();
+            decimal totalIncludedValue = 0;
+
+            foreach (var tab in Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal))
+            {
+                decimal tabValue = tab.Stocks.Sum(s => s.MarketValue);
+                totalIncludedValue += tabValue;
+
+                foreach (var allocation in tab.TaxAllocations)
+                {
+                    if (allocation.Percentage > 0)
+                    {
+                        if (!taxAllocations.ContainsKey(allocation.Type))
+                        {
+                            taxAllocations[allocation.Type] = 0;
+                        }
+                        // Contribution = TabValue * (Allocation% / 100)
+                        taxAllocations[allocation.Type] += (double)tabValue * (allocation.Percentage / 100.0);
+                    }
+                }
+            }
+
+            var newAggregateAllocations = new ObservableCollection<TaxAllocation>();
+            if (totalIncludedValue > 0)
+            {
+                foreach (var kvp in taxAllocations)
+                {
+                    double percentage = (kvp.Value / (double)totalIncludedValue) * 100.0;
+                    if (percentage > 0)
+                    {
+                        newAggregateAllocations.Add(new TaxAllocation 
+                        { 
+                            Type = kvp.Key, 
+                            Percentage = percentage
+                        });
+                    }
+                }
+            }
+            else
+            {
+                newAggregateAllocations.Add(new TaxAllocation 
+                { 
+                    Type = TaxStatusType.Unspecified, 
+                    Percentage = 100
+                });
+            }
+            AggregateTaxAllocations = newAggregateAllocations;
         }
 
         [RelayCommand]
@@ -1723,9 +1929,12 @@ namespace PortfolioWatch.ViewModels
 
         private void ApplySortInternal()
         {
-            if (SelectedTab == null) return;
+            if (SelectedTab == null && !IsMergedView) return;
 
-            var sourceList = SelectedTab.Stocks.ToList();
+            // Determine source list
+            IList<Stock> sourceCollection = IsMergedView ? MergedStocks : SelectedTab!.Stocks;
+            var sourceList = sourceCollection.ToList();
+            
             System.Collections.Generic.List<Stock> sortedList;
 
             if (SortProperty == "DayChangeValue" || SortProperty == "MarketValue")
@@ -1764,18 +1973,18 @@ namespace PortfolioWatch.ViewModels
                     : sourceList.OrderByDescending(keySelector).ToList();
             }
 
-            // Update SelectedTab.Stocks in place to maintain reference
-            SelectedTab.Stocks.Clear();
+            // Update the collection in place
+            sourceCollection.Clear();
             foreach (var s in sortedList)
             {
-                SelectedTab.Stocks.Add(s);
+                sourceCollection.Add(s);
             }
             
-            // Stocks property already points to SelectedTab.Stocks, but we might need to notify if we replaced the collection instance (we didn't)
-            // But we cleared and added, so CollectionChanged events fired.
-            
-            // Sync service
-            UpdateServiceStocks();
+            // Sync service (only if not merged view, as merged view is derived)
+            if (!IsMergedView)
+            {
+                UpdateServiceStocks();
+            }
 
             OnPropertyChanged(nameof(SymbolSortIcon));
             OnPropertyChanged(nameof(NameSortIcon));

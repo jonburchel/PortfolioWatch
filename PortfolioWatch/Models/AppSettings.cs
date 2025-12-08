@@ -16,6 +16,7 @@ namespace PortfolioWatch.Models
         public string Name { get; set; } = "Portfolio";
         public bool IsIncludedInTotal { get; set; } = true;
         public List<Stock> Stocks { get; set; } = new List<Stock>();
+        public List<TaxAllocation> TaxAllocations { get; set; } = new List<TaxAllocation>();
     }
 
     public class AppSettings
@@ -35,6 +36,7 @@ namespace PortfolioWatch.Models
         public bool StartWithWindows { get; set; } = true;
         public AppTheme Theme { get; set; } = AppTheme.System;
         public double WindowOpacity { get; set; } = 0.85;
+        public double UIScale { get; set; } = 1.0;
         public string SelectedRange { get; set; } = "1d";
         public int SelectedTabIndex { get; set; } = 0;
         

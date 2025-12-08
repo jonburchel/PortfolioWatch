@@ -58,6 +58,31 @@
                             </Grid>
                         </MenuItem.Header>
                     </MenuItem>
+
+                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" StaysOpenOnClick="True">
+                        <MenuItem.Header>
+                            <Grid Width="230">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <emoji:TextBlock Text="🔍 Scale" Foreground="{DynamicResource PrimaryForegroundBrush}" VerticalAlignment="Center"/>
+                                <Slider Grid.Column="1" Minimum="0.5" Maximum="2.0" Value="{Binding UIScale}" 
+                                        VerticalAlignment="Center" Margin="10,0,10,0"
+                                        IsMoveToPointEnabled="True"/>
+                                <TextBlock Grid.Column="2" Text="{Binding UIScale, StringFormat=P0}" 
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                                           VerticalAlignment="Center" FontSize="10" Width="30" TextAlignment="Right"/>
+                                <Button Grid.Column="3" Command="{Binding ResetScaleCommand}" 
+                                        Background="Transparent" BorderThickness="0" Margin="5,0,0,0"
+                                        ToolTip="Reset Scale" Cursor="Hand">
+                                    <emoji:TextBlock Text="🔄"/>
+                                </Button>
+                            </Grid>
+                        </MenuItem.Header>
+                    </MenuItem>
                 </MenuItem>
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>

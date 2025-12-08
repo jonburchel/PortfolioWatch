@@ -147,7 +147,7 @@ namespace PortfolioWatch.Services
             }
         }
 
-        public void ExportStocks(string filePath, System.Collections.Generic.IEnumerable<Stock>? stocksToExport = null, string? portfolioName = null)
+        public void ExportStocks(string filePath, System.Collections.Generic.IEnumerable<Stock>? stocksToExport = null, string? portfolioName = null, System.Collections.Generic.IEnumerable<TaxAllocation>? taxAllocations = null)
         {
             try
             {
@@ -169,6 +169,9 @@ namespace PortfolioWatch.Services
                         stock.Shares
                     }).ToList();
 
+                    // Use provided tax allocations or default to Unspecified 100%
+                    var allocations = taxAllocations ?? new[] { new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = 100 } };
+
                     exportData = new
                     {
                         PortfolioName = portfolioName ?? "Exported Portfolio",
@@ -179,7 +182,8 @@ namespace PortfolioWatch.Services
                             new 
                             { 
                                 Name = portfolioName ?? "Exported Portfolio", 
-                                Stocks = stockList 
+                                Stocks = stockList,
+                                TaxAllocations = allocations
                             } 
                         }
                     };
@@ -190,6 +194,8 @@ namespace PortfolioWatch.Services
                     var tabsExport = _currentSettings.Tabs.Select(t => new
                     {
                         t.Name,
+                        t.IsIncludedInTotal,
+                        t.TaxAllocations,
                         Stocks = t.Stocks.Select(stock => new
                         {
                             stock.Symbol,
@@ -204,6 +210,12 @@ namespace PortfolioWatch.Services
                     exportData = new
                     {
                         PortfolioName = _currentSettings.WindowTitle, // Main window title
+                        _currentSettings.SortColumn,
+                        _currentSettings.SortAscending,
+                        _currentSettings.SelectedTabIndex,
+                        _currentSettings.IsPortfolioMode,
+                        _currentSettings.IsIndexesVisible,
+                        _currentSettings.SelectedRange,
                         Tabs = tabsExport
                     };
                 }
@@ -269,6 +281,25 @@ namespace PortfolioWatch.Services
                     {
                         importedSettings.WindowTitle = pNameElement.GetString() ?? "Watchlist";
                     }
+
+                    // Import View Settings
+                    if (doc.RootElement.TryGetProperty("SortColumn", out var sortCol))
+                        importedSettings.SortColumn = sortCol.GetString() ?? "Symbol";
+                    
+                    if (doc.RootElement.TryGetProperty("SortAscending", out var sortAsc))
+                        importedSettings.SortAscending = sortAsc.GetBoolean();
+
+                    if (doc.RootElement.TryGetProperty("SelectedTabIndex", out var selTab))
+                        importedSettings.SelectedTabIndex = selTab.GetInt32();
+
+                    if (doc.RootElement.TryGetProperty("IsPortfolioMode", out var portMode))
+                        importedSettings.IsPortfolioMode = portMode.GetBoolean();
+
+                    if (doc.RootElement.TryGetProperty("IsIndexesVisible", out var idxVis))
+                        importedSettings.IsIndexesVisible = idxVis.GetBoolean();
+
+                    if (doc.RootElement.TryGetProperty("SelectedRange", out var selRange))
+                        importedSettings.SelectedRange = selRange.GetString() ?? "1d";
                 }
 
                 // Fallback: Array of stocks (Legacy)
