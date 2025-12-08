@@ -78,6 +78,7 @@ namespace PortfolioWatch
             }
         }
 
+        private bool _isModalOpen;
         private DispatcherTimer _autoHideTimer;
         private DispatcherTimer _tabScrollTimer;
         private int _scrollDirection = 0; // -1 left, 1 right
@@ -101,7 +102,7 @@ namespace PortfolioWatch
             _autoHideTimer.Interval = TimeSpan.FromMilliseconds(100);
             _autoHideTimer.Tick += (s, e) => 
             {
-                if (!IsPinned)
+                if (!IsPinned && !_isModalOpen)
                 {
                     _autoHideTimer.Stop();
                     this.Hide();
@@ -111,7 +112,7 @@ namespace PortfolioWatch
             this.MouseEnter += (s, e) => _autoHideTimer.Stop();
             this.MouseLeave += (s, e) => 
             {
-                if (!IsPinned && !this.IsKeyboardFocusWithin) _autoHideTimer.Start();
+                if (!IsPinned && !this.IsKeyboardFocusWithin && !_isModalOpen) _autoHideTimer.Start();
             };
 
             this.IsKeyboardFocusWithinChanged += (s, e) =>
@@ -122,7 +123,7 @@ namespace PortfolioWatch
                 }
                 else
                 {
-                    if (!IsPinned && !this.IsMouseOver)
+                    if (!IsPinned && !this.IsMouseOver && !_isModalOpen)
                     {
                         _autoHideTimer.Start();
                     }
@@ -212,7 +213,7 @@ namespace PortfolioWatch
 
         private void ContextMenu_Closed(object sender, RoutedEventArgs e)
         {
-            if (!IsPinned && !this.IsMouseOver)
+            if (!IsPinned && !this.IsMouseOver && !_isModalOpen)
             {
                 _autoHideTimer.Start();
             }
@@ -900,17 +901,27 @@ namespace PortfolioWatch
                         Top = logicalPoint.Y + 5
                     };
 
+                    _isModalOpen = true;
+                    _autoHideTimer.Stop();
                     tabVm.IsEditingTaxStatus = true;
                     try
                     {
                         if (dialog.ShowDialog() == true)
                         {
-                            tabVm.TaxAllocations = new System.Collections.ObjectModel.ObservableCollection<Models.TaxAllocation>(dialog.ViewModel.GetAllocations());
+                            if (DataContext is ViewModels.MainViewModel vm)
+                            {
+                                vm.UpdateTabTaxAllocations(tabVm, dialog.ViewModel.GetAllocations());
+                            }
                         }
                     }
                     finally
                     {
                         tabVm.IsEditingTaxStatus = false;
+                        _isModalOpen = false;
+                        if (!IsPinned && !this.IsMouseOver && !this.IsKeyboardFocusWithin)
+                        {
+                            _autoHideTimer.Start();
+                        }
                     }
                     e.Handled = true;
                 }

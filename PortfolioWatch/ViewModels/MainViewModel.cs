@@ -188,12 +188,19 @@ namespace PortfolioWatch.ViewModels
                 mergedList.Add(mergedStock);
             }
 
-            MergedStocks = new ObservableCollection<Stock>(mergedList);
+            MergedStocks.Clear();
+            foreach (var stock in mergedList)
+            {
+                MergedStocks.Add(stock);
+            }
             
             // If we are currently in merged view, update the main Stocks collection reference
             if (IsMergedView)
             {
-                Stocks = MergedStocks;
+                if (Stocks != MergedStocks)
+                {
+                    Stocks = MergedStocks;
+                }
                 ApplySortInternal(); // Re-apply sort to the new merged list
             }
         }
@@ -814,13 +821,11 @@ namespace PortfolioWatch.ViewModels
 
         public void UpdateTabTaxAllocations(PortfolioTabViewModel tabVm, IEnumerable<TaxAllocation> allocations)
         {
-            // Create new collection to trigger property change for converters
-            var newAllocations = new ObservableCollection<TaxAllocation>();
+            tabVm.TaxAllocations.Clear();
             foreach (var allocation in allocations)
             {
-                newAllocations.Add(allocation);
+                tabVm.TaxAllocations.Add(allocation);
             }
-            tabVm.TaxAllocations = newAllocations;
 
             SaveStocks();
             CalculatePortfolioTotals(); // Re-calculate aggregate
