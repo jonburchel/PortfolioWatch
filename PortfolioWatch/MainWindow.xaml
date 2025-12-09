@@ -655,13 +655,13 @@
                                 </MenuItem>
                             </MenuItem>
                             <Separator/>
-                            <MenuItem Header="Open..." Command="{Binding OpenPortfolioCommand}"/>
-                            <MenuItem Header="Save all tabs..." Command="{Binding SavePortfolioCommand}"/>
-                            <MenuItem Header="Normalize current tab values..." Command="{Binding NormalizeCurrentTabCommand}"/>
+                            <MenuItem Header="Open" Command="{Binding OpenPortfolioCommand}"/>
+                            <MenuItem Header="Save all tabs" Command="{Binding SavePortfolioCommand}"/>
+                            <MenuItem Header="Normalize current tab values" Command="{Binding NormalizeCurrentTabCommand}"/>
                             <Separator/>
-                            <MenuItem Header="Reset Application..." Command="{Binding ResetCommand}"/>
+                            <MenuItem Header="Reset Application" Command="{Binding ResetCommand}"/>
                             <Separator/>
-                            <MenuItem Header="Check for Updates..." Command="{Binding CheckForUpdatesCommand}"/>
+                            <MenuItem Header="Check for Updates" Command="{Binding CheckForUpdatesCommand}"/>
                             <MenuItem Header="About Portfolio Watch" Command="{Binding OpenAboutCommand}"/>
                             <MenuItem Header="Request a Feature" Command="{Binding RequestFeatureCommand}"/>
                             <Separator/>
