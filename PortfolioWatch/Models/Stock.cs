@@ -147,6 +147,49 @@ namespace PortfolioWatch.Models
 
         public decimal DayChangeValue => (decimal)Shares * Change;
 
+        // --- Intraday Specific Properties (Always 1D) ---
+
+        private decimal _intradayChange;
+        public decimal IntradayChange
+        {
+            get => _intradayChange;
+            set
+            {
+                if (SetProperty(ref _intradayChange, value))
+                {
+                    OnPropertyChanged(nameof(IntradayChangeValue));
+                    OnPropertyChanged(nameof(IntradayIsUp));
+                }
+            }
+        }
+
+        private double _intradayChangePercent;
+        public double IntradayChangePercent
+        {
+            get => _intradayChangePercent;
+            set => SetProperty(ref _intradayChangePercent, value);
+        }
+
+        public bool IntradayIsUp => IntradayChange >= 0;
+
+        private List<double> _intradayHistory = new List<double>();
+        public List<double> IntradayHistory
+        {
+            get => _intradayHistory;
+            set => SetProperty(ref _intradayHistory, value);
+        }
+
+        private List<DateTime> _intradayTimestamps = new List<DateTime>();
+        public List<DateTime> IntradayTimestamps
+        {
+            get => _intradayTimestamps;
+            set => SetProperty(ref _intradayTimestamps, value);
+        }
+
+        public decimal IntradayChangeValue => (decimal)Shares * IntradayChange;
+
+        // ------------------------------------------------
+
         private double _portfolioPercentage;
         public double PortfolioPercentage
         {

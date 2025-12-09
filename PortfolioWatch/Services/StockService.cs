@@ -941,7 +941,16 @@ namespace PortfolioWatch.Services
             }
         }
 
-        private async Task UpdateStockDataAsync(Stock stock, string range)
+        private class ChartResult
+        {
+            public double Price { get; set; }
+            public double PreviousClose { get; set; }
+            public long RegularMarketTime { get; set; }
+            public List<double> History { get; set; } = new();
+            public List<DateTime> Timestamps { get; set; } = new();
+        }
+
+        private async Task<ChartResult?> FetchChartDataAsync(string symbol, string range)
         {
             try
             {
@@ -957,7 +966,7 @@ namespace PortfolioWatch.Services
                     default: interval = "5m"; break;
                 }
 
-                var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(stock.Symbol)}?interval={interval}&range={range}";
+                var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{Uri.EscapeDataString(symbol)}?interval={interval}&range={range}";
                 var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
@@ -965,33 +974,24 @@ namespace PortfolioWatch.Services
                 
                 if (chart.TryGetProperty("error", out var error) && error.ValueKind != JsonValueKind.Null)
                 {
-                    return;
+                    return null;
                 }
 
                 var result = chart.GetProperty("result")[0];
                 var meta = result.GetProperty("meta");
                 
-                double regularMarketPrice = 0;
-                double previousClose = 0;
+                var data = new ChartResult();
 
                 if (meta.TryGetProperty("regularMarketPrice", out var priceProp))
-                    regularMarketPrice = priceProp.GetDouble();
+                    data.Price = priceProp.GetDouble();
                 
-                long regularMarketTime = 0;
                 if (meta.TryGetProperty("regularMarketTime", out var timeProp))
-                    regularMarketTime = timeProp.GetInt64();
+                    data.RegularMarketTime = timeProp.GetInt64();
 
                 if (meta.TryGetProperty("chartPreviousClose", out var prevCloseProp))
-                    previousClose = prevCloseProp.GetDouble();
+                    data.PreviousClose = prevCloseProp.GetDouble();
                 else if (meta.TryGetProperty("previousClose", out var prevCloseProp2))
-                    previousClose = prevCloseProp2.GetDouble();
-
-                // Update Stock Price immediately (even if no chart data)
-                stock.Price = (decimal)regularMarketPrice;
-
-                // History for Sparkline
-                var history = new List<double>();
-                var timeList = new List<DateTime>();
+                    data.PreviousClose = prevCloseProp2.GetDouble();
 
                 if (result.TryGetProperty("timestamp", out var timestamps) && 
                     result.TryGetProperty("indicators", out var indicators) &&
@@ -1006,24 +1006,44 @@ namespace PortfolioWatch.Services
                     {
                         if (closeList[i].ValueKind != JsonValueKind.Null)
                         {
-                            history.Add(closeList[i].GetDouble());
+                            data.History.Add(closeList[i].GetDouble());
                             long unixSeconds = timestampList[i].GetInt64();
-                            timeList.Add(DateTimeOffset.FromUnixTimeSeconds(unixSeconds).LocalDateTime);
+                            data.Timestamps.Add(DateTimeOffset.FromUnixTimeSeconds(unixSeconds).LocalDateTime);
                         }
                     }
                 }
                 
+                return data;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to fetch chart data for {symbol}: {ex.Message}");
+                return null;
+            }
+        }
+
+        private async Task UpdateStockDataAsync(Stock stock, string range)
+        {
+            try
+            {
+                // 1. Fetch Main Range Data
+                var mainData = await FetchChartDataAsync(stock.Symbol, range);
+                if (mainData == null) return;
+
+                // Update Stock Price immediately
+                stock.Price = (decimal)mainData.Price;
+                
                 // Always update history (clears it if empty)
-                stock.History = history;
-                stock.Timestamps = timeList;
+                stock.History = mainData.History;
+                stock.Timestamps = mainData.Timestamps;
 
                 if (range == "1d")
                 {
                     // Intraday: Use previous close from meta
-                    if (previousClose > 0)
+                    if (mainData.PreviousClose > 0)
                     {
-                        stock.Change = (decimal)(regularMarketPrice - previousClose);
-                        stock.ChangePercent = (regularMarketPrice - previousClose) / previousClose * 100;
+                        stock.Change = (decimal)(mainData.Price - mainData.PreviousClose);
+                        stock.ChangePercent = (mainData.Price - mainData.PreviousClose) / mainData.PreviousClose * 100;
                     }
 
                     // Calculate Day Progress
@@ -1035,9 +1055,9 @@ namespace PortfolioWatch.Services
                         
                         // Check if data is from a previous day
                         bool isPreviousDayData = false;
-                        if (regularMarketTime > 0)
+                        if (mainData.RegularMarketTime > 0)
                         {
-                            var marketTime = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(regularMarketTime), easternZone).DateTime;
+                            var marketTime = TimeZoneInfo.ConvertTime(DateTimeOffset.FromUnixTimeSeconds(mainData.RegularMarketTime), easternZone).DateTime;
                             if (marketTime.Date < now.Date)
                             {
                                 isPreviousDayData = true;
@@ -1077,22 +1097,41 @@ namespace PortfolioWatch.Services
                     {
                         stock.DayProgress = 1.0;
                     }
+
+                    // Populate Intraday Properties (Same as Main)
+                    stock.IntradayChange = stock.Change;
+                    stock.IntradayChangePercent = stock.ChangePercent;
+                    stock.IntradayHistory = new List<double>(stock.History);
+                    stock.IntradayTimestamps = new List<DateTime>(stock.Timestamps);
                 }
                 else
                 {
                     // Historical: Use first data point as baseline
                     stock.DayProgress = 1.0;
-                    if (history.Count > 0)
+                    if (stock.History.Count > 0)
                     {
-                        double baseline = history[0];
-                        stock.Change = (decimal)(regularMarketPrice - baseline);
-                        stock.ChangePercent = (regularMarketPrice - baseline) / baseline * 100;
+                        double baseline = stock.History[0];
+                        stock.Change = (decimal)(mainData.Price - baseline);
+                        stock.ChangePercent = (mainData.Price - baseline) / baseline * 100;
                     }
-                    else if (previousClose > 0)
+                    else if (mainData.PreviousClose > 0)
                     {
-                        // Fallback if no history but we have previous close (e.g. mutual fund with no data for range)
-                        stock.Change = (decimal)(regularMarketPrice - previousClose);
-                        stock.ChangePercent = (regularMarketPrice - previousClose) / previousClose * 100;
+                        // Fallback if no history but we have previous close
+                        stock.Change = (decimal)(mainData.Price - mainData.PreviousClose);
+                        stock.ChangePercent = (mainData.Price - mainData.PreviousClose) / mainData.PreviousClose * 100;
+                    }
+
+                    // Fetch Intraday Data Separately for Floating Window
+                    var intradayData = await FetchChartDataAsync(stock.Symbol, "1d");
+                    if (intradayData != null)
+                    {
+                        if (intradayData.PreviousClose > 0)
+                        {
+                            stock.IntradayChange = (decimal)(intradayData.Price - intradayData.PreviousClose);
+                            stock.IntradayChangePercent = (intradayData.Price - intradayData.PreviousClose) / intradayData.PreviousClose * 100;
+                        }
+                        stock.IntradayHistory = intradayData.History;
+                        stock.IntradayTimestamps = intradayData.Timestamps;
                     }
                 }
             }

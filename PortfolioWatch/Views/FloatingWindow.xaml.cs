@@ -32,6 +32,7 @@ namespace PortfolioWatch.Views
         public event EventHandler? DragStarted;
         public event EventHandler? DragEnded;
         private DispatcherTimer _hoverTimer;
+        private DispatcherTimer _topmostTimer;
         public bool IsUserMoving { get; private set; }
 
         public FloatingWindow()
@@ -42,6 +43,11 @@ namespace PortfolioWatch.Views
             _hoverTimer = new DispatcherTimer();
             _hoverTimer.Interval = TimeSpan.FromMilliseconds(400);
             _hoverTimer.Tick += HoverTimer_Tick;
+
+            _topmostTimer = new DispatcherTimer();
+            _topmostTimer.Interval = TimeSpan.FromSeconds(1);
+            _topmostTimer.Tick += (s, e) => { this.Topmost = true; };
+            _topmostTimer.Start();
         }
 
         private void FloatingWindow_Loaded(object sender, RoutedEventArgs e)

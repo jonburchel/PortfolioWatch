@@ -10,8 +10,8 @@
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         TextOptions.TextFormattingMode="{DynamicResource ThemeTextFormattingMode}"
         mc:Ignorable="d"
-        Title="Portfolio Watchlist" Height="600" Width="450"
-        MinHeight="575" MinWidth="575"
+        Title="Portfolio Watchlist" Height="600" Width="470"
+        MinHeight="575" MinWidth="470"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ResizeMode="CanResize"
         Icon="/pyramid.png"
@@ -104,6 +104,7 @@
         <converters:NewsItemBorderConverter x:Key="NewsItemBorderConverter"/>
         <converters:NewsItemSpacingConverter x:Key="NewsItemSpacingConverter"/>
         <converters:SignalStrengthToOpacityConverter x:Key="SignalStrengthToOpacityConverter"/>
+        <converters:PieChartVisibilityConverter x:Key="PieChartVisibilityConverter"/>
 
         <Style x:Key="NarrowScrollBarStyle" TargetType="{x:Type ScrollBar}">
             <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
@@ -161,7 +162,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
-                        <Grid x:Name="Root" Background="Transparent" Margin="0,0,5,0" Cursor="Hand">
+                        <Grid x:Name="Root" Background="Transparent" Margin="0,0,5,0" Cursor="Hand" Opacity="0.6">
                             <Grid.InputBindings>
                                 <MouseBinding MouseAction="MiddleClick" Command="{Binding DataContext.RemoveTabCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" />
                             </Grid.InputBindings>
@@ -224,7 +225,7 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <Rectangle Width="12" Height="12" Fill="{DynamicResource PositiveColorBrush}" Margin="0,0,8,0" RadiusX="2" RadiusY="2" Stroke="{DynamicResource ControlBorderBrush}" StrokeThickness="1"/>
                                                         <TextBlock Text="{Binding Name}" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
-                                                        <TextBlock Text="{Binding PortfolioPercentage, StringFormat={}{0:P1}}" Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding PortfolioPercentage, StringFormat={}{0:0.###%}}" Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
                                                 </StackPanel>
                                             </ToolTip>
@@ -333,8 +334,13 @@
                             </Grid>
 
                             <Grid.ContextMenu>
-                                <ContextMenu>
+                                <ContextMenu Opened="ContextMenu_Opened" Closed="ContextMenu_Closed">
+                                    <MenuItem Header="Adjust tax status allocation" Command="{Binding EditTaxStatusCommand}" Style="{StaticResource NoIconMenuItemStyle}"/>
+                                    <Separator />
+                                    <MenuItem Header="Rename" Command="{Binding Data.RenameTabCommand, Source={StaticResource Proxy}}" CommandParameter="{Binding}" Style="{StaticResource NoIconMenuItemStyle}"/>
                                     <MenuItem Header="Duplicate Tab" Command="{Binding Data.DuplicateTabCommand, Source={StaticResource Proxy}}" CommandParameter="{Binding}" Style="{StaticResource NoIconMenuItemStyle}"/>
+                                    <Separator />
+                                    <MenuItem Header="Delete" Command="{Binding Data.RemoveTabCommand, Source={StaticResource Proxy}}" CommandParameter="{Binding}" Style="{StaticResource NoIconMenuItemStyle}"/>
                                 </ContextMenu>
                             </Grid.ContextMenu>
                         </Grid>
@@ -348,6 +354,7 @@
 
                             <!-- Selection Triggers -->
                             <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="Opacity" Value="1.0"/>
                                 <Setter TargetName="ContentText" Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
                                 <Setter TargetName="TabBorder" Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
                                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
@@ -360,6 +367,7 @@
                             
                             <!-- Hover Triggers -->
                             <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Opacity" Value="1.0"/>
                                 <Setter TargetName="ContentText" Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
                                 <Setter TargetName="DeleteButton" Property="Visibility" Value="Visible"/>
                                 <Setter TargetName="TabBorder" Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
@@ -564,6 +572,7 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
                 <TextBox Text="{Binding WindowTitle, UpdateSourceTrigger=LostFocus}" 
@@ -595,18 +604,82 @@
                     </TextBox.Style>
                 </TextBox>
                 
-                <Button Grid.Column="1" Command="{Binding RefreshCommand}" Background="Transparent" BorderThickness="0" Margin="0,0,10,0" ToolTip="Refresh"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,15,0" ToolTip="Toggle Portfolio Mode">
+                    <TextBlock Text="Portfolio mode" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsPortfolioMode}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <ToggleButton IsChecked="{Binding IsPortfolioMode}" Style="{StaticResource ToggleSwitchStyle}"/>
+                </StackPanel>
+
+                <Button x:Name="RefreshButton" Focusable="False" IsTabStop="False" Grid.Column="2" Command="{Binding RefreshCommand}" Background="Transparent" BorderThickness="0" Margin="0,0,10,0" ToolTip="Refresh"
                         Foreground="{DynamicResource SecondaryForegroundBrush}">
                     <Path Data="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z" 
                           Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Stretch="Uniform"/>
                 </Button>
 
-                <Button x:Name="MenuButton" Grid.Column="2" Background="Transparent" BorderThickness="0" Margin="0,0,10,0" ToolTip="Menu" Click="MenuButton_Click"
+                <Button x:Name="MenuButton" Grid.Column="3" Background="Transparent" BorderThickness="0" Margin="0,0,10,0" ToolTip="Menu" Click="MenuButton_Click"
                         Foreground="{DynamicResource SecondaryForegroundBrush}">
                     <Path Data="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Width="14" Height="14" Stretch="Uniform"/>
+                    <Button.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Appearance">
+                                <MenuItem Header="Theme">
+                                    <MenuItem Header="System" Command="{Binding SetThemeCommand}" CommandParameter="System">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="✓" Visibility="{Binding IsSystemTheme, Converter={StaticResource BoolToVis}}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Light" Command="{Binding SetThemeCommand}" CommandParameter="Light">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="✓" Visibility="{Binding IsLightTheme, Converter={StaticResource BoolToVis}}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Dark" Command="{Binding SetThemeCommand}" CommandParameter="Dark">
+                                        <MenuItem.Icon>
+                                            <TextBlock Text="✓" Visibility="{Binding IsDarkTheme, Converter={StaticResource BoolToVis}}"/>
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </MenuItem>
+                                <MenuItem Header="Widget decorations">
+                                    <MenuItem Header="Show Intraday %" IsCheckable="True" IsChecked="{Binding ShowFloatingWindowIntradayPercent}" StaysOpenOnClick="True"/>
+                                    <MenuItem Header="Show Intraday Graph" IsCheckable="True" IsChecked="{Binding ShowFloatingWindowIntradayGraph}" StaysOpenOnClick="True"/>
+                                    <MenuItem Header="Show Total Value" IsCheckable="True" IsChecked="{Binding ShowFloatingWindowTotalValue}" StaysOpenOnClick="True"/>
+                                </MenuItem>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="Import Data..." Command="{Binding ImportDataCommand}"/>
+                            <MenuItem Header="Export Data..." Command="{Binding ExportDataCommand}"/>
+                            <MenuItem Header="Export Normalized..." Command="{Binding ExportNormalizedDataCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="Reset Application..." Command="{Binding ResetCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="Check for Updates..." Command="{Binding CheckForUpdatesCommand}"/>
+                            <MenuItem Header="About Portfolio Watch" Command="{Binding OpenAboutCommand}"/>
+                            <MenuItem Header="Request a Feature" Command="{Binding RequestFeatureCommand}"/>
+                            <Separator/>
+                            <MenuItem Header="Buy me a coffee ☕">
+                                <MenuItem Header="$1" Command="{Binding BuyCoffeeCommand}" CommandParameter="1"/>
+                                <MenuItem Header="$3" Command="{Binding BuyCoffeeCommand}" CommandParameter="3"/>
+                                <MenuItem Header="$5" Command="{Binding BuyCoffeeCommand}" CommandParameter="5"/>
+                                <MenuItem Header="Custom Amount..." Command="{Binding BuyCoffeeCommand}" CommandParameter="Custom"/>
+                                <Separator/>
+                                <MenuItem Header="Send Feedback instead" Command="{Binding BuyCoffeeCommand}" CommandParameter="0"/>
+                            </MenuItem>
+                            <Separator/>
+                            <MenuItem Header="Exit" Command="{Binding ExitCommand}"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
                 </Button>
                 
-                <Button Grid.Column="3" Content="✕" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0" Click="CloseButton_Click" FontSize="14" VerticalAlignment="Center"/>
+                <Button Grid.Column="4" Content="✕" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0" Click="CloseButton_Click" FontSize="14" VerticalAlignment="Center"/>
             </Grid>
 
             <!-- Portfolio Summary -->
@@ -707,7 +780,7 @@
                 </Grid>
 
                 <StackPanel Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Right">
-                    <TextBlock Text="{Binding TotalPortfolioChangePercent, StringFormat={}{0:+#.00;-#.00;0.00}%}" 
+                    <TextBlock Text="{Binding TotalPortfolioChangePercent, StringFormat={}{0:+0.00%;-0.00%;0.00%}}" 
                                FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Right">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -779,21 +852,6 @@
                               Margin="0,0,15,0"
                               ToolTip="Aggregated view of all tabs included in Total Value"
                               Visibility="{Binding IsSingleTab, Converter={StaticResource InverseBoolToVis}}"/>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,0,15,0" ToolTip="Toggle Portfolio Mode">
-                        <TextBlock Text="Portfolio mode" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsPortfolioMode}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                        <ToggleButton IsChecked="{Binding IsPortfolioMode}" Style="{StaticResource ToggleSwitchStyle}"/>
-                    </StackPanel>
 
                     <ToggleButton IsChecked="{Binding IsIndexesVisible}" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11">
                     <ToggleButton.Template>
@@ -923,7 +981,7 @@
                 </StackPanel>
 
                 <!-- Tabbed Portfolio -->
-                <TabControl Grid.Row="1" 
+                <TabControl x:Name="MainTabControl" Grid.Row="1" 
                             ItemsSource="{Binding Tabs}" 
                             SelectedItem="{Binding SelectedTab}"
                             Style="{StaticResource PortfolioTabControlStyle}"
@@ -1173,8 +1231,14 @@
                                                             
                                                             <!-- Pie Chart -->
                                                             <Grid Grid.Column="1" Width="22" Height="22" Margin="5,0,0,0" 
-                                                                  Visibility="{Binding Shares, Converter={StaticResource DoubleToVis}}"
                                                                   MouseEnter="Pie_MouseEnter" MouseLeave="Pie_MouseLeave" Background="Transparent">
+                                                                <Grid.Visibility>
+                                                                    <MultiBinding Converter="{StaticResource PieChartVisibilityConverter}">
+                                                                        <Binding Path="Shares"/>
+                                                                        <Binding Path="ActualWidth" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                                        <Binding Path="DataContext.UIScale" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                                    </MultiBinding>
+                                                                </Grid.Visibility>
                                                                 <Ellipse Width="20" Height="20" HorizontalAlignment="Center" VerticalAlignment="Center" 
                                                                          Stroke="{DynamicResource TertiaryForegroundBrush}" StrokeThickness="1" />
                                                                 <Path Fill="{DynamicResource PositiveColorBrush}" Data="{Binding PortfolioPercentage, Converter={StaticResource PieSliceConverter}}" />
@@ -1240,6 +1304,8 @@
                                                                              Padding="2"
                                                                              FontWeight="SemiBold"
                                                                              KeyDown="SharesBox_KeyDown"
+                                                                             GotFocus="SharesBox_GotFocus"
+                                                                             LostFocus="SharesBox_LostFocus"
                                                                              IsReadOnly="{Binding DataContext.IsMergedView, RelativeSource={RelativeSource AncestorType=Window}}">
                                                                         <TextBox.Resources>
                                                                             <Style TargetType="Border">
@@ -1259,10 +1325,11 @@
                                                                         </TextBox.Style>
                                                                     </TextBox>
                                                                     
-                                                                    <!-- Overlay Button for "+" -->
-                                                                    <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
-                                                                            IsHitTestVisible="False" FontSize="16" FontWeight="Bold">
-                                                                        <Button.Style>
+                                    <!-- Overlay Button for "+" -->
+                                    <Button Content="+" Background="Transparent" Foreground="{DynamicResource TertiaryForegroundBrush}" BorderThickness="0"
+                                            IsHitTestVisible="True" FontSize="16" FontWeight="Bold"
+                                            Click="SharesPlusButton_Click">
+                                        <Button.Style>
                                                                             <Style TargetType="Button">
                                                                                 <Setter Property="Visibility" Value="{Binding Shares, Converter={StaticResource InverseDoubleToVis}}"/>
                                                                                 <Setter Property="Template">

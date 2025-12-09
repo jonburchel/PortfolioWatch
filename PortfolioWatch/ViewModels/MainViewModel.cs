@@ -51,6 +51,9 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private bool _isSearchPopupOpen;
 
+        [ObservableProperty]
+        private bool _isEditingShares;
+
         private bool _isSorting;
 
         [ObservableProperty]
@@ -91,6 +94,35 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private double _portfolioDayProgress;
 
+        // --- Intraday Portfolio Properties (Always 1D) ---
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IntradayPortfolioPreviousClose))]
+        private decimal _intradayPortfolioValue;
+
+        [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(IntradayPortfolioPreviousClose))]
+        private decimal _intradayPortfolioChange;
+
+        [ObservableProperty]
+        private double _intradayPortfolioChangePercent;
+
+        public double IntradayPortfolioPreviousClose => (double)(IntradayPortfolioValue - IntradayPortfolioChange);
+
+        [ObservableProperty]
+        private bool _isIntradayPortfolioUp;
+
+        [ObservableProperty]
+        private System.Collections.Generic.List<double> _intradayPortfolioHistory = new();
+
+        [ObservableProperty]
+        private System.Collections.Generic.List<DateTime> _intradayPortfolioTimestamps = new();
+
+        [ObservableProperty]
+        private double _intradayPortfolioDayProgress;
+
+        // -------------------------------------------------
+
         [ObservableProperty]
         private bool _startWithWindows;
 
@@ -101,6 +133,30 @@ namespace PortfolioWatch.ViewModels
         private double _uIScale = 1.0;
 
         partial void OnUIScaleChanged(double value)
+        {
+            if (!_isLoading) SaveStocks();
+        }
+
+        [ObservableProperty]
+        private bool _showFloatingWindowIntradayPercent = true;
+
+        partial void OnShowFloatingWindowIntradayPercentChanged(bool value)
+        {
+            if (!_isLoading) SaveStocks();
+        }
+
+        [ObservableProperty]
+        private bool _showFloatingWindowTotalValue = false;
+
+        partial void OnShowFloatingWindowTotalValueChanged(bool value)
+        {
+            if (!_isLoading) SaveStocks();
+        }
+
+        [ObservableProperty]
+        private bool _showFloatingWindowIntradayGraph = true;
+
+        partial void OnShowFloatingWindowIntradayGraphChanged(bool value)
         {
             if (!_isLoading) SaveStocks();
         }
@@ -145,6 +201,8 @@ namespace PortfolioWatch.ViewModels
         private ObservableCollection<TaxAllocation> _aggregateTaxAllocations = new();
 
         public event EventHandler? RequestSearchFocus;
+        public event EventHandler<PortfolioTabViewModel>? RequestTaxStatusEdit;
+        public event EventHandler? RequestScrollToNewTab;
 
         partial void OnIsMergedViewChanged(bool value)
         {
@@ -188,19 +246,13 @@ namespace PortfolioWatch.ViewModels
                 mergedList.Add(mergedStock);
             }
 
-            MergedStocks.Clear();
-            foreach (var stock in mergedList)
-            {
-                MergedStocks.Add(stock);
-            }
+            // Replace collection instance to avoid VirtualizingStackPanel crashes with Clear()/Add()
+            MergedStocks = new ObservableCollection<Stock>(mergedList);
             
             // If we are currently in merged view, update the main Stocks collection reference
             if (IsMergedView)
             {
-                if (Stocks != MergedStocks)
-                {
-                    Stocks = MergedStocks;
-                }
+                Stocks = MergedStocks;
                 ApplySortInternal(); // Re-apply sort to the new merged list
             }
         }
@@ -692,6 +744,9 @@ namespace PortfolioWatch.ViewModels
             WindowOpacity = settings.WindowOpacity;
             UIScale = settings.UIScale;
             SelectedRange = settings.SelectedRange;
+            ShowFloatingWindowIntradayPercent = settings.ShowFloatingWindowIntradayPercent;
+            ShowFloatingWindowTotalValue = settings.ShowFloatingWindowTotalValue;
+            ShowFloatingWindowIntradayGraph = settings.ShowFloatingWindowIntradayGraph;
 
             // Apply sort
             ApplySortInternal();
@@ -821,11 +876,8 @@ namespace PortfolioWatch.ViewModels
 
         public void UpdateTabTaxAllocations(PortfolioTabViewModel tabVm, IEnumerable<TaxAllocation> allocations)
         {
-            tabVm.TaxAllocations.Clear();
-            foreach (var allocation in allocations)
-            {
-                tabVm.TaxAllocations.Add(allocation);
-            }
+            // Replace the collection instance to trigger binding updates (e.g. Pie Chart)
+            tabVm.TaxAllocations = new ObservableCollection<TaxAllocation>(allocations);
 
             SaveStocks();
             CalculatePortfolioTotals(); // Re-calculate aggregate
@@ -833,7 +885,10 @@ namespace PortfolioWatch.ViewModels
 
         private void Tab_RequestEditTaxStatus(object? sender, EventArgs e)
         {
-            // Deprecated: Handled by View for better positioning
+            if (sender is PortfolioTabViewModel tab)
+            {
+                RequestTaxStatusEdit?.Invoke(this, tab);
+            }
         }
 
         private void UpdateServiceStocks()
@@ -885,6 +940,9 @@ namespace PortfolioWatch.ViewModels
             settings.WindowOpacity = WindowOpacity;
             settings.UIScale = UIScale;
             settings.SelectedRange = SelectedRange;
+            settings.ShowFloatingWindowIntradayPercent = ShowFloatingWindowIntradayPercent;
+            settings.ShowFloatingWindowTotalValue = ShowFloatingWindowTotalValue;
+            settings.ShowFloatingWindowIntradayGraph = ShowFloatingWindowIntradayGraph;
             settings.SelectedTabIndex = SelectedTab != null ? Tabs.IndexOf(SelectedTab) : 0;
             settings.IsFirstRun = false;
         }
@@ -939,7 +997,7 @@ namespace PortfolioWatch.ViewModels
             await _stockService.UpdateNewsAsync();
         }
 
-        [RelayCommand]
+        [RelayCommand(AllowConcurrentExecutions = true)]
         private async System.Threading.Tasks.Task Refresh()
         {
             StatusMessage = "Refreshing...";
@@ -1068,7 +1126,8 @@ namespace PortfolioWatch.ViewModels
         public async Task Reset()
         {
             var confirmationWindow = new ConfirmationWindow("Reset Application", "Are you sure you want to reset all settings and data? This cannot be undone.", showResetOption: true, isAlert: false);
-            if (confirmationWindow.ShowDialog() != true) return;
+            
+            if (ShowDialog(confirmationWindow) != true) return;
 
             if (confirmationWindow.ResetSettings)
             {
@@ -1125,7 +1184,7 @@ namespace PortfolioWatch.ViewModels
             // Show success immediately
             StatusMessage = "Reset complete.";
             var alert = new ConfirmationWindow("Success", "Reset complete!", isAlert: true);
-            alert.ShowDialog();
+            ShowDialog(alert);
 
             // Fetch fresh data in background
             await _stockService.UpdateAllDataAsync(SelectedRange);
@@ -1152,7 +1211,8 @@ namespace PortfolioWatch.ViewModels
             if (amount == "Custom")
             {
                 var inputWindow = new InputWindow("Enter the amount you'd like to contribute:", "Enter Amount", "$1,000,000");
-                if (inputWindow.ShowDialog() == true && !string.IsNullOrWhiteSpace(inputWindow.InputText))
+                
+                if (ShowDialog(inputWindow) == true && !string.IsNullOrWhiteSpace(inputWindow.InputText))
                 {
                     // Strip currency symbol and commas
                     var cleanAmount = inputWindow.InputText.Replace("$", "").Replace(",", "");
@@ -1269,16 +1329,18 @@ namespace PortfolioWatch.ViewModels
                 Filter = "JSON Files (*.json)|*.json"
             };
 
-            if (dialog.ShowDialog() == true)
+            if (ShowFileDialog(dialog) == true)
             {
                 try
                 {
                     _settingsService.ExportStocks(dialog.FileName, portfolioName: WindowTitle);
-                    new ConfirmationWindow("Success", "Export successful!", isAlert: true, icon: "✅").ShowDialog();
+                    var successDialog = new ConfirmationWindow("Success", "Export successful!", isAlert: true, icon: "✅");
+                    ShowDialog(successDialog);
                 }
                 catch (Exception ex)
                 {
-                    new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
+                    var errorDialog = new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌");
+                    ShowDialog(errorDialog);
                 }
             }
         }
@@ -1290,7 +1352,8 @@ namespace PortfolioWatch.ViewModels
 
             if (TotalPortfolioValue <= 0)
             {
-                new ConfirmationWindow("Error", "Cannot normalize an empty portfolio.", isAlert: true, icon: "⚠️").ShowDialog();
+                var errorDialog = new ConfirmationWindow("Error", "Cannot normalize an empty portfolio.", isAlert: true, icon: "⚠️");
+                ShowDialog(errorDialog);
                 return;
             }
 
@@ -1303,8 +1366,8 @@ namespace PortfolioWatch.ViewModels
                     var clean = input.Replace("$", "").Replace(",", "");
                     return decimal.TryParse(clean, out decimal val) && val > 0 ? null : "Please enter a valid positive number.";
                 });
-
-            if (inputWindow.ShowDialog() == true)
+            
+            if (ShowDialog(inputWindow) == true)
             {
                 var cleanAmount = inputWindow.InputText.Replace("$", "").Replace(",", "");
                 if (decimal.TryParse(cleanAmount, out decimal targetValue))
@@ -1316,7 +1379,7 @@ namespace PortfolioWatch.ViewModels
                         Filter = "JSON Files (*.json)|*.json"
                     };
 
-                    if (dialog.ShowDialog() == true)
+                    if (ShowFileDialog(dialog) == true)
                     {
                         try
                         {
@@ -1351,7 +1414,7 @@ namespace PortfolioWatch.ViewModels
                                 normalizedStocks.Add(normalizedStock);
                             }
 
-                            string normalizedName = $"{WindowTitle} (Normalized to {targetValue:C0})";
+                            string normalizedName = $"{WindowTitle} (Normalized to {targetValue:C0} on {DateTime.Now:M/d/yy})";
                             
                             // Determine tax allocations to include
                             IEnumerable<TaxAllocation> taxAllocations;
@@ -1369,11 +1432,13 @@ namespace PortfolioWatch.ViewModels
                             }
 
                             _settingsService.ExportStocks(dialog.FileName, normalizedStocks, normalizedName, taxAllocations);
-                            new ConfirmationWindow("Success", $"Export successful! Portfolio normalized to {targetValue:C0}.", isAlert: true, icon: "✅").ShowDialog();
+                            var successDialog = new ConfirmationWindow("Success", $"Export successful! Portfolio normalized to {targetValue:C0}.", isAlert: true, icon: "✅");
+                            ShowDialog(successDialog);
                         }
                         catch (Exception ex)
                         {
-                            new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
+                            var errorDialog = new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌");
+                            ShowDialog(errorDialog);
                         }
                     }
                 }
@@ -1416,7 +1481,7 @@ namespace PortfolioWatch.ViewModels
                     Message = $"A new version (Portfolio Watch {updateInfo.Version}) is available, released on {updateInfo.ReleaseDate:d}."
                 };
 
-                prompt.ShowDialog();
+                ShowDialog(prompt);
 
                 switch (prompt.Result)
                 {
@@ -1447,7 +1512,7 @@ namespace PortfolioWatch.ViewModels
                         Message = "You are running the latest version.",
                         IsInfoMode = true
                     };
-                    prompt.ShowDialog();
+                    ShowDialog(prompt);
                 }
             }
         }
@@ -1461,7 +1526,7 @@ namespace PortfolioWatch.ViewModels
                 Filter = "JSON Files (*.json)|*.json"
             };
 
-            if (dialog.ShowDialog() == true)
+            if (ShowFileDialog(dialog) == true)
             {
                 try
                 {
@@ -1472,7 +1537,8 @@ namespace PortfolioWatch.ViewModels
                     }
 
                     var prompt = new ImportPromptWindow();
-                    if (prompt.ShowDialog() != true || prompt.Result == ImportAction.Cancel)
+                    
+                    if (ShowDialog(prompt) != true || prompt.Result == ImportAction.Cancel)
                     {
                         return;
                     }
@@ -1482,10 +1548,34 @@ namespace PortfolioWatch.ViewModels
                         Tabs.Clear();
                         WindowTitle = importedSettings.WindowTitle;
                     }
+                    else if (prompt.Result == ImportAction.Merge)
+                    {
+                        // Uncheck existing tabs so only the new ones are active
+                        foreach (var existingTab in Tabs)
+                        {
+                            if (!existingTab.IsAddButton)
+                            {
+                                existingTab.IsIncludedInTotal = false;
+                            }
+                        }
+                    }
+
+                    PortfolioTabViewModel? firstImportedTab = null;
 
                     foreach (var tab in importedSettings.Tabs)
                     {
                         var tabVm = new PortfolioTabViewModel(tab);
+                        
+                        // Uncheck all imported tabs by default
+                        // Wait, requirement says: "uncheck all existing tabs so that only the newly imported tab (which becomes active) is included in the total."
+                        // So imported tabs should probably be checked if they are going to be active?
+                        // But logic below sets SelectedTab = firstImportedTab.
+                        // And OnSelectedTabChanged forces IsIncludedInTotal = true.
+                        // So setting it to false here is fine, as long as we select it later.
+                        tabVm.IsIncludedInTotal = false;
+
+                        if (firstImportedTab == null) firstImportedTab = tabVm;
+
                         tabVm.PropertyChanged += Tab_PropertyChanged;
                         tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
                         foreach (var stock in tabVm.Stocks)
@@ -1513,18 +1603,14 @@ namespace PortfolioWatch.ViewModels
                     // Disable Merged View on import
                     IsMergedView = false;
 
-                    // Set active tab
-                    if (Tabs.Count > 0)
+                    // Set active tab to the first imported tab
+                    if (firstImportedTab != null)
                     {
-                        // Try to restore selected index from import if valid
-                        if (importedSettings.SelectedTabIndex >= 0 && importedSettings.SelectedTabIndex < Tabs.Count && !Tabs[importedSettings.SelectedTabIndex].IsAddButton)
-                        {
-                            SelectedTab = Tabs[importedSettings.SelectedTabIndex];
-                        }
-                        else
-                        {
-                            SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
-                        }
+                        SelectedTab = firstImportedTab;
+                    }
+                    else if (Tabs.Count > 0)
+                    {
+                        SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
                     }
 
                     UpdateServiceStocks();
@@ -1533,14 +1619,42 @@ namespace PortfolioWatch.ViewModels
                     ApplySortInternal();
 
                     // Show modal dialog for the async update process
-                    var progressDialog = new ConfirmationWindow("Importing", "Importing and analyzing...", isAlert: true)
+                    var progressDialog = new ConfirmationWindow("Importing", "Importing...", isAlert: true)
                     {
                         AutoRunTask = async () =>
                         {
-                            StatusMessage = "Refreshing imported data...";
-                            await _stockService.UpdateAllDataAsync(SelectedRange);
+                            StatusMessage = "Fetching current prices...";
                             
-                            // Recalculate totals and graph after fresh data is loaded
+                            // 1. Fast fetch: Current Quotes only
+                            var allSymbols = Tabs.Where(t => !t.IsAddButton)
+                                                 .SelectMany(t => t.Stocks)
+                                                 .Select(s => s.Symbol)
+                                                 .Distinct()
+                                                 .ToList();
+
+                            if (allSymbols.Any())
+                            {
+                                var quotesResult = await _stockService.GetQuotesAsync(allSymbols);
+                                
+                                if (quotesResult.Success && quotesResult.Data != null)
+                                {
+                                    foreach (var quote in quotesResult.Data)
+                                    {
+                                        foreach (var tab in Tabs)
+                                        {
+                                            var stocksToUpdate = tab.Stocks.Where(s => s.Symbol == quote.Symbol);
+                                            foreach (var stock in stocksToUpdate)
+                                            {
+                                                stock.Price = (decimal)(quote.Price ?? 0);
+                                                stock.Change = (decimal)(quote.Change ?? 0);
+                                                stock.ChangePercent = quote.ChangePercent ?? 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 2. Update Totals (so user sees value immediately)
                             CalculatePortfolioTotals();
                             ApplySortInternal();
                             
@@ -1548,13 +1662,19 @@ namespace PortfolioWatch.ViewModels
                         },
                         SuccessMessage = "Import successful!"
                     };
-                    
-                    progressDialog.ShowDialog();
+                    ShowDialog(progressDialog);
+
+                    // 3. Run heavy updates (History/Graphs/Auxiliary) in background
+                    _ = Task.Run(async () => 
+                    {
+                        await _stockService.UpdatePricesAsync(SelectedRange);
+                        await _stockService.UpdateAuxiliaryDataAsync();
+                    });
                 }
                 catch (Exception ex)
                 {
                     var alert = new ConfirmationWindow("Error", $"Import failed: {ex.Message}", isAlert: true);
-                    alert.ShowDialog();
+                    ShowDialog(alert);
                 }
             }
         }
@@ -1564,6 +1684,15 @@ namespace PortfolioWatch.ViewModels
         {
             // Close any existing edit sessions
             foreach (var t in Tabs) t.IsEditing = false;
+
+            // Uncheck all existing tabs so only the new one is included
+            foreach (var t in Tabs)
+            {
+                if (!t.IsAddButton)
+                {
+                    t.IsIncludedInTotal = false;
+                }
+            }
 
             // Generate unique name "Portfolio X"
             int counter = 1;
@@ -1593,6 +1722,7 @@ namespace PortfolioWatch.ViewModels
             newTab.IsEditing = true; // Enable editing mode immediately
             NewSymbol = "Dow Jones";
             RequestSearchFocus?.Invoke(this, EventArgs.Empty);
+            RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
             SaveStocks();
         }
 
@@ -1613,7 +1743,7 @@ namespace PortfolioWatch.ViewModels
             if (tab.Stocks.Count > 0)
             {
                 var confirm = new ConfirmationWindow("Remove Tab", $"Are you sure you want to remove '{tab.Name}'?", isAlert: false);
-                shouldRemove = confirm.ShowDialog() == true;
+                shouldRemove = ShowDialog(confirm) == true;
             }
 
             if (shouldRemove)
@@ -1713,6 +1843,12 @@ namespace PortfolioWatch.ViewModels
             decimal totalValue = 0;
             decimal totalDayChangeValue = 0;
             
+            // Intraday totals
+            decimal totalIntradayChangeValue = 0;
+            var intradayPortfolioHistory = new System.Collections.Generic.List<double>();
+            var intradayPortfolioTimestamps = new System.Collections.Generic.List<DateTime>();
+            double maxIntradayDayProgress = 0;
+
             var portfolioHistory = new System.Collections.Generic.List<double>();
             var portfolioTimestamps = new System.Collections.Generic.List<DateTime>();
             int maxHistoryCount = 0;
@@ -1727,6 +1863,9 @@ namespace PortfolioWatch.ViewModels
             {
                 totalValue += stock.MarketValue;
                 totalDayChangeValue += stock.DayChangeValue;
+                
+                // Intraday accumulation
+                totalIntradayChangeValue += stock.IntradayChangeValue;
 
                 if (stock.Shares > 0 && stock.History != null)
                 {
@@ -1739,7 +1878,7 @@ namespace PortfolioWatch.ViewModels
                 }
             }
 
-            // Aggregate history
+            // Aggregate history (Standard)
             // 1. Collect all unique timestamps
             var allTimestamps = new System.Collections.Generic.HashSet<DateTime>();
             foreach (var stock in includedStocks)
@@ -1797,10 +1936,70 @@ namespace PortfolioWatch.ViewModels
                     portfolioHistory.Add(pointValue);
                 }
             }
-            else
+
+            // Aggregate history (Intraday)
+            var allIntradayTimestamps = new System.Collections.Generic.HashSet<DateTime>();
+            foreach (var stock in includedStocks)
             {
-                // No history at all, create a single point or flat line based on current values?
-                // If we have no timestamps, we can't draw a graph.
+                if (stock.Shares > 0 && stock.IntradayTimestamps != null)
+                {
+                    foreach (var ts in stock.IntradayTimestamps)
+                    {
+                        allIntradayTimestamps.Add(ts);
+                    }
+                }
+            }
+
+            if (allIntradayTimestamps.Count > 0)
+            {
+                intradayPortfolioTimestamps = allIntradayTimestamps.OrderBy(t => t).ToList();
+                
+                // Calculate Intraday Progress
+                var lastTime = intradayPortfolioTimestamps.Last();
+                // Assuming US market hours 9:30 to 16:00 local time
+                var marketOpen = lastTime.Date.AddHours(9).AddMinutes(30);
+                var marketClose = lastTime.Date.AddHours(16);
+                
+                if (lastTime >= marketClose)
+                    maxIntradayDayProgress = 1.0;
+                else if (lastTime <= marketOpen)
+                    maxIntradayDayProgress = 0.0;
+                else
+                    maxIntradayDayProgress = (double)(lastTime - marketOpen).Ticks / (marketClose - marketOpen).Ticks;
+
+                foreach (var ts in intradayPortfolioTimestamps)
+                {
+                    double pointValue = 0;
+                    foreach (var stock in includedStocks)
+                    {
+                        if (stock.Shares > 0)
+                        {
+                            double priceAtTime = 0;
+                            
+                            if (stock.IntradayTimestamps != null && stock.IntradayHistory != null && stock.IntradayTimestamps.Count > 0)
+                            {
+                                int index = stock.IntradayTimestamps.FindLastIndex(t => t <= ts);
+                                
+                                if (index >= 0 && index < stock.IntradayHistory.Count)
+                                {
+                                    priceAtTime = stock.IntradayHistory[index];
+                                }
+                                else if (stock.IntradayHistory.Count > 0)
+                                {
+                                    priceAtTime = stock.IntradayHistory[0];
+                                }
+                            }
+                            
+                            if (priceAtTime == 0)
+                            {
+                                priceAtTime = (double)stock.Price;
+                            }
+
+                            pointValue += priceAtTime * (double)stock.Shares;
+                        }
+                    }
+                    intradayPortfolioHistory.Add(pointValue);
+                }
             }
 
             PortfolioHistory = portfolioHistory;
@@ -1817,7 +2016,7 @@ namespace PortfolioWatch.ViewModels
             
             if (previousTotalValue != 0)
             {
-                TotalPortfolioChangePercent = (double)(totalDayChangeValue / previousTotalValue) * 100;
+                TotalPortfolioChangePercent = (double)(totalDayChangeValue / previousTotalValue);
             }
             else
             {
@@ -1825,6 +2024,24 @@ namespace PortfolioWatch.ViewModels
             }
 
             IsPortfolioUp = TotalPortfolioChange >= 0;
+
+            // Set Intraday Properties
+            IntradayPortfolioValue = totalValue;
+            IntradayPortfolioChange = totalIntradayChangeValue;
+            IntradayPortfolioHistory = intradayPortfolioHistory;
+            IntradayPortfolioTimestamps = intradayPortfolioTimestamps;
+            IntradayPortfolioDayProgress = maxIntradayDayProgress;
+
+            decimal previousIntradayValue = totalValue - totalIntradayChangeValue;
+            if (previousIntradayValue != 0)
+            {
+                IntradayPortfolioChangePercent = (double)(totalIntradayChangeValue / previousIntradayValue);
+            }
+            else
+            {
+                IntradayPortfolioChangePercent = 0;
+            }
+            IsIntradayPortfolioUp = IntradayPortfolioChange >= 0;
 
             // Calculate individual stock percentages
             foreach (var stock in includedStocks)
@@ -1973,9 +2190,77 @@ namespace PortfolioWatch.ViewModels
             SaveStocks();
         }
 
+        private bool? ShowDialog(System.Windows.Window dialog)
+        {
+            var mainWindow = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.GetType().Name == "MainWindow");
+
+            PortfolioWatch.MainWindow? castWindow = mainWindow as PortfolioWatch.MainWindow;
+
+            if (mainWindow != null && 
+                mainWindow.IsVisible &&
+                mainWindow.WindowState != System.Windows.WindowState.Minimized)
+            {
+                dialog.Owner = mainWindow;
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterOwner;
+                
+                if (castWindow != null) castWindow.CancelAutoHide();
+            }
+            else
+            {
+                dialog.Owner = null;
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
+                dialog.Topmost = true;
+            }
+
+            try
+            {
+                return dialog.ShowDialog();
+            }
+            finally
+            {
+                if (castWindow != null && 
+                    mainWindow != null && 
+                    mainWindow.IsVisible && 
+                    mainWindow.WindowState != System.Windows.WindowState.Minimized)
+                {
+                    castWindow.StartAutoHide();
+                }
+            }
+        }
+
+        private bool? ShowFileDialog(Microsoft.Win32.CommonDialog dialog)
+        {
+            var mainWindow = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.GetType().Name == "MainWindow");
+
+            PortfolioWatch.MainWindow? castWindow = mainWindow as PortfolioWatch.MainWindow;
+
+            if (mainWindow != null && 
+                mainWindow.IsVisible &&
+                mainWindow.WindowState != System.Windows.WindowState.Minimized)
+            {
+                if (castWindow != null) castWindow.CancelAutoHide();
+                try
+                {
+                    return dialog.ShowDialog(mainWindow);
+                }
+                finally
+                {
+                    if (castWindow != null) castWindow.StartAutoHide();
+                }
+            }
+            else
+            {
+                return dialog.ShowDialog();
+            }
+        }
+
         private void ApplySortInternal()
         {
-            if ((SelectedTab == null && !IsMergedView) || _isSorting) return;
+            if ((SelectedTab == null && !IsMergedView) || _isSorting || IsEditingShares) return;
 
             _isSorting = true;
             try
@@ -2022,11 +2307,29 @@ namespace PortfolioWatch.ViewModels
                         : sourceList.OrderByDescending(keySelector).ToList();
                 }
 
-                // Update the collection in place
-                sourceCollection.Clear();
-                foreach (var s in sortedList)
+                // Replace collection instance to avoid VirtualizingStackPanel crashes with Clear()/Add()
+                var newCollection = new ObservableCollection<Stock>(sortedList);
+
+                if (IsMergedView)
                 {
-                    sourceCollection.Add(s);
+                    MergedStocks = newCollection;
+                    Stocks = MergedStocks;
+                }
+                else
+                {
+                    // Unsubscribe from old collection events
+                    if (SelectedTab!.Stocks != null)
+                    {
+                        SelectedTab.Stocks.CollectionChanged -= Stocks_CollectionChanged;
+                    }
+                    
+                    SelectedTab.Stocks = newCollection;
+                    
+                    // Re-subscribe
+                    SelectedTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                    
+                    // Update the bound property
+                    Stocks = SelectedTab.Stocks;
                 }
                 
                 // Sync service (only if not merged view, as merged view is derived)

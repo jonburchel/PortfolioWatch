@@ -13,23 +13,52 @@ namespace PortfolioWatch.Views
     public partial class TaxStatusEditWindow : Window
     {
         public TaxStatusEditViewModel ViewModel { get; }
+        public bool IsSaved { get; private set; }
 
         public TaxStatusEditWindow(ObservableCollection<TaxAllocation> currentAllocations)
         {
             InitializeComponent();
             ViewModel = new TaxStatusEditViewModel(currentAllocations);
             DataContext = ViewModel;
+            
+            this.KeyDown += Window_KeyDown;
+            this.Deactivated += Window_Deactivated;
+        }
+
+        private void Window_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                Close();
+            }
+            else if (e.Key == Key.Enter)
+            {
+                IsSaved = true;
+                Close();
+            }
+        }
+
+        private void Window_Deactivated(object? sender, EventArgs e)
+        {
+            // Implicit cancel on lost focus
+            try
+            {
+                Close();
+            }
+            catch
+            {
+                // Ignore if already closing
+            }
         }
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = true;
+            IsSaved = true;
             Close();
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = false;
             Close();
         }
 

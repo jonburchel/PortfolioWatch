@@ -39,7 +39,25 @@
                                 <ColumnDefinition Width="13"/>
                             </Grid.ColumnDefinitions>
                             <ContentPresenter x:Name="Icon" ContentSource="Icon" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                            <Path x:Name="CheckMark" Data="M0,5 L3,8 L8,0" Stroke="{DynamicResource PrimaryForegroundBrush}" StrokeThickness="2" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed" Margin="0,0,6,0"/>
+                            
+                            <Border x:Name="CheckBorder" 
+                                    Width="12" Height="12" 
+                                    Background="Transparent" 
+                                    BorderBrush="{DynamicResource SecondaryForegroundBrush}" 
+                                    BorderThickness="1" 
+                                    CornerRadius="2"
+                                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Visibility="Collapsed"
+                                    Margin="0,0,6,0">
+                                <Path x:Name="CheckMark" 
+                                      Data="M 2,6 L 5,9 L 10,3" 
+                                      Stroke="{DynamicResource PositiveColorBrush}" 
+                                      StrokeThickness="1.5"
+                                      Visibility="Collapsed"
+                                      VerticalAlignment="Center" HorizontalAlignment="Center"
+                                      Margin="0,-1,0,0"/>
+                            </Border>
+
                             <ContentPresenter x:Name="HeaderHost" Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True" VerticalAlignment="Center" TextBlock.Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                             <TextBlock x:Name="InputGestureText" Grid.Column="2" Text="{TemplateBinding InputGestureText}" Margin="5,2,0,2" DockPanel.Dock="Right" Foreground="{DynamicResource InputGestureTextBrush}"/>
                             <Path x:Name="Arrow" Grid.Column="3" Data="M0,0 L4,3.5 L0,7 Z" Fill="{DynamicResource PrimaryForegroundBrush}" VerticalAlignment="Center" HorizontalAlignment="Right" Visibility="Collapsed"/>
@@ -56,12 +74,19 @@
                         </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Border" Property="Background" Value="{DynamicResource ControlMouseOverBrush}"/>
+                            <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource PrimaryForegroundBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="HeaderHost" Property="Opacity" Value="0.5"/>
+                            <Setter TargetName="CheckBorder" Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                        <Trigger Property="IsCheckable" Value="True">
+                            <Setter TargetName="CheckBorder" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="CheckBorder" Property="BorderBrush" Value="{DynamicResource PrimaryForegroundBrush}"/>
                             <Setter TargetName="Icon" Property="Visibility" Value="Collapsed"/>
                         </Trigger>
                     </ControlTemplate.Triggers>

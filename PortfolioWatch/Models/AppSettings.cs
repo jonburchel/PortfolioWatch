@@ -33,6 +33,9 @@ namespace PortfolioWatch.Models
         public bool IsFirstRun { get; set; } = true;
         public bool IsIndexesVisible { get; set; } = true;
         public bool IsPortfolioMode { get; set; } = false;
+        public bool ShowFloatingWindowIntradayPercent { get; set; } = true;
+        public bool ShowFloatingWindowTotalValue { get; set; } = false;
+        public bool ShowFloatingWindowIntradayGraph { get; set; } = true;
         public bool StartWithWindows { get; set; } = true;
         public AppTheme Theme { get; set; } = AppTheme.System;
         public double WindowOpacity { get; set; } = 0.85;

@@ -1,3 +1,5 @@
+taskkill -im "PortfolioWatch.exe" -f
+
 # publish.ps1
 clear
 $project = "PortfolioWatch"
@@ -16,3 +18,5 @@ Write-Host "Publishing Framework-Dependent version..."
 dotnet publish "PortfolioWatch/PortfolioWatch.csproj" -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o "$releaseDir/FrameworkDependent"
 
 Write-Host "Publish complete. Builds are available in the '$releaseDir' folder."
+
+.\Releases\FrameworkDependent\PortfolioWatch.exe

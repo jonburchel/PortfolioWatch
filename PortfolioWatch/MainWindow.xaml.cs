@@ -144,6 +144,7 @@ namespace PortfolioWatch
         {
             // Initial positioning will be handled by App.xaml.cs
             AnimateIn();
+            Keyboard.ClearFocus();
         }
 
         private void MainWindow_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -151,12 +152,65 @@ namespace PortfolioWatch
             if (e.OldValue is ViewModels.MainViewModel oldVm)
             {
                 oldVm.RequestSearchFocus -= ViewModel_RequestSearchFocus;
+                oldVm.RequestTaxStatusEdit -= ViewModel_RequestTaxStatusEdit;
+                oldVm.RequestScrollToNewTab -= ViewModel_RequestScrollToNewTab;
             }
 
             if (e.NewValue is ViewModels.MainViewModel newVm)
             {
                 newVm.RequestSearchFocus += ViewModel_RequestSearchFocus;
+                newVm.RequestTaxStatusEdit += ViewModel_RequestTaxStatusEdit;
+                newVm.RequestScrollToNewTab += ViewModel_RequestScrollToNewTab;
             }
+        }
+
+        private void ViewModel_RequestScrollToNewTab(object? sender, EventArgs e)
+        {
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var tabControl = this.FindName("MainTabControl") as TabControl;
+                if (tabControl != null)
+                {
+                    if (_headerScrollViewer == null)
+                    {
+                        tabControl.ApplyTemplate();
+                        _headerScrollViewer = tabControl.Template.FindName("HeaderScrollViewer", tabControl) as ScrollViewer;
+                    }
+
+                    _headerScrollViewer?.ScrollToRightEnd();
+                }
+            }), DispatcherPriority.ContextIdle);
+        }
+
+        private void ViewModel_RequestTaxStatusEdit(object? sender, ViewModels.PortfolioTabViewModel tabVm)
+        {
+            var dialog = new Views.TaxStatusEditWindow(tabVm.TaxAllocations);
+            dialog.Owner = this;
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
+            _isModalOpen = true;
+            _autoHideTimer.Stop();
+            tabVm.IsEditingTaxStatus = true;
+
+            dialog.Closed += (s, args) =>
+            {
+                if (dialog.IsSaved)
+                {
+                    if (DataContext is ViewModels.MainViewModel vm)
+                    {
+                        vm.UpdateTabTaxAllocations(tabVm, dialog.ViewModel.GetAllocations());
+                    }
+                }
+
+                tabVm.IsEditingTaxStatus = false;
+                _isModalOpen = false;
+                if (!IsPinned && !this.IsMouseOver && !this.IsKeyboardFocusWithin)
+                {
+                    _autoHideTimer.Start();
+                }
+            };
+
+            dialog.Show();
         }
 
         private void ViewModel_RequestSearchFocus(object? sender, EventArgs e)
@@ -213,6 +267,9 @@ namespace PortfolioWatch
 
         private void ContextMenu_Closed(object sender, RoutedEventArgs e)
         {
+            // Clear focus from the menu button so IsKeyboardFocusWithin becomes false
+            Keyboard.ClearFocus();
+
             if (!IsPinned && !this.IsMouseOver && !_isModalOpen)
             {
                 _autoHideTimer.Start();
@@ -237,12 +294,17 @@ namespace PortfolioWatch
 
         public void CancelAutoHide()
         {
+            _isModalOpen = true;
             _autoHideTimer.Stop();
         }
 
         public void StartAutoHide()
         {
-            if (!IsPinned) _autoHideTimer.Start();
+            _isModalOpen = false;
+            if (!IsPinned && !this.IsMouseOver && !this.IsKeyboardFocusWithin)
+            {
+                _autoHideTimer.Start();
+            }
         }
 
         public void ShowPinningTooltip()
@@ -277,6 +339,38 @@ namespace PortfolioWatch
                 Keyboard.ClearFocus();
                 e.Handled = true;
             }
+        }
+
+        private void SharesBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                vm.IsEditingShares = true;
+            }
+        }
+
+        private void SharesBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm)
+            {
+                vm.IsEditingShares = false;
+            }
+        }
+
+        private void SharesPlusButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Parent is Grid grid)
+            {
+                foreach (var child in grid.Children)
+                {
+                    if (child is TextBox textBox && textBox.Name == "SharesBox")
+                    {
+                        textBox.Focus();
+                        break;
+                    }
+                }
+            }
+            e.Handled = true;
         }
 
         private void TabHeader_KeyDown(object sender, KeyEventArgs e)
@@ -886,45 +980,54 @@ namespace PortfolioWatch
             if (sender is FrameworkElement element && 
                 element.DataContext is ViewModels.PortfolioTabViewModel tabVm)
             {
-                Point point = element.PointToScreen(new Point(0, element.ActualHeight));
-                var source = PresentationSource.FromVisual(this);
-                if (source?.CompositionTarget != null)
+                var dialog = new Views.TaxStatusEditWindow(tabVm.TaxAllocations);
+
+                // Calculate position in logical units
+                var source = PresentationSource.FromVisual(element);
+                if (source != null)
                 {
-                    var matrix = source.CompositionTarget.TransformFromDevice;
-                    var logicalPoint = matrix.Transform(point);
-
-                    var dialog = new Views.TaxStatusEditWindow(tabVm.TaxAllocations)
-                    {
-                        Owner = this,
-                        WindowStartupLocation = WindowStartupLocation.Manual,
-                        Left = logicalPoint.X,
-                        Top = logicalPoint.Y + 5
-                    };
-
-                    _isModalOpen = true;
-                    _autoHideTimer.Stop();
-                    tabVm.IsEditingTaxStatus = true;
-                    try
-                    {
-                        if (dialog.ShowDialog() == true)
-                        {
-                            if (DataContext is ViewModels.MainViewModel vm)
-                            {
-                                vm.UpdateTabTaxAllocations(tabVm, dialog.ViewModel.GetAllocations());
-                            }
-                        }
-                    }
-                    finally
-                    {
-                        tabVm.IsEditingTaxStatus = false;
-                        _isModalOpen = false;
-                        if (!IsPinned && !this.IsMouseOver && !this.IsKeyboardFocusWithin)
-                        {
-                            _autoHideTimer.Start();
-                        }
-                    }
-                    e.Handled = true;
+                    // Get bottom-left of the button in screen coordinates
+                    Point screenBottomLeft = element.PointToScreen(new Point(0, element.ActualHeight));
+                    
+                    // Convert to logical units for Window positioning
+                    Point logicalPos = source.CompositionTarget.TransformFromDevice.Transform(screenBottomLeft);
+                    
+                    dialog.Left = logicalPos.X;
+                    dialog.Top = logicalPos.Y + 5; // 5px padding
+                    dialog.WindowStartupLocation = WindowStartupLocation.Manual;
+                    dialog.Owner = this;
                 }
+                else
+                {
+                    // Fallback if visual source not found
+                    dialog.Owner = this;
+                    dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                }
+
+                _isModalOpen = true;
+                _autoHideTimer.Stop();
+                tabVm.IsEditingTaxStatus = true;
+
+                dialog.Closed += (s, args) =>
+                {
+                    if (dialog.IsSaved)
+                    {
+                        if (DataContext is ViewModels.MainViewModel vm)
+                        {
+                            vm.UpdateTabTaxAllocations(tabVm, dialog.ViewModel.GetAllocations());
+                        }
+                    }
+
+                    tabVm.IsEditingTaxStatus = false;
+                    _isModalOpen = false;
+                    if (!IsPinned && !this.IsMouseOver && !this.IsKeyboardFocusWithin)
+                    {
+                        _autoHideTimer.Start();
+                    }
+                };
+
+                dialog.Show();
+                e.Handled = true;
             }
         }
 

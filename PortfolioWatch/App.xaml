@@ -17,11 +17,12 @@
                         <emoji:TextBlock Text="🪟 Start with Windows" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
-                
+
                 <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
                     <MenuItem.Header>
-                        <emoji:TextBlock Text="🎨 Theme" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <emoji:TextBlock Text="🎨 Appearance" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
+                    
                     <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding IsSystemTheme, Mode=OneWay}" Command="{Binding SetThemeCommand}" CommandParameter="System">
                         <MenuItem.Header>
                             <emoji:TextBlock Text="💻 System" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
@@ -82,6 +83,29 @@
                                 </Button>
                             </Grid>
                         </MenuItem.Header>
+                    </MenuItem>
+
+                    <Separator Style="{DynamicResource {x:Type Separator}}"/>
+
+                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
+                        <MenuItem.Header>
+                            <emoji:TextBlock Text="🔮 Widget decorations" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </MenuItem.Header>
+                        <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding ShowFloatingWindowIntradayPercent, Mode=TwoWay}" StaysOpenOnClick="True">
+                            <MenuItem.Header>
+                                <emoji:TextBlock Text="Show Intraday %" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding ShowFloatingWindowIntradayGraph, Mode=TwoWay}" StaysOpenOnClick="True">
+                            <MenuItem.Header>
+                                <emoji:TextBlock Text="Show Intraday Graph" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            </MenuItem.Header>
+                        </MenuItem>
+                        <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding ShowFloatingWindowTotalValue, Mode=TwoWay}" StaysOpenOnClick="True">
+                            <MenuItem.Header>
+                                <emoji:TextBlock Text="Show Total Value" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            </MenuItem.Header>
+                        </MenuItem>
                     </MenuItem>
                 </MenuItem>
                 

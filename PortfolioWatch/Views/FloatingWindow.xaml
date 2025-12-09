@@ -13,6 +13,10 @@
     <Window.Resources>
         <helpers:BindingProxy x:Key="Proxy" Data="{Binding}"/>
         <converters:FloatingWindowOpacityConverter x:Key="FloatingWindowOpacityConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:SparklinePositiveConverter x:Key="SparklinePositiveConverter"/>
+        <converters:SparklineNegativeConverter x:Key="SparklineNegativeConverter"/>
+        <converters:SparklineBaselineConverter x:Key="SparklineBaselineConverter"/>
     </Window.Resources>
 
     <Grid>
@@ -44,7 +48,107 @@
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <Image Source="/pyramid.png" Stretch="Uniform" Margin="0"/>
+            <Grid>
+                <Image Source="/pyramid.png" Stretch="Uniform" Margin="0"/>
+
+                <!-- Portfolio Decorations -->
+                <Grid>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsPortfolioMode}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding ShowFloatingWindowIntradayPercent}" Value="False"/>
+                                        <Condition Binding="{Binding ShowFloatingWindowTotalValue}" Value="False"/>
+                                        <Condition Binding="{Binding ShowFloatingWindowIntradayGraph}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+                    
+                    <!-- Background Scrim for Contrast -->
+                    <Border Background="#77000000" CornerRadius="30" IsHitTestVisible="False"/>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,3">
+                        <!-- Text Info -->
+                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,2">
+                            <StackPanel.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect BlurRadius="4" ShadowDepth="2" Color="Black" Opacity="1.0"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="True">
+                                            <Setter Property="Foreground" Value="#4DFF99"/>
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="False">
+                                            <Setter Property="Foreground" Value="#FF8080"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Resources>
+
+                            <!-- Intraday % -->
+                            <TextBlock Text="{Binding IntradayPortfolioChangePercent, StringFormat={}{0:P2}}" 
+                                       FontSize="12" HorizontalAlignment="Center"
+                                       Visibility="{Binding ShowFloatingWindowIntradayPercent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+                            <!-- Total Value -->
+                            <TextBlock Text="{Binding IntradayPortfolioValue, StringFormat={}{0:C0}}" 
+                                       FontSize="9" HorizontalAlignment="Center" Margin="0,-1,0,0" Opacity="0.9"
+                                       Visibility="{Binding ShowFloatingWindowTotalValue, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                        </StackPanel>
+
+                        <!-- Sparkline Graph -->
+                        <Grid Height="20" Width="50" Opacity="0.9"
+                              Visibility="{Binding ShowFloatingWindowIntradayGraph, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <Grid.Effect>
+                                <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="White" Opacity="1.0"/>
+                            </Grid.Effect>
+                            <!-- Baseline -->
+                            <Path Stroke="#808080" StrokeThickness="1" StrokeDashArray="2 2" Opacity="0.5">
+                                <Path.Data>
+                                    <MultiBinding Converter="{StaticResource SparklineBaselineConverter}">
+                                        <Binding Path="IntradayPortfolioHistory" />
+                                        <Binding Path="IntradayPortfolioPreviousClose" />
+                                    </MultiBinding>
+                                </Path.Data>
+                            </Path>
+                            <!-- Positive Area -->
+                            <Path Fill="#404DFF99" Stroke="#4DFF99" StrokeThickness="1">
+                                <Path.Data>
+                                    <MultiBinding Converter="{StaticResource SparklinePositiveConverter}">
+                                        <Binding Path="IntradayPortfolioHistory" />
+                                        <Binding Path="IntradayPortfolioDayProgress" />
+                                        <Binding Path="IntradayPortfolioPreviousClose" />
+                                        <Binding Path="IntradayPortfolioTimestamps" />
+                                    </MultiBinding>
+                                </Path.Data>
+                            </Path>
+                            <!-- Negative Area -->
+                            <Path Fill="#40FF8080" Stroke="#FF8080" StrokeThickness="1">
+                                <Path.Data>
+                                    <MultiBinding Converter="{StaticResource SparklineNegativeConverter}">
+                                        <Binding Path="IntradayPortfolioHistory" />
+                                        <Binding Path="IntradayPortfolioDayProgress" />
+                                        <Binding Path="IntradayPortfolioPreviousClose" />
+                                        <Binding Path="IntradayPortfolioTimestamps" />
+                                    </MultiBinding>
+                                </Path.Data>
+                            </Path>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Grid>
         </Border>
     </Grid>
 </Window>

@@ -59,4 +59,38 @@ namespace PortfolioWatch.Converters
             return false;
         }
     }
+
+    public class PieChartVisibilityConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            // Expected values:
+            // 0: Shares (double)
+            // 1: Window ActualWidth (double)
+            // 2: UIScale (double)
+
+            if (values.Length >= 3 &&
+                values[0] is double shares &&
+                values[1] is double windowWidth &&
+                values[2] is double uiScale)
+            {
+                if (shares <= 0)
+                    return Visibility.Collapsed;
+
+                // Calculate effective width
+                double effectiveWidth = windowWidth / uiScale;
+
+                // Threshold is 500 as per requirements
+                if (effectiveWidth > 500)
+                    return Visibility.Visible;
+            }
+
+            return Visibility.Collapsed;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
