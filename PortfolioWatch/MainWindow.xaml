@@ -655,9 +655,9 @@
                                 </MenuItem>
                             </MenuItem>
                             <Separator/>
-                            <MenuItem Header="Import Data..." Command="{Binding ImportDataCommand}"/>
-                            <MenuItem Header="Export Data..." Command="{Binding ExportDataCommand}"/>
-                            <MenuItem Header="Export Normalized..." Command="{Binding ExportNormalizedDataCommand}"/>
+                            <MenuItem Header="Open..." Command="{Binding OpenPortfolioCommand}"/>
+                            <MenuItem Header="Save all tabs..." Command="{Binding SavePortfolioCommand}"/>
+                            <MenuItem Header="Normalize current tab values..." Command="{Binding NormalizeCurrentTabCommand}"/>
                             <Separator/>
                             <MenuItem Header="Reset Application..." Command="{Binding ResetCommand}"/>
                             <Separator/>

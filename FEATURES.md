@@ -22,6 +22,11 @@ The application consists of two synchronized windows:
         *   **Click**: Toggles the "Pinned" state of the Main Window.
         *   **Context Menu**: Right-click provides access to application commands (Exit).
         *   **Opacity**: Dims when not interacting to reduce distraction.
+        *   **Portfolio Decorations**: When in Portfolio Mode, the widget can overlay real-time data on top of the icon:
+            *   **Intraday %**: Displays the daily percentage change (Color-coded Green/Red).
+            *   **Total Value**: Displays the current total portfolio value.
+            *   **Mini Sparkline**: A small intraday chart visualizing performance relative to the previous close.
+            *   **Visibility**: These elements are configurable via Settings and appear over a darkened scrim for contrast.
 2.  **Main Window (`MainWindow.xaml`)**:
     *   **Role**: The primary interface displaying the stock list and portfolio data.
     *   **Behavior**:

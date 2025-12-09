@@ -99,6 +99,16 @@ namespace PortfolioWatch
 
             base.OnStartup(e);
 
+            // Register file association
+            RegisterFileAssociation();
+
+            // Check for startup file argument
+            string? startupFile = null;
+            if (e.Args.Length > 0 && System.IO.File.Exists(e.Args[0]))
+            {
+                startupFile = e.Args[0];
+            }
+
             // System Theme Change Listener
             SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
@@ -217,7 +227,67 @@ namespace PortfolioWatch
             Dispatcher.InvokeAsync(() => 
             {
                 InitializeMainWindow(settings, vm);
+                
+                if (!string.IsNullOrEmpty(startupFile))
+                {
+                    // If we have a startup file, import it
+                    // We do this after initialization so the UI is ready
+                    vm.ImportPortfolio(startupFile);
+                }
             }, System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void RegisterFileAssociation()
+        {
+            try
+            {
+                string extension = ".pwatch";
+                string progId = "PortfolioWatchFile";
+                string description = "Portfolio Watch File";
+                string exePath = Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+
+                if (string.IsNullOrEmpty(exePath)) return;
+
+                // Register extension
+                using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{extension}"))
+                {
+                    if (key.GetValue(null) as string != progId)
+                    {
+                        key.SetValue(null, progId);
+                    }
+                }
+
+                // Register ProgId
+                using (var key = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{progId}"))
+                {
+                    if (key.GetValue(null) as string != description)
+                    {
+                        key.SetValue(null, description);
+                    }
+
+                    using (var iconKey = key.CreateSubKey("DefaultIcon"))
+                    {
+                        string iconValue = $"\"{exePath}\",0";
+                        if (iconKey.GetValue(null) as string != iconValue)
+                        {
+                            iconKey.SetValue(null, iconValue);
+                        }
+                    }
+
+                    using (var commandKey = key.CreateSubKey(@"shell\open\command"))
+                    {
+                        string commandValue = $"\"{exePath}\" \"%1\"";
+                        if (commandKey.GetValue(null) as string != commandValue)
+                        {
+                            commandKey.SetValue(null, commandValue);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to register file association: {ex.Message}");
+            }
         }
 
         private void InitializeMainWindow(AppSettings settings, MainViewModel vm)

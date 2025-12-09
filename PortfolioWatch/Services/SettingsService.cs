@@ -1,8 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Win32;
-using System.Diagnostics;
 using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Services
@@ -11,6 +16,8 @@ namespace PortfolioWatch.Services
     {
         private readonly string _filePath;
         private AppSettings _currentSettings;
+
+        private const string ObscuredKeyHex = "506F7274666F6C696F205761746368206973206E6F74207365637572652C20627574206974206973206174206C65617374207175697465204F4253435552452E20F09F988F";
 
         public SettingsService()
         {
@@ -37,12 +44,12 @@ namespace PortfolioWatch.Services
                         if ((_currentSettings.Tabs == null || _currentSettings.Tabs.Count == 0) && 
                             _currentSettings.Stocks != null && _currentSettings.Stocks.Count > 0)
                         {
-                            if (_currentSettings.Tabs == null) _currentSettings.Tabs = new System.Collections.Generic.List<PortfolioTab>();
+                            if (_currentSettings.Tabs == null) _currentSettings.Tabs = new List<PortfolioTab>();
                             
                             _currentSettings.Tabs.Add(new PortfolioTab
                             {
                                 Name = !string.IsNullOrWhiteSpace(_currentSettings.WindowTitle) ? _currentSettings.WindowTitle : "Portfolio",
-                                Stocks = new System.Collections.Generic.List<Stock>(_currentSettings.Stocks)
+                                Stocks = new List<Stock>(_currentSettings.Stocks)
                             });
                         }
                     }
@@ -55,13 +62,13 @@ namespace PortfolioWatch.Services
             }
 
             // Ensure Tabs collection exists
-            if (_currentSettings.Tabs == null) _currentSettings.Tabs = new System.Collections.Generic.List<PortfolioTab>();
+            if (_currentSettings.Tabs == null) _currentSettings.Tabs = new List<PortfolioTab>();
 
             // Sanitize: Remove null tabs and ensure non-null Stocks collections
             _currentSettings.Tabs.RemoveAll(t => t == null);
             foreach (var tab in _currentSettings.Tabs)
             {
-                if (tab.Stocks == null) tab.Stocks = new System.Collections.Generic.List<Stock>();
+                if (tab.Stocks == null) tab.Stocks = new List<Stock>();
                 else tab.Stocks.RemoveAll(s => s == null || string.IsNullOrWhiteSpace(s.Symbol));
             }
 
@@ -147,13 +154,10 @@ namespace PortfolioWatch.Services
             }
         }
 
-        public void ExportStocks(string filePath, System.Collections.Generic.IEnumerable<Stock>? stocksToExport = null, string? portfolioName = null, System.Collections.Generic.IEnumerable<TaxAllocation>? taxAllocations = null)
+        public void ExportStocks(string filePath, IEnumerable<Stock>? stocksToExport = null, string? portfolioName = null, IEnumerable<TaxAllocation>? taxAllocations = null)
         {
             try
             {
-                // If specific stocks are provided (e.g. normalized export), export just that list as a single "tab" structure or legacy structure
-                // But the requirement says "include the tab details".
-                
                 object exportData;
 
                 if (stocksToExport != null)
@@ -221,7 +225,16 @@ namespace PortfolioWatch.Services
                 }
 
                 var json = JsonSerializer.Serialize(exportData, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(filePath, json);
+
+                if (filePath.EndsWith(".pwatch", StringComparison.OrdinalIgnoreCase))
+                {
+                    var encryptedData = EncryptAndCompress(json);
+                    File.WriteAllBytes(filePath, encryptedData);
+                }
+                else
+                {
+                    File.WriteAllText(filePath, json);
+                }
             }
             catch (Exception ex)
             {
@@ -233,7 +246,18 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                var json = File.ReadAllText(filePath);
+                string json;
+
+                if (filePath.EndsWith(".pwatch", StringComparison.OrdinalIgnoreCase))
+                {
+                    var encryptedBytes = File.ReadAllBytes(filePath);
+                    json = DecryptAndDecompress(encryptedBytes);
+                }
+                else
+                {
+                    json = File.ReadAllText(filePath);
+                }
+
                 var importedSettings = new AppSettings();
                 bool foundData = false;
 
@@ -242,7 +266,7 @@ namespace PortfolioWatch.Services
                     // Check for "Tabs"
                     if (doc.RootElement.TryGetProperty("Tabs", out var tabsElement))
                     {
-                        var tabs = JsonSerializer.Deserialize<System.Collections.Generic.List<PortfolioTab>>(tabsElement.GetRawText());
+                        var tabs = JsonSerializer.Deserialize<List<PortfolioTab>>(tabsElement.GetRawText());
                         if (tabs != null && tabs.Count > 0)
                         {
                             importedSettings.Tabs = tabs;
@@ -253,7 +277,7 @@ namespace PortfolioWatch.Services
                     // Check for "Stocks" (Legacy or Single Export)
                     if (doc.RootElement.TryGetProperty("Stocks", out var stocksElement))
                     {
-                        var stocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(stocksElement.GetRawText());
+                        var stocks = JsonSerializer.Deserialize<List<Stock>>(stocksElement.GetRawText());
                         if (stocks != null && stocks.Count > 0)
                         {
                             // If we already have tabs, we might ignore this or treat it as a fallback?
@@ -307,7 +331,7 @@ namespace PortfolioWatch.Services
                 {
                     try
                     {
-                        var legacyStocks = JsonSerializer.Deserialize<System.Collections.Generic.List<Stock>>(json);
+                        var legacyStocks = JsonSerializer.Deserialize<List<Stock>>(json);
                         if (legacyStocks != null && legacyStocks.Count > 0)
                         {
                             importedSettings.Tabs.Add(new PortfolioTab
@@ -324,11 +348,11 @@ namespace PortfolioWatch.Services
                 if (foundData)
                 {
                     // Sanitize imported settings
-                    if (importedSettings.Tabs == null) importedSettings.Tabs = new System.Collections.Generic.List<PortfolioTab>();
+                    if (importedSettings.Tabs == null) importedSettings.Tabs = new List<PortfolioTab>();
                     importedSettings.Tabs.RemoveAll(t => t == null);
                     foreach (var tab in importedSettings.Tabs)
                     {
-                        if (tab.Stocks == null) tab.Stocks = new System.Collections.Generic.List<Stock>();
+                        if (tab.Stocks == null) tab.Stocks = new List<Stock>();
                         else tab.Stocks.RemoveAll(s => s == null || string.IsNullOrWhiteSpace(s.Symbol));
                     }
                     return importedSettings;
@@ -339,6 +363,93 @@ namespace PortfolioWatch.Services
             catch (Exception ex)
             {
                 throw new Exception($"Failed to parse import file: {ex.Message}");
+            }
+        }
+
+        private byte[] EncryptAndCompress(string plainText)
+        {
+            byte[] compressedBytes;
+
+            // 1. Compress
+            using (var outputStream = new MemoryStream())
+            {
+                using (var gzipStream = new GZipStream(outputStream, CompressionLevel.Optimal))
+                using (var writer = new StreamWriter(gzipStream, Encoding.UTF8))
+                {
+                    writer.Write(plainText);
+                }
+                compressedBytes = outputStream.ToArray();
+            }
+
+            // 2. Encrypt
+            using (var aes = Aes.Create())
+            {
+                var key = GetKey();
+                aes.Key = key;
+                aes.GenerateIV();
+
+                using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
+                using (var msEncrypt = new MemoryStream())
+                {
+                    // Prepend IV
+                    msEncrypt.Write(aes.IV, 0, aes.IV.Length);
+
+                    using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        csEncrypt.Write(compressedBytes, 0, compressedBytes.Length);
+                    }
+                    return msEncrypt.ToArray();
+                }
+            }
+        }
+
+        private string DecryptAndDecompress(byte[] cipherText)
+        {
+            byte[] compressedBytes;
+
+            // 1. Decrypt
+            using (var aes = Aes.Create())
+            {
+                var key = GetKey();
+                aes.Key = key;
+
+                // Extract IV
+                byte[] iv = new byte[aes.BlockSize / 8];
+                Array.Copy(cipherText, 0, iv, 0, iv.Length);
+                aes.IV = iv;
+
+                using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
+                using (var msDecrypt = new MemoryStream(cipherText, iv.Length, cipherText.Length - iv.Length))
+                using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                using (var msPlain = new MemoryStream())
+                {
+                    csDecrypt.CopyTo(msPlain);
+                    compressedBytes = msPlain.ToArray();
+                }
+            }
+
+            // 2. Decompress
+            using (var inputStream = new MemoryStream(compressedBytes))
+            using (var gzipStream = new GZipStream(inputStream, CompressionMode.Decompress))
+            using (var reader = new StreamReader(gzipStream, Encoding.UTF8))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+
+        private byte[] GetKey()
+        {
+            // Decode hex string
+            var bytes = new byte[ObscuredKeyHex.Length / 2];
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                bytes[i] = Convert.ToByte(ObscuredKeyHex.Substring(i * 2, 2), 16);
+            }
+            
+            // Hash to get 32 bytes (256 bits) for AES-256
+            using (var sha256 = SHA256.Create())
+            {
+                return sha256.ComputeHash(bytes);
             }
         }
     }

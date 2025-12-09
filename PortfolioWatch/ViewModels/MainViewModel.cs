@@ -1318,15 +1318,15 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
-        private void ExportData()
+        private void SavePortfolio()
         {
             SaveStocks(); // Ensure latest changes (like tab renames) are persisted before export
 
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
-                FileName = "PortfolioWatch_Export",
-                DefaultExt = ".json",
-                Filter = "JSON Files (*.json)|*.json"
+                FileName = "PortfolioWatch_Data",
+                DefaultExt = ".pwatch",
+                Filter = "Portfolio Watch Files (*.pwatch)|*.pwatch|JSON Files (*.json)|*.json"
             };
 
             if (ShowFileDialog(dialog) == true)
@@ -1334,19 +1334,19 @@ namespace PortfolioWatch.ViewModels
                 try
                 {
                     _settingsService.ExportStocks(dialog.FileName, portfolioName: WindowTitle);
-                    var successDialog = new ConfirmationWindow("Success", "Export successful!", isAlert: true, icon: "✅");
+                    var successDialog = new ConfirmationWindow("Success", "Saved successfully!", isAlert: true, icon: "✅");
                     ShowDialog(successDialog);
                 }
                 catch (Exception ex)
                 {
-                    var errorDialog = new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌");
+                    var errorDialog = new ConfirmationWindow("Error", $"Save failed: {ex.Message}", isAlert: true, icon: "❌");
                     ShowDialog(errorDialog);
                 }
             }
         }
 
         [RelayCommand]
-        private void ExportNormalizedData()
+        private void NormalizeCurrentTab()
         {
             SaveStocks(); // Ensure latest changes are persisted
 
@@ -1359,7 +1359,7 @@ namespace PortfolioWatch.ViewModels
 
             var inputWindow = new InputWindow(
                 "Enter the target portfolio value for normalization:", 
-                "Export normalized portfolio", 
+                "Normalize Portfolio", 
                 "1,000,000",
                 input => 
                 {
@@ -1372,74 +1372,101 @@ namespace PortfolioWatch.ViewModels
                 var cleanAmount = inputWindow.InputText.Replace("$", "").Replace(",", "");
                 if (decimal.TryParse(cleanAmount, out decimal targetValue))
                 {
-                    var dialog = new Microsoft.Win32.SaveFileDialog
+                    try
                     {
-                        FileName = $"PortfolioWatch_Normalized_{targetValue:0}Export",
-                        DefaultExt = ".json",
-                        Filter = "JSON Files (*.json)|*.json"
-                    };
+                        var normalizedStocks = new System.Collections.Generic.List<Stock>();
+                        
+                        // Use currently visible stocks (Merged or Single Tab)
+                        var sourceStocks = IsMergedView ? MergedStocks : SelectedTab?.Stocks;
+                        if (sourceStocks == null) return;
 
-                    if (ShowFileDialog(dialog) == true)
+                        foreach (var stock in sourceStocks)
+                        {
+                            double newShares = 0;
+
+                            if (stock.Shares > 0 && stock.Price > 0)
+                            {
+                                // Calculate weight in current portfolio
+                                decimal weight = stock.MarketValue / TotalPortfolioValue;
+                                
+                                // Calculate new shares to maintain weight in target portfolio
+                                // TargetStockValue = TargetPortfolioValue * Weight
+                                // NewShares = TargetStockValue / Price
+                                decimal targetStockValue = targetValue * weight;
+                                newShares = (double)(targetStockValue / stock.Price);
+                            }
+
+                            // Create a copy with normalized shares (or 0 for watchlist items)
+                            var normalizedStock = new Stock
+                            {
+                                Symbol = stock.Symbol,
+                                Name = stock.Name,
+                                Price = stock.Price,
+                                Change = stock.Change,
+                                ChangePercent = stock.ChangePercent,
+                                Shares = newShares
+                            };
+                            normalizedStocks.Add(normalizedStock);
+                        }
+
+                        // Create new tab
+                        string newTabName = $"Normalized ({targetValue:C0})";
+                        
+                        // Ensure unique name
+                        int counter = 1;
+                        string uniqueName = newTabName;
+                        while (Tabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            uniqueName = $"{newTabName} {counter++}";
+                        }
+
+                        var newTab = new PortfolioTabViewModel(new PortfolioTab 
+                        { 
+                            Name = uniqueName,
+                            Stocks = normalizedStocks,
+                            // Copy tax allocations from current view
+                            TaxAllocations = IsMergedView ? AggregateTaxAllocations.ToList() : SelectedTab?.TaxAllocations.ToList() ?? new List<TaxAllocation>()
+                        });
+
+                        // Subscribe to events
+                        newTab.PropertyChanged += Tab_PropertyChanged;
+                        newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                        newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
+                        foreach (var stock in newTab.Stocks)
+                        {
+                            stock.PropertyChanged += Stock_PropertyChanged;
+                        }
+
+                        // Uncheck all other tabs
+                        foreach (var t in Tabs)
+                        {
+                            if (!t.IsAddButton) t.IsIncludedInTotal = false;
+                        }
+
+                        // Insert before Add Button
+                        if (Tabs.Count > 0)
+                        {
+                            Tabs.Insert(Tabs.Count - 1, newTab);
+                        }
+                        else
+                        {
+                            Tabs.Add(newTab);
+                        }
+
+                        // Select and scroll to new tab
+                        SelectedTab = newTab;
+                        RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+                        
+                        SaveStocks();
+                        CalculatePortfolioTotals();
+                        
+                        var successDialog = new ConfirmationWindow("Success", $"Created new tab '{uniqueName}' normalized to {targetValue:C0}.", isAlert: true, icon: "✅");
+                        ShowDialog(successDialog);
+                    }
+                    catch (Exception ex)
                     {
-                        try
-                        {
-                            var normalizedStocks = new System.Collections.Generic.List<Stock>();
-                            
-                            foreach (var stock in Stocks)
-                            {
-                                double newShares = 0;
-
-                                if (stock.Shares > 0 && stock.Price > 0)
-                                {
-                                    // Calculate weight in current portfolio
-                                    decimal weight = stock.MarketValue / TotalPortfolioValue;
-                                    
-                                    // Calculate new shares to maintain weight in target portfolio
-                                    // TargetStockValue = TargetPortfolioValue * Weight
-                                    // NewShares = TargetStockValue / Price
-                                    decimal targetStockValue = targetValue * weight;
-                                    newShares = (double)(targetStockValue / stock.Price);
-                                }
-
-                                // Create a copy with normalized shares (or 0 for watchlist items)
-                                var normalizedStock = new Stock
-                                {
-                                    Symbol = stock.Symbol,
-                                    Name = stock.Name,
-                                    Price = stock.Price,
-                                    Change = stock.Change,
-                                    ChangePercent = stock.ChangePercent,
-                                    Shares = newShares
-                                };
-                                normalizedStocks.Add(normalizedStock);
-                            }
-
-                            string normalizedName = $"{WindowTitle} (Normalized to {targetValue:C0} on {DateTime.Now:M/d/yy})";
-                            
-                            // Determine tax allocations to include
-                            IEnumerable<TaxAllocation> taxAllocations;
-                            if (IsMergedView)
-                            {
-                                taxAllocations = AggregateTaxAllocations;
-                            }
-                            else if (SelectedTab != null)
-                            {
-                                taxAllocations = SelectedTab.TaxAllocations;
-                            }
-                            else
-                            {
-                                taxAllocations = new[] { new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = 100 } };
-                            }
-
-                            _settingsService.ExportStocks(dialog.FileName, normalizedStocks, normalizedName, taxAllocations);
-                            var successDialog = new ConfirmationWindow("Success", $"Export successful! Portfolio normalized to {targetValue:C0}.", isAlert: true, icon: "✅");
-                            ShowDialog(successDialog);
-                        }
-                        catch (Exception ex)
-                        {
-                            var errorDialog = new ConfirmationWindow("Error", $"Export failed: {ex.Message}", isAlert: true, icon: "❌");
-                            ShowDialog(errorDialog);
-                        }
+                        var errorDialog = new ConfirmationWindow("Error", $"Normalization failed: {ex.Message}", isAlert: true, icon: "❌");
+                        ShowDialog(errorDialog);
                     }
                 }
             }
@@ -1518,164 +1545,170 @@ namespace PortfolioWatch.ViewModels
         }
 
         [RelayCommand]
-        private void ImportData()
+        private void OpenPortfolio()
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
-                DefaultExt = ".json",
-                Filter = "JSON Files (*.json)|*.json"
+                DefaultExt = ".pwatch",
+                Filter = "Portfolio Watch Files (*.pwatch)|*.pwatch|JSON Files (*.json)|*.json"
             };
 
             if (ShowFileDialog(dialog) == true)
             {
-                try
+                ImportPortfolio(dialog.FileName);
+            }
+        }
+
+        public void ImportPortfolio(string filePath)
+        {
+            try
+            {
+                var importedSettings = _settingsService.ParseImportFile(filePath);
+                if (importedSettings == null || importedSettings.Tabs.Count == 0)
                 {
-                    var importedSettings = _settingsService.ParseImportFile(dialog.FileName);
-                    if (importedSettings == null || importedSettings.Tabs.Count == 0)
-                    {
-                        throw new Exception("No valid portfolio data found in file.");
-                    }
+                    throw new Exception("No valid portfolio data found in file.");
+                }
 
-                    var prompt = new ImportPromptWindow();
+                var prompt = new ImportPromptWindow();
+                
+                if (ShowDialog(prompt) != true || prompt.Result == ImportAction.Cancel)
+                {
+                    return;
+                }
+
+                if (prompt.Result == ImportAction.Replace)
+                {
+                    Tabs.Clear();
+                    WindowTitle = importedSettings.WindowTitle;
+                }
+                else if (prompt.Result == ImportAction.Merge)
+                {
+                    // Uncheck existing tabs so only the new ones are active
+                    foreach (var existingTab in Tabs)
+                    {
+                        if (!existingTab.IsAddButton)
+                        {
+                            existingTab.IsIncludedInTotal = false;
+                        }
+                    }
+                }
+
+                PortfolioTabViewModel? firstImportedTab = null;
+
+                foreach (var tab in importedSettings.Tabs)
+                {
+                    var tabVm = new PortfolioTabViewModel(tab);
                     
-                    if (ShowDialog(prompt) != true || prompt.Result == ImportAction.Cancel)
-                    {
-                        return;
-                    }
+                    // Uncheck all imported tabs by default
+                    // Wait, requirement says: "uncheck all existing tabs so that only the newly imported tab (which becomes active) is included in the total."
+                    // So imported tabs should probably be checked if they are going to be active?
+                    // But logic below sets SelectedTab = firstImportedTab.
+                    // And OnSelectedTabChanged forces IsIncludedInTotal = true.
+                    // So setting it to false here is fine, as long as we select it later.
+                    tabVm.IsIncludedInTotal = false;
 
-                    if (prompt.Result == ImportAction.Replace)
-                    {
-                        Tabs.Clear();
-                        WindowTitle = importedSettings.WindowTitle;
-                    }
-                    else if (prompt.Result == ImportAction.Merge)
-                    {
-                        // Uncheck existing tabs so only the new ones are active
-                        foreach (var existingTab in Tabs)
-                        {
-                            if (!existingTab.IsAddButton)
-                            {
-                                existingTab.IsIncludedInTotal = false;
-                            }
-                        }
-                    }
+                    if (firstImportedTab == null) firstImportedTab = tabVm;
 
-                    PortfolioTabViewModel? firstImportedTab = null;
-
-                    foreach (var tab in importedSettings.Tabs)
+                    tabVm.PropertyChanged += Tab_PropertyChanged;
+                    tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                    tabVm.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
+                    foreach (var stock in tabVm.Stocks)
                     {
-                        var tabVm = new PortfolioTabViewModel(tab);
+                        stock.PropertyChanged += Stock_PropertyChanged;
+                    }
+                    
+                    // Insert before the Add Button (last index) if it exists
+                    if (Tabs.Count > 0 && Tabs.Last().IsAddButton)
+                    {
+                        Tabs.Insert(Tabs.Count - 1, tabVm);
+                    }
+                    else
+                    {
+                        Tabs.Add(tabVm);
+                    }
+                }
+
+                // Ensure Add Button exists if we replaced everything
+                if (!Tabs.Any(t => t.IsAddButton))
+                {
+                    Tabs.Add(new PortfolioTabViewModel(true));
+                }
+
+                // Disable Merged View on import
+                IsMergedView = false;
+
+                // Set active tab to the first imported tab
+                if (firstImportedTab != null)
+                {
+                    SelectedTab = firstImportedTab;
+                }
+                else if (Tabs.Count > 0)
+                {
+                    SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
+                }
+
+                UpdateServiceStocks();
+                SaveStocks();
+                CalculatePortfolioTotals();
+                ApplySortInternal();
+
+                // Show modal dialog for the async update process
+                var progressDialog = new ConfirmationWindow("Opening", "Opening portfolio...", isAlert: true)
+                {
+                    AutoRunTask = async () =>
+                    {
+                        StatusMessage = "Fetching current prices...";
                         
-                        // Uncheck all imported tabs by default
-                        // Wait, requirement says: "uncheck all existing tabs so that only the newly imported tab (which becomes active) is included in the total."
-                        // So imported tabs should probably be checked if they are going to be active?
-                        // But logic below sets SelectedTab = firstImportedTab.
-                        // And OnSelectedTabChanged forces IsIncludedInTotal = true.
-                        // So setting it to false here is fine, as long as we select it later.
-                        tabVm.IsIncludedInTotal = false;
+                        // 1. Fast fetch: Current Quotes only
+                        var allSymbols = Tabs.Where(t => !t.IsAddButton)
+                                             .SelectMany(t => t.Stocks)
+                                             .Select(s => s.Symbol)
+                                             .Distinct()
+                                             .ToList();
 
-                        if (firstImportedTab == null) firstImportedTab = tabVm;
-
-                        tabVm.PropertyChanged += Tab_PropertyChanged;
-                        tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
-                        foreach (var stock in tabVm.Stocks)
+                        if (allSymbols.Any())
                         {
-                            stock.PropertyChanged += Stock_PropertyChanged;
-                        }
-                        
-                        // Insert before the Add Button (last index) if it exists
-                        if (Tabs.Count > 0 && Tabs.Last().IsAddButton)
-                        {
-                            Tabs.Insert(Tabs.Count - 1, tabVm);
-                        }
-                        else
-                        {
-                            Tabs.Add(tabVm);
-                        }
-                    }
-
-                    // Ensure Add Button exists if we replaced everything
-                    if (!Tabs.Any(t => t.IsAddButton))
-                    {
-                        Tabs.Add(new PortfolioTabViewModel(true));
-                    }
-
-                    // Disable Merged View on import
-                    IsMergedView = false;
-
-                    // Set active tab to the first imported tab
-                    if (firstImportedTab != null)
-                    {
-                        SelectedTab = firstImportedTab;
-                    }
-                    else if (Tabs.Count > 0)
-                    {
-                        SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
-                    }
-
-                    UpdateServiceStocks();
-                    SaveStocks();
-                    CalculatePortfolioTotals();
-                    ApplySortInternal();
-
-                    // Show modal dialog for the async update process
-                    var progressDialog = new ConfirmationWindow("Importing", "Importing...", isAlert: true)
-                    {
-                        AutoRunTask = async () =>
-                        {
-                            StatusMessage = "Fetching current prices...";
+                            var quotesResult = await _stockService.GetQuotesAsync(allSymbols);
                             
-                            // 1. Fast fetch: Current Quotes only
-                            var allSymbols = Tabs.Where(t => !t.IsAddButton)
-                                                 .SelectMany(t => t.Stocks)
-                                                 .Select(s => s.Symbol)
-                                                 .Distinct()
-                                                 .ToList();
-
-                            if (allSymbols.Any())
+                            if (quotesResult.Success && quotesResult.Data != null)
                             {
-                                var quotesResult = await _stockService.GetQuotesAsync(allSymbols);
-                                
-                                if (quotesResult.Success && quotesResult.Data != null)
+                                foreach (var quote in quotesResult.Data)
                                 {
-                                    foreach (var quote in quotesResult.Data)
+                                    foreach (var tab in Tabs)
                                     {
-                                        foreach (var tab in Tabs)
+                                        var stocksToUpdate = tab.Stocks.Where(s => s.Symbol == quote.Symbol);
+                                        foreach (var stock in stocksToUpdate)
                                         {
-                                            var stocksToUpdate = tab.Stocks.Where(s => s.Symbol == quote.Symbol);
-                                            foreach (var stock in stocksToUpdate)
-                                            {
-                                                stock.Price = (decimal)(quote.Price ?? 0);
-                                                stock.Change = (decimal)(quote.Change ?? 0);
-                                                stock.ChangePercent = quote.ChangePercent ?? 0;
-                                            }
+                                            stock.Price = (decimal)(quote.Price ?? 0);
+                                            stock.Change = (decimal)(quote.Change ?? 0);
+                                            stock.ChangePercent = quote.ChangePercent ?? 0;
                                         }
                                     }
                                 }
                             }
+                        }
 
-                            // 2. Update Totals (so user sees value immediately)
-                            CalculatePortfolioTotals();
-                            ApplySortInternal();
-                            
-                            StatusMessage = "Import complete.";
-                        },
-                        SuccessMessage = "Import successful!"
-                    };
-                    ShowDialog(progressDialog);
+                        // 2. Update Totals (so user sees value immediately)
+                        CalculatePortfolioTotals();
+                        ApplySortInternal();
+                        
+                        StatusMessage = "Open complete.";
+                    },
+                    SuccessMessage = "Open successful!"
+                };
+                ShowDialog(progressDialog);
 
-                    // 3. Run heavy updates (History/Graphs/Auxiliary) in background
-                    _ = Task.Run(async () => 
-                    {
-                        await _stockService.UpdatePricesAsync(SelectedRange);
-                        await _stockService.UpdateAuxiliaryDataAsync();
-                    });
-                }
-                catch (Exception ex)
+                // 3. Run heavy updates (History/Graphs/Auxiliary) in background
+                _ = Task.Run(async () => 
                 {
-                    var alert = new ConfirmationWindow("Error", $"Import failed: {ex.Message}", isAlert: true);
-                    ShowDialog(alert);
-                }
+                    await _stockService.UpdatePricesAsync(SelectedRange);
+                    await _stockService.UpdateAuxiliaryDataAsync();
+                });
+            }
+            catch (Exception ex)
+            {
+                var alert = new ConfirmationWindow("Error", $"Open failed: {ex.Message}", isAlert: true);
+                ShowDialog(alert);
             }
         }
 

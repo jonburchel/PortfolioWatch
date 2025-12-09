@@ -111,21 +111,21 @@
                 
                 <Separator Style="{DynamicResource {x:Type Separator}}"/>
                 
-                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ImportDataCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding OpenPortfolioCommand}">
                     <MenuItem.Header>
-                        <emoji:TextBlock Text="📥 Import Data..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <emoji:TextBlock Text="📂 Open..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
                 
-                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ExportDataCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding SavePortfolioCommand}">
                     <MenuItem.Header>
-                        <emoji:TextBlock Text="📤 Export Data..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <emoji:TextBlock Text="💾 Save all tabs..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
 
-                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ExportNormalizedDataCommand}">
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding NormalizeCurrentTabCommand}">
                     <MenuItem.Header>
-                        <emoji:TextBlock Text="⚖️ Export normalized portfolio..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <emoji:TextBlock Text="⚖️ Normalize current tab values..." Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     </MenuItem.Header>
                 </MenuItem>
                 
