@@ -18,12 +18,19 @@ namespace PortfolioWatch
     {
         private const int GWL_STYLE = -16;
         private const int WS_MAXIMIZEBOX = 0x10000;
+        private const IntPtr HWND_TOPMOST = (IntPtr)(-1);
+        private const uint SWP_NOSIZE = 0x0001;
+        private const uint SWP_NOMOVE = 0x0002;
+        private const uint SWP_NOACTIVATE = 0x0010;
 
         [DllImport("user32.dll")]
         private static extern int GetWindowLong(IntPtr hwnd, int index);
 
         [DllImport("user32.dll")]
         private static extern int SetWindowLong(IntPtr hwnd, int index, int newStyle);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 
         protected override void OnSourceInitialized(EventArgs e)
         {
@@ -81,6 +88,7 @@ namespace PortfolioWatch
         private bool _isModalOpen;
         private DispatcherTimer _autoHideTimer;
         private DispatcherTimer _tabScrollTimer;
+        private DispatcherTimer _topmostTimer;
         private int _scrollDirection = 0; // -1 left, 1 right
         private ScrollViewer? _headerScrollViewer;
         private PopupController _newsController = null!;
@@ -133,11 +141,29 @@ namespace PortfolioWatch
             _tabScrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
             _tabScrollTimer.Tick += TabScrollTimer_Tick;
 
+            _topmostTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+            _topmostTimer.Tick += TopmostTimer_Tick;
+            _topmostTimer.Start();
+
             _newsController = new PopupController(NewsPopup, 500);
             _earningsController = new PopupController(EarningsPopup, 500);
             _optionsController = new PopupController(OptionsPopup, 400);
             _insiderController = new PopupController(InsiderPopup, 400);
             _rVolController = new PopupController(RVolPopup, 400);
+        }
+
+        private void TopmostTimer_Tick(object? sender, EventArgs e)
+        {
+            // Only enforce topmost if we are visible and not minimized
+            if (this.Visibility == Visibility.Visible && this.WindowState != WindowState.Minimized)
+            {
+                // Re-assert Topmost property
+                this.Topmost = true;
+
+                // Also enforce via P/Invoke to be sure, without activating (stealing focus)
+                var hwnd = new WindowInteropHelper(this).Handle;
+                SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            }
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
