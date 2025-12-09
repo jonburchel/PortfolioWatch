@@ -1365,7 +1365,8 @@ namespace PortfolioWatch.ViewModels
                 {
                     var clean = input.Replace("$", "").Replace(",", "");
                     return decimal.TryParse(clean, out decimal val) && val > 0 ? null : "Please enter a valid positive number.";
-                });
+                },
+                checkBoxText: "Export to file");
             
             if (ShowDialog(inputWindow) == true)
             {
@@ -1409,59 +1410,85 @@ namespace PortfolioWatch.ViewModels
                             normalizedStocks.Add(normalizedStock);
                         }
 
-                        // Create new tab
-                        string newTabName = $"Normalized ({targetValue:C0})";
-                        
-                        // Ensure unique name
-                        int counter = 1;
-                        string uniqueName = newTabName;
-                        while (Tabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            uniqueName = $"{newTabName} {counter++}";
-                        }
+                        string originalName = IsMergedView ? "Merged View" : (SelectedTab?.Name ?? "Portfolio");
+                        string dateStr = DateTime.Now.ToString("M-d-yy");
+                        string newTabName = $"{originalName} (Normalized to {targetValue:C0} on {dateStr})";
 
-                        var newTab = new PortfolioTabViewModel(new PortfolioTab 
-                        { 
-                            Name = uniqueName,
-                            Stocks = normalizedStocks,
-                            // Copy tax allocations from current view
-                            TaxAllocations = IsMergedView ? AggregateTaxAllocations.ToList() : SelectedTab?.TaxAllocations.ToList() ?? new List<TaxAllocation>()
-                        });
-
-                        // Subscribe to events
-                        newTab.PropertyChanged += Tab_PropertyChanged;
-                        newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
-                        newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
-                        foreach (var stock in newTab.Stocks)
+                        if (inputWindow.IsCheckBoxChecked) // Export to File
                         {
-                            stock.PropertyChanged += Stock_PropertyChanged;
-                        }
+                            var saveDialog = new Microsoft.Win32.SaveFileDialog
+                            {
+                                FileName = newTabName,
+                                DefaultExt = ".pwatch",
+                                Filter = "Portfolio Watch Files (*.pwatch)|*.pwatch|JSON Files (*.json)|*.json"
+                            };
 
-                        // Uncheck all other tabs
-                        foreach (var t in Tabs)
-                        {
-                            if (!t.IsAddButton) t.IsIncludedInTotal = false;
+                            if (ShowFileDialog(saveDialog) == true)
+                            {
+                                _settingsService.ExportStocks(
+                                    saveDialog.FileName, 
+                                    stocksToExport: normalizedStocks, 
+                                    portfolioName: newTabName,
+                                    taxAllocations: IsMergedView ? AggregateTaxAllocations : SelectedTab?.TaxAllocations
+                                );
+                                
+                                var successDialog = new ConfirmationWindow("Success", "Exported successfully!", isAlert: true, icon: "✅");
+                                ShowDialog(successDialog);
+                            }
                         }
+                        else // Create Tab
+                        {
+                            // Ensure unique name
+                            int counter = 1;
+                            string uniqueName = newTabName;
+                            while (Tabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                uniqueName = $"{newTabName} {counter++}";
+                            }
 
-                        // Insert before Add Button
-                        if (Tabs.Count > 0)
-                        {
-                            Tabs.Insert(Tabs.Count - 1, newTab);
-                        }
-                        else
-                        {
-                            Tabs.Add(newTab);
-                        }
+                            var newTab = new PortfolioTabViewModel(new PortfolioTab 
+                            { 
+                                Name = uniqueName,
+                                Stocks = normalizedStocks,
+                                // Copy tax allocations from current view
+                                TaxAllocations = IsMergedView ? AggregateTaxAllocations.ToList() : SelectedTab?.TaxAllocations.ToList() ?? new List<TaxAllocation>()
+                            });
 
-                        // Select and scroll to new tab
-                        SelectedTab = newTab;
-                        RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
-                        
-                        SaveStocks();
-                        CalculatePortfolioTotals();
-                        
-                        var successDialog = new ConfirmationWindow("Success", $"Created new tab '{uniqueName}' normalized to {targetValue:C0}.", isAlert: true, icon: "✅");
-                        ShowDialog(successDialog);
+                            // Subscribe to events
+                            newTab.PropertyChanged += Tab_PropertyChanged;
+                            newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                            newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
+                            foreach (var stock in newTab.Stocks)
+                            {
+                                stock.PropertyChanged += Stock_PropertyChanged;
+                            }
+
+                            // Uncheck all other tabs
+                            foreach (var t in Tabs)
+                            {
+                                if (!t.IsAddButton) t.IsIncludedInTotal = false;
+                            }
+
+                            // Insert before Add Button
+                            if (Tabs.Count > 0)
+                            {
+                                Tabs.Insert(Tabs.Count - 1, newTab);
+                            }
+                            else
+                            {
+                                Tabs.Add(newTab);
+                            }
+
+                            // Select and scroll to new tab
+                            SelectedTab = newTab;
+                            RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+                            
+                            SaveStocks();
+                            CalculatePortfolioTotals();
+                            
+                            var successDialog = new ConfirmationWindow("Success", $"Created new tab '{uniqueName}'.", isAlert: true, icon: "✅");
+                            ShowDialog(successDialog);
+                        }
                     }
                     catch (Exception ex)
                     {

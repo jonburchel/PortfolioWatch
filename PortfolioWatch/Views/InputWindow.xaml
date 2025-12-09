@@ -4,12 +4,13 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Say Thanks" Height="180" Width="350"
+        Title="Say Thanks" Height="230" Width="350"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         ResizeMode="NoResize">
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <Style TargetType="Button">
             <Setter Property="Background" Value="#404040"/>
             <Setter Property="Foreground" Value="White"/>
@@ -73,6 +74,28 @@
                         </Style>
                     </TextBox.Resources>
                 </TextBox>
+                
+                <CheckBox Content="{Binding CheckBoxText, RelativeSource={RelativeSource AncestorType=Window}}"
+                          IsChecked="{Binding IsCheckBoxChecked, RelativeSource={RelativeSource AncestorType=Window}}"
+                          Visibility="{Binding IsCheckBoxVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}"
+                          Foreground="White" Margin="0,15,0,0">
+                    <CheckBox.Resources>
+                        <Style TargetType="CheckBox">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="CheckBox">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Border Width="18" Height="18" CornerRadius="3" BorderThickness="1" BorderBrush="#606060" Background="#303030">
+                                                <Path Data="M 3,9 L 7,13 L 15,5" Stroke="#007ACC" StrokeThickness="2" Visibility="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="1"/>
+                                            </Border>
+                                            <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </CheckBox.Resources>
+                </CheckBox>
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">

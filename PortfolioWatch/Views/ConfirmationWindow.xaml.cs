@@ -33,18 +33,38 @@ namespace PortfolioWatch.Views
             set { SetValue(DetailsProperty, value); }
         }
 
+        public static readonly DependencyProperty YesButtonTextProperty =
+            DependencyProperty.Register("YesButtonText", typeof(string), typeof(ConfirmationWindow), new PropertyMetadata("Yes"));
+
+        public string YesButtonText
+        {
+            get { return (string)GetValue(YesButtonTextProperty); }
+            set { SetValue(YesButtonTextProperty, value); }
+        }
+
+        public static readonly DependencyProperty NoButtonTextProperty =
+            DependencyProperty.Register("NoButtonText", typeof(string), typeof(ConfirmationWindow), new PropertyMetadata("No"));
+
+        public string NoButtonText
+        {
+            get { return (string)GetValue(NoButtonTextProperty); }
+            set { SetValue(NoButtonTextProperty, value); }
+        }
+
         public bool ResetSettings => ResetSettingsCheckBox.IsChecked == true;
 
         public Func<Task>? AutoRunTask { get; set; }
         public string? SuccessMessage { get; set; }
 
-        public ConfirmationWindow(string title, string message, bool showResetOption = false, bool isAlert = false, string icon = "🔄", string? details = null)
+        public ConfirmationWindow(string title, string message, bool showResetOption = false, bool isAlert = false, string icon = "🔄", string? details = null, string yesButtonText = "Yes", string noButtonText = "No")
         {
             InitializeComponent();
             Title = title;
             Message = message;
             IconText = icon;
             Details = details;
+            YesButtonText = yesButtonText;
+            NoButtonText = noButtonText;
 
             if (showResetOption)
             {
@@ -54,7 +74,14 @@ namespace PortfolioWatch.Views
             if (isAlert)
             {
                 NoButton.Visibility = Visibility.Collapsed;
-                YesButton.Content = "OK";
+                // For alerts, we typically want "OK" but if custom text is provided (and different from default "Yes"), use it.
+                // However, the previous logic forced "OK". Let's respect the passed argument if it's not the default "Yes", otherwise default to "OK" for alerts if "Yes" was passed (meaning default).
+                // Actually, to preserve exact behavior:
+                if (yesButtonText == "Yes") 
+                {
+                    YesButtonText = "OK";
+                }
+                
                 YesButton.Background = (System.Windows.Media.Brush)Application.Current.Resources["ControlBackgroundBrush"];
                 YesButton.Foreground = (System.Windows.Media.Brush)Application.Current.Resources["PrimaryForegroundBrush"];
             }
@@ -116,7 +143,7 @@ namespace PortfolioWatch.Views
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            DialogResult = false;
+            // Do not set DialogResult, so ShowDialog returns null
             Close();
         }
 

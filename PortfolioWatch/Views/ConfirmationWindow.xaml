@@ -98,8 +98,8 @@
 
             <!-- Action Buttons -->
             <StackPanel Grid.Row="4" x:Name="ActionButtonsPanel" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button x:Name="NoButton" Content="No" Click="NoButton_Click" Margin="0,0,10,0" Background="Transparent"/>
-                <Button x:Name="YesButton" Content="Yes" Click="YesButton_Click" Background="{DynamicResource NegativeColorBrush}" Foreground="White"/>
+                <Button x:Name="NoButton" Content="{Binding NoButtonText, RelativeSource={RelativeSource AncestorType=Window}}" Click="NoButton_Click" Margin="0,0,10,0" Background="Transparent"/>
+                <Button x:Name="YesButton" Content="{Binding YesButtonText, RelativeSource={RelativeSource AncestorType=Window}}" Click="YesButton_Click" Background="{DynamicResource NegativeColorBrush}" Foreground="White"/>
             </StackPanel>
 
             <!-- Progress Panel -->

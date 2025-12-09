@@ -12,6 +12,7 @@ namespace PortfolioWatch.Views
     public partial class InputWindow : Window, INotifyPropertyChanged, INotifyDataErrorInfo
     {
         private string _inputText = string.Empty;
+        private bool _isCheckBoxChecked;
         private readonly Func<string, string?>? _validator;
         private readonly Dictionary<string, List<string>> _errors = new Dictionary<string, List<string>>();
 
@@ -23,6 +24,30 @@ namespace PortfolioWatch.Views
 
         public static readonly DependencyProperty MessageProperty =
             DependencyProperty.Register("Message", typeof(string), typeof(InputWindow), new PropertyMetadata(string.Empty));
+
+        public string CheckBoxText
+        {
+            get { return (string)GetValue(CheckBoxTextProperty); }
+            set { SetValue(CheckBoxTextProperty, value); }
+        }
+
+        public static readonly DependencyProperty CheckBoxTextProperty =
+            DependencyProperty.Register("CheckBoxText", typeof(string), typeof(InputWindow), new PropertyMetadata(string.Empty));
+
+        public bool IsCheckBoxVisible => !string.IsNullOrEmpty(CheckBoxText);
+
+        public bool IsCheckBoxChecked
+        {
+            get => _isCheckBoxChecked;
+            set
+            {
+                if (_isCheckBoxChecked != value)
+                {
+                    _isCheckBoxChecked = value;
+                    OnPropertyChanged();
+                }
+            }
+        }
 
         public string InputText
         {
@@ -44,7 +69,7 @@ namespace PortfolioWatch.Views
         public event PropertyChangedEventHandler? PropertyChanged;
         public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
-        public InputWindow(string message, string title, string defaultText = "", Func<string, string?>? validator = null)
+        public InputWindow(string message, string title, string defaultText = "", Func<string, string?>? validator = null, string checkBoxText = "")
         {
             InitializeComponent();
             DataContext = this;
@@ -52,6 +77,7 @@ namespace PortfolioWatch.Views
             Title = title;
             _validator = validator;
             InputText = defaultText;
+            CheckBoxText = checkBoxText;
             
             // Initial validation
             ValidateInput();
