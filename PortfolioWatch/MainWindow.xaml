@@ -836,7 +836,7 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <CheckBox IsChecked="{Binding IsAllIncluded, Mode=OneWay}" 
                               Command="{Binding ToggleAllIncludedCommand}"
-                              Content="Include tabs in total"
+                              Content="Include inactive tabs"
                               Style="{StaticResource ThemedCheckBoxStyle}"
                               FontSize="11"
                               VerticalAlignment="Center"

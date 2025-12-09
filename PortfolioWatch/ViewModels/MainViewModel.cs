@@ -1398,15 +1398,8 @@ namespace PortfolioWatch.ViewModels
                             }
 
                             // Create a copy with normalized shares (or 0 for watchlist items)
-                            var normalizedStock = new Stock
-                            {
-                                Symbol = stock.Symbol,
-                                Name = stock.Name,
-                                Price = stock.Price,
-                                Change = stock.Change,
-                                ChangePercent = stock.ChangePercent,
-                                Shares = newShares
-                            };
+                            var normalizedStock = stock.Clone();
+                            normalizedStock.Shares = newShares;
                             normalizedStocks.Add(normalizedStock);
                         }
 
