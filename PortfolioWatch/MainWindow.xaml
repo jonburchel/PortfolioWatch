@@ -227,6 +227,7 @@
                                                         <TextBlock Text="{Binding Name}" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,10,0" VerticalAlignment="Center"/>
                                                         <TextBlock Text="{Binding PortfolioPercentage, StringFormat={}{0:0.###%}}" Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"/>
                                                     </StackPanel>
+                                                    <TextBlock Text="{Binding TotalValue, StringFormat=C2}" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="20,2,0,0" FontSize="11"/>
                                                 </StackPanel>
                                             </ToolTip>
                                         </Grid.ToolTip>
@@ -548,7 +549,17 @@
             <ScaleTransform ScaleX="{Binding UIScale}" ScaleY="{Binding UIScale}"/>
         </Grid.LayoutTransform>
         <!-- Background Layer -->
-        <Border Background="{DynamicResource WindowBackgroundBrush}" CornerRadius="12" Margin="5" Opacity="{Binding WindowOpacity}">
+        <Border Background="{DynamicResource WindowBackgroundBrush}" CornerRadius="12" Margin="5">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Opacity" Value="{Binding WindowOpacity}"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsPinned, RelativeSource={RelativeSource AncestorType=Window}}" Value="True">
+                            <Setter Property="Opacity" Value="1.0"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <Border.Effect>
                 <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.4"/>
             </Border.Effect>

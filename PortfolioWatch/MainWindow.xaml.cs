@@ -86,6 +86,7 @@ namespace PortfolioWatch
         }
 
         private bool _isModalOpen;
+        private bool _isFirstLoad = true;
         private DispatcherTimer _autoHideTimer;
         private DispatcherTimer _tabScrollTimer;
         private DispatcherTimer _topmostTimer;
@@ -97,7 +98,15 @@ namespace PortfolioWatch
         private PopupController _insiderController = null!;
         private PopupController _rVolController = null!;
 
-        public bool IsPinned { get; set; }
+        public static readonly DependencyProperty IsPinnedProperty =
+            DependencyProperty.Register("IsPinned", typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+
+        public bool IsPinned
+        {
+            get { return (bool)GetValue(IsPinnedProperty); }
+            set { SetValue(IsPinnedProperty, value); }
+        }
+
         public bool IsUserMoving { get; private set; }
 
         public MainWindow()
@@ -112,6 +121,14 @@ namespace PortfolioWatch
             {
                 if (!IsPinned && !_isModalOpen)
                 {
+                    // If mouse is over any notification popup, don't hide
+                    if (NewsPopup.IsMouseOver || EarningsPopup.IsMouseOver || 
+                        OptionsPopup.IsMouseOver || InsiderPopup.IsMouseOver || 
+                        RVolPopup.IsMouseOver)
+                    {
+                        return;
+                    }
+
                     _autoHideTimer.Stop();
                     this.Hide();
                 }
@@ -131,6 +148,8 @@ namespace PortfolioWatch
                 }
                 else
                 {
+                    if (_isFirstLoad) return;
+
                     if (!IsPinned && !this.IsMouseOver && !_isModalOpen)
                     {
                         _autoHideTimer.Start();
@@ -154,13 +173,16 @@ namespace PortfolioWatch
 
         private void TopmostTimer_Tick(object? sender, EventArgs e)
         {
+            // If the auto-hide timer is running, we are about to hide, so don't interfere
+            if (_autoHideTimer.IsEnabled) return;
+
+            // Avoid interfering with mouse tracking while the user is interacting with the window
+            if (this.IsMouseOver) return;
+
             // Only enforce topmost if we are visible and not minimized
             if (this.Visibility == Visibility.Visible && this.WindowState != WindowState.Minimized)
             {
-                // Re-assert Topmost property
-                this.Topmost = true;
-
-                // Also enforce via P/Invoke to be sure, without activating (stealing focus)
+                // Enforce via P/Invoke to be sure, without activating (stealing focus)
                 var hwnd = new WindowInteropHelper(this).Handle;
                 SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             }
@@ -171,6 +193,7 @@ namespace PortfolioWatch
             // Initial positioning will be handled by App.xaml.cs
             AnimateIn();
             Keyboard.ClearFocus();
+            _isFirstLoad = false;
         }
 
         private void MainWindow_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

@@ -36,6 +36,9 @@ namespace PortfolioWatch.ViewModels
         [ObservableProperty]
         private double _portfolioPercentage;
 
+        [ObservableProperty]
+        private decimal _totalValue;
+
         // Used to restore state when tab becomes inactive
         public bool PreviousIsIncludedInTotal { get; private set; }
 

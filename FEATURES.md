@@ -117,13 +117,20 @@ The application uses a system of emoji-based flags to alert the user to signific
         
         The final signal is a weighted average: `(MagnetPull * 0.4) + (FlowSentiment * 0.6)`.
         
-        *   **Aligned Signals**: When both forces agree, the trend is considered strong and likely to continue through expiration.
+        *   **Aligned Signals**: When both forces agree, the trend is considered strong.
+            *   **Expiration Warning**: If expiration is imminent (<= 3 days), this alignment is interpreted as a "Magnet" or "Pin" rather than an infinite trend.
         *   **Conflicting Signals**:
-            *   **Flow Overpowers Max Pain**: Traders are betting heavily against the house. Max Pain acts as a temporary drag (or prop). Once the expiration date passes, this artificial pressure releases, often leading to a surge (or drop) in the direction of the flow.
-            *   **Max Pain Overpowers Flow**: Market Maker incentives are too strong for current volume to overcome. The price is likely to be pinned near the Max Pain price until expiration.
+            *   **Flow Overpowers Max Pain**: Traders are betting heavily against the house.
+                *   **Volatility Trap**: If expiration is imminent, aggressive flow fighting Max Pain suggests the price will struggle to break out and may get stuck near the current level.
+                *   **Standard**: Max Pain acts as a temporary drag/prop. Once expiration passes, the stock may surge/drop as pressure releases.
+            *   **Max Pain Overpowers Flow**: Market Maker incentives are too strong for current volume.
+                *   **Gravity Wins**: If expiration is imminent, dealers are successfully pinning the price. Volatility will be crushed.
+                *   **Standard**: The price is being pulled toward Max Pain until expiration.
     *   **Signal Strength**:
         *   **Metric**: The raw directional confidence score (-0.4 to +0.4 typical range) is scaled to a **0-10 rating**.
         *   **Calculation**: `Signal Strength = Min(|Directional Confidence| * 25, 10.0)`.
+        *   **Expiration Dampening**: If expiration is imminent (<= 3 days) AND the price is already within 1.5% of the Max Pain target, the signal strength is **reduced by 70%**. This reflects that the "move" is effectively over (price is pinned), even if the structural forces remain high.
+        *   **Powder Keg Override**: If the raw signal strength exceeds **9.0** AND expiration is imminent, the system flags a **"Critical Mass"** event. This overrides the standard implication text to warn of a potential "Gamma Squeeze" or violent move, as the options structure is overloaded.
         *   **Visuals**: Overlaid text color indicates direction (Green = Bullish, Red = Bearish).
 
 *   **Insider Flag**:

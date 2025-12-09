@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
+        xmlns:controls="clr-namespace:PortfolioWatch.Controls"
         mc:Ignorable="d"
         Title="PortfolioWatch" Height="100" Width="100"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -73,7 +74,7 @@
                     </Grid.Style>
                     
                     <!-- Background Scrim for Contrast -->
-                    <Border Background="#77000000" CornerRadius="30" IsHitTestVisible="False"/>
+                    <Border Background="#33000000" CornerRadius="30" IsHitTestVisible="False"/>
 
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,3">
                         <!-- Text Info -->
@@ -86,21 +87,43 @@
                                             <DropShadowEffect BlurRadius="4" ShadowDepth="2" Color="Black" Opacity="1.0"/>
                                         </Setter.Value>
                                     </Setter>
+                                    <Setter Property="TextOptions.TextRenderingMode" Value="Aliased"/>
+                                    <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="True">
-                                            <Setter Property="Foreground" Value="#4DFF99"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource PositiveColorBrush}"/>
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="False">
-                                            <Setter Property="Foreground" Value="#FF8080"/>
+                                            <Setter Property="Foreground" Value="{DynamicResource NegativeColorBrush}"/>
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
                             </StackPanel.Resources>
 
                             <!-- Intraday % -->
-                            <TextBlock Text="{Binding IntradayPortfolioChangePercent, StringFormat={}{0:P2}}" 
+                            <controls:OutlinedTextBlock Text="{Binding IntradayPortfolioChangePercent, StringFormat={}{0:P2}}" 
                                        FontSize="12" HorizontalAlignment="Center"
-                                       Visibility="{Binding ShowFloatingWindowIntradayPercent, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                       FontWeight="Bold"
+                                       Stroke="Black" StrokeThickness="2"
+                                       Visibility="{Binding ShowFloatingWindowIntradayPercent, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <controls:OutlinedTextBlock.Style>
+                                    <Style TargetType="controls:OutlinedTextBlock">
+                                        <Setter Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect BlurRadius="4" ShadowDepth="2" Color="Black" Opacity="1.0"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="True">
+                                                <Setter Property="Fill" Value="{DynamicResource PositiveColorBrush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="False">
+                                                <Setter Property="Fill" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:OutlinedTextBlock.Style>
+                            </controls:OutlinedTextBlock>
 
                             <!-- Total Value -->
                             <TextBlock Text="{Binding IntradayPortfolioValue, StringFormat={}{0:C0}}" 
@@ -112,7 +135,7 @@
                         <Grid Height="20" Width="50" Opacity="0.9"
                               Visibility="{Binding ShowFloatingWindowIntradayGraph, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <Grid.Effect>
-                                <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="White" Opacity="1.0"/>
+                                <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="Black" Opacity="1.0"/>
                             </Grid.Effect>
                             <!-- Baseline -->
                             <Path Stroke="#808080" StrokeThickness="1" StrokeDashArray="2 2" Opacity="0.5">
@@ -123,8 +146,8 @@
                                     </MultiBinding>
                                 </Path.Data>
                             </Path>
-                            <!-- Positive Area -->
-                            <Path Fill="#404DFF99" Stroke="#4DFF99" StrokeThickness="1">
+                            <!-- Positive Area Outline -->
+                            <Path Stroke="Black" StrokeThickness="3">
                                 <Path.Data>
                                     <MultiBinding Converter="{StaticResource SparklinePositiveConverter}">
                                         <Binding Path="IntradayPortfolioHistory" />
@@ -134,8 +157,30 @@
                                     </MultiBinding>
                                 </Path.Data>
                             </Path>
+                            <!-- Positive Area -->
+                            <Path Fill="{DynamicResource PositiveBackgroundBrush}" Stroke="{DynamicResource PositiveColorBrush}" StrokeThickness="1">
+                                <Path.Data>
+                                    <MultiBinding Converter="{StaticResource SparklinePositiveConverter}">
+                                        <Binding Path="IntradayPortfolioHistory" />
+                                        <Binding Path="IntradayPortfolioDayProgress" />
+                                        <Binding Path="IntradayPortfolioPreviousClose" />
+                                        <Binding Path="IntradayPortfolioTimestamps" />
+                                    </MultiBinding>
+                                </Path.Data>
+                            </Path>
+                            <!-- Negative Area Outline -->
+                            <Path Stroke="Black" StrokeThickness="3">
+                                <Path.Data>
+                                    <MultiBinding Converter="{StaticResource SparklineNegativeConverter}">
+                                        <Binding Path="IntradayPortfolioHistory" />
+                                        <Binding Path="IntradayPortfolioDayProgress" />
+                                        <Binding Path="IntradayPortfolioPreviousClose" />
+                                        <Binding Path="IntradayPortfolioTimestamps" />
+                                    </MultiBinding>
+                                </Path.Data>
+                            </Path>
                             <!-- Negative Area -->
-                            <Path Fill="#40FF8080" Stroke="#FF8080" StrokeThickness="1">
+                            <Path Fill="{DynamicResource NegativeBackgroundBrush}" Stroke="{DynamicResource NegativeColorBrush}" StrokeThickness="1">
                                 <Path.Data>
                                     <MultiBinding Converter="{StaticResource SparklineNegativeConverter}">
                                         <Binding Path="IntradayPortfolioHistory" />

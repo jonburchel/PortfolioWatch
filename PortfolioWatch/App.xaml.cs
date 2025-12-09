@@ -512,7 +512,11 @@ namespace PortfolioWatch
                 UpdateMainWindowPosition();
 
                 _mainWindow.Show();
-                _mainWindow.Activate();
+                
+                if (isPinned)
+                {
+                    _mainWindow.Activate();
+                }
 
                 // Update again after show to ensure dimensions are correct if they were missing
                 UpdateMainWindowPosition();

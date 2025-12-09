@@ -483,7 +483,23 @@ namespace PortfolioWatch.Models
         public string NetFlowDisplay => (CallVolume > PutVolume) ? "Bullish" : "Bearish";
         public string NetFlowColor => (CallVolume > PutVolume) ? "#2ecc71" : "#e74c3c";
 
-        public string SignalStrengthDisplay => (Math.Abs(DirectionalConfidence) * 25).ToString("0.0");
+        private int DaysToExpiration => OptionsImpactDate.HasValue ? (int)Math.Ceiling((OptionsImpactDate.Value.Date - DateTime.Now.Date).TotalDays) : 999;
+        private bool IsExpirationImminent => DaysToExpiration <= 3;
+        private double DistToMaxPainPct => (Price > 0 && MaxPainPrice > 0) ? (double)(Math.Abs(Price - MaxPainPrice) / Price) : 1.0;
+        private bool ShouldDampenSignal => IsExpirationImminent && DistToMaxPainPct < 0.015;
+
+        public string SignalStrengthDisplay
+        {
+            get
+            {
+                double val = Math.Abs(DirectionalConfidence) * 25;
+                if (ShouldDampenSignal)
+                {
+                    val *= 0.3;
+                }
+                return Math.Min(10.0, val).ToString("0.0");
+            }
+        }
         public string SignalStrengthColor => DirectionalConfidence >= 0 ? "#2ecc71" : "#e74c3c";
 
         public string OptionsSummary
@@ -507,10 +523,20 @@ namespace PortfolioWatch.Models
                 string explanation;
                 string implication;
 
+                // --- PHASE 2: TEXT GENERATION ---
                 if (isMagnetBullish == isFlowBullish)
                 {
                     explanation = $"Both Max Pain (${MaxPainPrice:0.00}) and Options Flow are {magnetStr}. Market structure and trader sentiment are aligned.";
-                    implication = $"Expect this trend to continue through the {dateStr} expiration.";
+
+                    if (IsExpirationImminent)
+                    {
+                        // Warn that this is a "Target" or "Pin", not an infinite trend
+                        implication = $"EXPIRATION WARNING: With {DaysToExpiration} days left, this structure is acting as a MAGNET. Expect price to be pinned to ${MaxPainPrice:0.00} to kill premium. Upside is likely capped.";
+                    }
+                    else
+                    {
+                        implication = $"Expect this trend to continue through the {dateStr} expiration.";
+                    }
                 }
                 else
                 {
@@ -520,18 +546,40 @@ namespace PortfolioWatch.Models
                         
                         if (isFlowBullish)
                         {
-                             implication = $"Max Pain is currently acting as a drag on the price. Once this 'magnet' expires on {dateStr}, the stock may surge upward as that artificial pressure is released.";
+                             // If bullish flow near expiration, warn about the "Ceiling" of Max Pain
+                             implication = IsExpirationImminent
+                                ? $"VOLATILITY TRAP: Aggressive buying is fighting the Max Pain gravity (${MaxPainPrice:0.00}). The price is likely to get stuck near this level and struggle to break higher unless volume explodes."
+                                : $"Max Pain is currently acting as a drag on the price. Once this 'magnet' expires on {dateStr}, the stock may surge upward as that artificial pressure is released.";
                         }
                         else
                         {
-                             implication = $"Max Pain is currently propping up the price. Once this support expires on {dateStr}, the stock may drop further as that artificial support is removed.";
+                             implication = IsExpirationImminent
+                                ? $"Price is heavy, but Max Pain (${MaxPainPrice:0.00}) may act as a floor/support for the next {DaysToExpiration} days."
+                                : $"Max Pain is currently propping up the price. Once this support expires on {dateStr}, the stock may drop further as that artificial support is removed.";
                         }
                     }
                     else
                     {
                         explanation = $"The {magnetStr} pull of Max Pain (${MaxPainPrice:0.00}) is overpowering {flowStr} Options Flow. Market Maker incentives are weighing heavier than current volume.";
-                        implication = $"The price is being pulled toward ${MaxPainPrice:0.00}. This magnetic pressure will persist until the {dateStr} expiration.";
+                        
+                        // If Magnet Wins near expiration, it means the Pin is successful.
+                        implication = IsExpirationImminent
+                            ? $"GRAVITY WINS: Dealers are successfully pinning the price to ${MaxPainPrice:0.00}. Volatility will be crushed into Friday."
+                            : $"The price is being pulled toward ${MaxPainPrice:0.00}. This magnetic pressure will persist until the {dateStr} expiration.";
                     }
+                }
+
+                // --- PHASE 3: SIGNAL STRENGTH ADJUSTMENT ---
+                if (ShouldDampenSignal)
+                {
+                    explanation += " [Signal Dampened: Price is already pinned at target.]";
+                }
+
+                // NEW: Powder Keg Logic
+                double rawStrength = Math.Abs(DirectionalConfidence) * 25;
+                if (rawStrength > 9.0 && IsExpirationImminent)
+                {
+                     implication = "CRITICAL MASS: Options structure is overloaded (Score > 9). This is not a stable trend. Expect a violent move toward Max Pain or a massive breakout (Gamma Squeeze). This is a binary gamble, not a trade.";
                 }
 
                 return $"Signal Strength: {SignalStrengthDisplay}/10\n\n{explanation}\n\n{implication}";

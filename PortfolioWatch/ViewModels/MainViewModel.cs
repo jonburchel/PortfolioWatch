@@ -44,6 +44,7 @@ namespace PortfolioWatch.ViewModels
         private bool _isBusy;
 
         private bool _isLoading;
+        private bool _isTabSwitching;
 
         [ObservableProperty]
         private string _newSymbol = string.Empty;
@@ -259,12 +260,6 @@ namespace PortfolioWatch.ViewModels
 
         partial void OnSelectedTabChanged(PortfolioTabViewModel? oldValue, PortfolioTabViewModel? newValue)
         {
-            if (oldValue != null && !oldValue.IsAddButton)
-            {
-                // Restore the previous state of the old tab
-                oldValue.RestoreIncludedState();
-            }
-
             if (newValue != null)
             {
                 if (newValue.IsAddButton)
@@ -273,11 +268,28 @@ namespace PortfolioWatch.ViewModels
                     return;
                 }
 
-                // Save the current state of the new tab before forcing it to true
-                newValue.SaveIncludedState();
-                
-                // Always include the selected tab
-                newValue.IsIncludedInTotal = true;
+                _isTabSwitching = true;
+                try
+                {
+                    // Uncheck all other tabs
+                    foreach (var tab in Tabs)
+                    {
+                        if (tab != newValue && !tab.IsAddButton)
+                        {
+                            tab.IsIncludedInTotal = false;
+                        }
+                    }
+
+                    // Always include the selected tab
+                    if (!newValue.IsIncludedInTotal)
+                    {
+                        newValue.IsIncludedInTotal = true;
+                    }
+                }
+                finally
+                {
+                    _isTabSwitching = false;
+                }
                 
                 UpdateAllIncludedState();
 
@@ -856,6 +868,8 @@ namespace PortfolioWatch.ViewModels
         {
             if (e.PropertyName == nameof(PortfolioTabViewModel.IsIncludedInTotal))
             {
+                if (_isTabSwitching) return;
+
                 // Enforce: Active tab CANNOT be unchecked
                 if (sender is PortfolioTabViewModel tab && tab == SelectedTab && !tab.IsIncludedInTotal)
                 {
@@ -1456,12 +1470,6 @@ namespace PortfolioWatch.ViewModels
                                 stock.PropertyChanged += Stock_PropertyChanged;
                             }
 
-                            // Uncheck all other tabs
-                            foreach (var t in Tabs)
-                            {
-                                if (!t.IsAddButton) t.IsIncludedInTotal = false;
-                            }
-
                             // Insert before Add Button
                             if (Tabs.Count > 0)
                             {
@@ -1603,14 +1611,7 @@ namespace PortfolioWatch.ViewModels
                 }
                 else if (prompt.Result == ImportAction.Merge)
                 {
-                    // Uncheck existing tabs so only the new ones are active
-                    foreach (var existingTab in Tabs)
-                    {
-                        if (!existingTab.IsAddButton)
-                        {
-                            existingTab.IsIncludedInTotal = false;
-                        }
-                    }
+                    // Merge action - existing tabs will be unchecked by OnSelectedTabChanged when new tab is selected
                 }
 
                 PortfolioTabViewModel? firstImportedTab = null;
@@ -1737,15 +1738,6 @@ namespace PortfolioWatch.ViewModels
         {
             // Close any existing edit sessions
             foreach (var t in Tabs) t.IsEditing = false;
-
-            // Uncheck all existing tabs so only the new one is included
-            foreach (var t in Tabs)
-            {
-                if (!t.IsAddButton)
-                {
-                    t.IsIncludedInTotal = false;
-                }
-            }
 
             // Generate unique name "Portfolio X"
             int counter = 1;
@@ -2112,9 +2104,11 @@ namespace PortfolioWatch.ViewModels
             // Calculate tab percentages
             foreach (var tab in Tabs.Where(t => !t.IsAddButton))
             {
+                decimal tabValue = tab.Stocks.Sum(s => s.MarketValue);
+                tab.TotalValue = tabValue;
+
                 if (tab.IsIncludedInTotal && totalValue > 0)
                 {
-                    decimal tabValue = tab.Stocks.Sum(s => s.MarketValue);
                     tab.PortfolioPercentage = (double)(tabValue / totalValue);
                 }
                 else
