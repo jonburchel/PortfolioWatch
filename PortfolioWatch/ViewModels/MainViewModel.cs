@@ -204,6 +204,7 @@ namespace PortfolioWatch.ViewModels
         public event EventHandler? RequestSearchFocus;
         public event EventHandler<PortfolioTabViewModel>? RequestTaxStatusEdit;
         public event EventHandler? RequestScrollToNewTab;
+        public event EventHandler? RequestShowAndPin;
 
         partial void OnIsMergedViewChanged(bool value)
         {
@@ -1380,7 +1381,8 @@ namespace PortfolioWatch.ViewModels
                     var clean = input.Replace("$", "").Replace(",", "");
                     return decimal.TryParse(clean, out decimal val) && val > 0 ? null : "Please enter a valid positive number.";
                 },
-                checkBoxText: "Export to file");
+                radioOption1: "Create a new tab",
+                radioOption2: "Save to file");
             
             if (ShowDialog(inputWindow) == true)
             {
@@ -1421,7 +1423,7 @@ namespace PortfolioWatch.ViewModels
                         string dateStr = DateTime.Now.ToString("M-d-yy");
                         string newTabName = $"{originalName} (Normalized to {targetValue:C0} on {dateStr})";
 
-                        if (inputWindow.IsCheckBoxChecked) // Export to File
+                        if (inputWindow.IsCheckBoxChecked) // Export to File (IsCheckBoxChecked is true when RadioOption2 is selected)
                         {
                             var saveDialog = new Microsoft.Win32.SaveFileDialog
                             {
@@ -1483,6 +1485,7 @@ namespace PortfolioWatch.ViewModels
                             // Select and scroll to new tab
                             SelectedTab = newTab;
                             RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+                            RequestShowAndPin?.Invoke(this, EventArgs.Empty);
                             
                             SaveStocks();
                             CalculatePortfolioTotals();
@@ -1568,6 +1571,99 @@ namespace PortfolioWatch.ViewModels
                         IsInfoMode = true
                     };
                     ShowDialog(prompt);
+                }
+            }
+        }
+
+        [RelayCommand]
+        private async Task ImportFromScreenshot()
+        {
+            await Task.Yield(); // Ensure async execution context
+            var importWindow = new ScreenshotImportWindow();
+            
+            // The window now handles the AI processing internally and returns true only when done
+            if (ShowDialog(importWindow) == true && importWindow.ParsedHoldings.Count > 0)
+            {
+                try
+                {
+                    var parsedHoldings = importWindow.ParsedHoldings;
+                    StatusMessage = $"Importing {parsedHoldings.Count} holdings...";
+
+                    // Group by AccountName
+                    var groupedHoldings = parsedHoldings.GroupBy(h => string.IsNullOrWhiteSpace(h.AccountName) ? $"Imported {DateTime.Now:g}" : h.AccountName);
+                    int tabsCreated = 0;
+                    PortfolioTabViewModel? firstNewTab = null;
+
+                    foreach (var group in groupedHoldings)
+                    {
+                        var tabName = group.Key;
+                        // Ensure unique name
+                        int counter = 1;
+                        string uniqueName = tabName;
+                        while (Tabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            uniqueName = $"{tabName} {counter++}";
+                        }
+
+                        var newTab = new PortfolioTabViewModel(new PortfolioTab 
+                        { 
+                            Name = uniqueName
+                        });
+
+                        foreach (var item in group)
+                        {
+                            var stock = new Stock
+                            {
+                                Symbol = item.Symbol,
+                                Name = item.Name,
+                                Shares = item.Quantity
+                            };
+                            
+                            // If we have Value but 0 Shares (e.g. cash or error), try to preserve value?
+                            // But Stock model calculates Value from Shares * Price.
+                            // If we don't have a price yet, Value will be 0.
+                            // We'll rely on the update service to fetch price and calculate value.
+                            // If it's a manual/private asset, it might not work well without a price source.
+                            // But per instructions, we just import what we have.
+
+                            // Fetch initial data
+                            stock.PropertyChanged += Stock_PropertyChanged;
+                            newTab.Stocks.Add(stock);
+                        }
+
+                        // Add tab
+                        newTab.PropertyChanged += Tab_PropertyChanged;
+                        newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                        newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
+                        
+                        if (Tabs.Count > 0) Tabs.Insert(Tabs.Count - 1, newTab);
+                        else Tabs.Add(newTab);
+
+                        if (firstNewTab == null) firstNewTab = newTab;
+                        tabsCreated++;
+                    }
+
+                    // Select the first of the new tabs and scroll to it
+                    if (firstNewTab != null)
+                    {
+                        SelectedTab = firstNewTab;
+                        RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+                        RequestShowAndPin?.Invoke(this, EventArgs.Empty);
+                    }
+
+                    UpdateServiceStocks();
+                    SaveStocks();
+                    
+                    // Trigger update
+                    _ = _stockService.UpdatePricesAsync(SelectedRange);
+                    _ = _stockService.UpdateAuxiliaryDataAsync();
+                    
+                    StatusMessage = $"Imported {parsedHoldings.Count} holdings into {tabsCreated} tabs.";
+                }
+                catch (Exception ex)
+                {
+                    var errorDialog = new ConfirmationWindow("Error", $"Import failed: {ex.Message}", isAlert: true);
+                    ShowDialog(errorDialog);
                 }
             }
         }
@@ -1662,6 +1758,8 @@ namespace PortfolioWatch.ViewModels
                 if (firstImportedTab != null)
                 {
                     SelectedTab = firstImportedTab;
+                    RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+                    RequestShowAndPin?.Invoke(this, EventArgs.Empty);
                 }
                 else if (Tabs.Count > 0)
                 {
@@ -1768,6 +1866,7 @@ namespace PortfolioWatch.ViewModels
             NewSymbol = "Dow Jones";
             RequestSearchFocus?.Invoke(this, EventArgs.Empty);
             RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+            RequestShowAndPin?.Invoke(this, EventArgs.Empty);
             SaveStocks();
         }
 

@@ -305,6 +305,8 @@ namespace PortfolioWatch
             if (settings.WindowWidth > 0) _mainWindow.Width = settings.WindowWidth;
 
             // Wire up remaining events
+            vm.RequestShowAndPin += (s, args) => ShowMainWindow(true, forcePin: true);
+
             _mainWindow.IsVisibleChanged += (s, args) =>
             {
                 if (!_mainWindow.IsVisible)
@@ -465,7 +467,7 @@ namespace PortfolioWatch
             ShowMainWindow(e.IsPinned);
         }
 
-        private void ShowMainWindow(bool isPinned)
+        private void ShowMainWindow(bool isPinned, bool forcePin = false)
         {
             if (_mainWindow == null || _floatingWindow == null) return;
 
@@ -477,6 +479,8 @@ namespace PortfolioWatch
                 {
                     if (_mainWindow.IsPinned)
                     {
+                        if (forcePin) return; // Already pinned, do nothing
+
                         // Was pinned, click again -> Hide
                         _mainWindow.Hide();
                         _mainWindow.IsPinned = false;

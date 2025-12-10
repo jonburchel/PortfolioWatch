@@ -34,7 +34,26 @@ namespace PortfolioWatch.Views
         public static readonly DependencyProperty CheckBoxTextProperty =
             DependencyProperty.Register("CheckBoxText", typeof(string), typeof(InputWindow), new PropertyMetadata(string.Empty));
 
-        public bool IsCheckBoxVisible => !string.IsNullOrEmpty(CheckBoxText);
+        public string RadioOption1
+        {
+            get { return (string)GetValue(RadioOption1Property); }
+            set { SetValue(RadioOption1Property, value); }
+        }
+
+        public static readonly DependencyProperty RadioOption1Property =
+            DependencyProperty.Register("RadioOption1", typeof(string), typeof(InputWindow), new PropertyMetadata(string.Empty));
+
+        public string RadioOption2
+        {
+            get { return (string)GetValue(RadioOption2Property); }
+            set { SetValue(RadioOption2Property, value); }
+        }
+
+        public static readonly DependencyProperty RadioOption2Property =
+            DependencyProperty.Register("RadioOption2", typeof(string), typeof(InputWindow), new PropertyMetadata(string.Empty));
+
+        public bool IsCheckBoxVisible => !string.IsNullOrEmpty(CheckBoxText) && string.IsNullOrEmpty(RadioOption1);
+        public bool IsRadioOptionsVisible => !string.IsNullOrEmpty(RadioOption1);
 
         public bool IsCheckBoxChecked
         {
@@ -45,6 +64,19 @@ namespace PortfolioWatch.Views
                 {
                     _isCheckBoxChecked = value;
                     OnPropertyChanged();
+                    OnPropertyChanged(nameof(IsPrimaryOptionChecked));
+                }
+            }
+        }
+
+        public bool IsPrimaryOptionChecked
+        {
+            get => !_isCheckBoxChecked;
+            set
+            {
+                if (value)
+                {
+                    IsCheckBoxChecked = false;
                 }
             }
         }
@@ -69,7 +101,7 @@ namespace PortfolioWatch.Views
         public event PropertyChangedEventHandler? PropertyChanged;
         public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
 
-        public InputWindow(string message, string title, string defaultText = "", Func<string, string?>? validator = null, string checkBoxText = "")
+        public InputWindow(string message, string title, string defaultText = "", Func<string, string?>? validator = null, string checkBoxText = "", string radioOption1 = "", string radioOption2 = "")
         {
             InitializeComponent();
             DataContext = this;
@@ -78,6 +110,8 @@ namespace PortfolioWatch.Views
             _validator = validator;
             InputText = defaultText;
             CheckBoxText = checkBoxText;
+            RadioOption1 = radioOption1;
+            RadioOption2 = radioOption2;
             
             // Initial validation
             ValidateInput();

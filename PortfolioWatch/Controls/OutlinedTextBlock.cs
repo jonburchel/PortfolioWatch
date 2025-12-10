@@ -100,7 +100,7 @@ namespace PortfolioWatch.Controls
 
             if (_formattedText != null)
             {
-                var geometry = _formattedText.BuildGeometry(new Point(0, 0));
+                var geometry = _formattedText.BuildGeometry(new Point(StrokeThickness / 2, StrokeThickness / 2));
                 
                 // Draw stroke first (background)
                 if (Stroke != null && StrokeThickness > 0)

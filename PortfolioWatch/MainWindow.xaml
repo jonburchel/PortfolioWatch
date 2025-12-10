@@ -7,6 +7,7 @@
         xmlns:models="clr-namespace:PortfolioWatch.Models"
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         xmlns:helpers="clr-namespace:PortfolioWatch.Helpers"
+        xmlns:controls="clr-namespace:PortfolioWatch.Controls"
         xmlns:emoji="clr-namespace:Emoji.Wpf;assembly=Emoji.Wpf"
         TextOptions.TextFormattingMode="{DynamicResource ThemeTextFormattingMode}"
         mc:Ignorable="d"
@@ -342,6 +343,188 @@
                                     <MenuItem Header="Duplicate Tab" Command="{Binding Data.DuplicateTabCommand, Source={StaticResource Proxy}}" CommandParameter="{Binding}" Style="{StaticResource NoIconMenuItemStyle}"/>
                                     <Separator />
                                     <MenuItem Header="Delete" Command="{Binding Data.RemoveTabCommand, Source={StaticResource Proxy}}" CommandParameter="{Binding}" Style="{StaticResource NoIconMenuItemStyle}"/>
+                                    
+                                    <Separator />
+
+                                    <!-- Appearance -->
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="🎨 Appearance" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                        
+                                        <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding Data.IsSystemTheme, Source={StaticResource Proxy}, Mode=OneWay}" Command="{Binding Data.SetThemeCommand, Source={StaticResource Proxy}}" CommandParameter="System">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="💻 System" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                        <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding Data.IsLightTheme, Source={StaticResource Proxy}, Mode=OneWay}" Command="{Binding Data.SetThemeCommand, Source={StaticResource Proxy}}" CommandParameter="Light">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="☀️ Light" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                        <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding Data.IsDarkTheme, Source={StaticResource Proxy}, Mode=OneWay}" Command="{Binding Data.SetThemeCommand, Source={StaticResource Proxy}}" CommandParameter="Dark">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="🌙 Dark" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                        
+                                        <Separator Style="{DynamicResource {x:Type Separator}}"/>
+
+                                        <!-- Opacity Slider -->
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}" StaysOpenOnClick="True">
+                                            <MenuItem.Header>
+                                                <Grid Width="200">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <emoji:TextBlock Text="👁️ Opacity" Foreground="{DynamicResource PrimaryForegroundBrush}" VerticalAlignment="Center"/>
+                                                    <Slider Grid.Column="1" Minimum="0.2" Maximum="1.0" Value="{Binding Data.WindowOpacity, Source={StaticResource Proxy}}" 
+                                                            VerticalAlignment="Center" Margin="10,0,10,0"
+                                                            IsMoveToPointEnabled="True"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Data.WindowOpacity, Source={StaticResource Proxy}, StringFormat=P0}" 
+                                                               Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                                                               VerticalAlignment="Center" FontSize="10" Width="30" TextAlignment="Right"/>
+                                                </Grid>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+
+                                        <!-- Scale Slider -->
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}" StaysOpenOnClick="True">
+                                            <MenuItem.Header>
+                                                <Grid Width="230">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <emoji:TextBlock Text="🔍 Scale" Foreground="{DynamicResource PrimaryForegroundBrush}" VerticalAlignment="Center"/>
+                                                    <Slider Grid.Column="1" Minimum="0.5" Maximum="2.0" Value="{Binding Data.UIScale, Source={StaticResource Proxy}}" 
+                                                            VerticalAlignment="Center" Margin="10,0,10,0"
+                                                            IsMoveToPointEnabled="True"/>
+                                                    <TextBlock Grid.Column="2" Text="{Binding Data.UIScale, Source={StaticResource Proxy}, StringFormat=P0}" 
+                                                               Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                                                               VerticalAlignment="Center" FontSize="10" Width="30" TextAlignment="Right"/>
+                                                    <Button Grid.Column="3" Command="{Binding Data.ResetScaleCommand, Source={StaticResource Proxy}}" 
+                                                            Background="Transparent" BorderThickness="0" Margin="5,0,0,0"
+                                                            ToolTip="Reset Scale" Cursor="Hand">
+                                                        <emoji:TextBlock Text="🔄"/>
+                                                    </Button>
+                                                </Grid>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+
+                                        <Separator Style="{DynamicResource {x:Type Separator}}"/>
+
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="🔮 Widget decorations" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                            <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding Data.ShowFloatingWindowIntradayPercent, Source={StaticResource Proxy}, Mode=TwoWay}" StaysOpenOnClick="True">
+                                                <MenuItem.Header>
+                                                    <emoji:TextBlock Text="Show Intraday %" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                                </MenuItem.Header>
+                                            </MenuItem>
+                                            <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding Data.ShowFloatingWindowIntradayGraph, Source={StaticResource Proxy}, Mode=TwoWay}" StaysOpenOnClick="True">
+                                                <MenuItem.Header>
+                                                    <emoji:TextBlock Text="Show Intraday Graph" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                                </MenuItem.Header>
+                                            </MenuItem>
+                                            <MenuItem Style="{DynamicResource {x:Type MenuItem}}" IsCheckable="True" IsChecked="{Binding Data.ShowFloatingWindowTotalValue, Source={StaticResource Proxy}, Mode=TwoWay}" StaysOpenOnClick="True">
+                                                <MenuItem.Header>
+                                                    <emoji:TextBlock Text="Show Total Value" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                                </MenuItem.Header>
+                                            </MenuItem>
+                                        </MenuItem>
+                                    </MenuItem>
+                                    
+                                    <Separator Style="{DynamicResource {x:Type Separator}}"/>
+                                    
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.OpenPortfolioCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="📂 Open" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.SavePortfolioCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="💾 Save all tabs" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.ImportFromScreenshotCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="📸 Import from Screenshot" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.NormalizeCurrentTabCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="⚖️ Normalize current tab values" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    
+                                    <Separator Style="{DynamicResource {x:Type Separator}}"/>
+                                    
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.ResetCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="🔄 Reset" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    
+                                    <Separator Style="{DynamicResource {x:Type Separator}}"/>
+
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.CheckForUpdatesCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="🆕 Check for updates" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.OpenAboutCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="ℹ️ About" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.RequestFeatureCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="🐛 Request a fix or feature" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
+                                    
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="💖 Say thanks" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.BuyCoffeeCommand, Source={StaticResource Proxy}}" CommandParameter="0">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="👋 Say thanks - $0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.BuyCoffeeCommand, Source={StaticResource Proxy}}" CommandParameter="1">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="💧 Buy me a water - $1" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.BuyCoffeeCommand, Source={StaticResource Proxy}}" CommandParameter="3">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="☕ Buy me a coffee - $3" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                        <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.BuyCoffeeCommand, Source={StaticResource Proxy}}" CommandParameter="Custom">
+                                            <MenuItem.Header>
+                                                <emoji:TextBlock Text="💸 Buy me anything you want" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            </MenuItem.Header>
+                                        </MenuItem>
+                                    </MenuItem>
+                                    
+                                    <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding Data.ExitCommand, Source={StaticResource Proxy}}">
+                                        <MenuItem.Header>
+                                            <emoji:TextBlock Text="🚪 Exit" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </MenuItem.Header>
+                                    </MenuItem>
                                 </ContextMenu>
                             </Grid.ContextMenu>
                         </Grid>
@@ -668,6 +851,7 @@
                             <Separator/>
                             <MenuItem Header="Open" Command="{Binding OpenPortfolioCommand}"/>
                             <MenuItem Header="Save all tabs" Command="{Binding SavePortfolioCommand}"/>
+                            <MenuItem Header="📸 Import from Screenshot" Command="{Binding ImportFromScreenshotCommand}"/>
                             <MenuItem Header="Normalize current tab values" Command="{Binding NormalizeCurrentTabCommand}"/>
                             <Separator/>
                             <MenuItem Header="Reset Application" Command="{Binding ResetCommand}"/>
@@ -1188,6 +1372,32 @@
                                                                                 </Style>
                                                                             </emoji:TextBlock.Style>
                                                                         </emoji:TextBlock>
+                                                                        <!-- Days Remaining Decoration -->
+                                                                        <controls:OutlinedTextBlock Text="{Binding EarningsDaysRemaining}"
+                                                                                                    FontSize="8"
+                                                                                                    FontWeight="Bold"
+                                                                                                    HorizontalAlignment="Center"
+                                                                                                    VerticalAlignment="Bottom"
+                                                                                                    Margin="0,0,-6,-4"
+                                                                                                    Visibility="{Binding EarningsDaysRemaining, Converter={StaticResource StringToVisibilityConverter}}">
+                                                                            <controls:OutlinedTextBlock.Style>
+                                                                                <Style TargetType="controls:OutlinedTextBlock">
+                                                                                    <Setter Property="Fill" Value="LightBlue"/>
+                                                                                    <Setter Property="Stroke" Value="Black"/>
+                                                                                    <Setter Property="StrokeThickness" Value="1"/>
+                                                                                    <Style.Triggers>
+                                                                                        <DataTrigger Binding="{Binding EarningsDaysRemaining}" Value="1d">
+                                                                                            <Setter Property="Fill" Value="#0264a6"/>
+                                                                                            <Setter Property="StrokeThickness" Value="2"/>
+                                                                                        </DataTrigger>
+                                                                                        <DataTrigger Binding="{Binding EarningsDaysRemaining}" Value="0d">
+                                                                                            <Setter Property="Fill" Value="#0264a6"/>
+                                                                                            <Setter Property="StrokeThickness" Value="2"/>
+                                                                                        </DataTrigger>
+                                                                                    </Style.Triggers>
+                                                                                </Style>
+                                                                            </controls:OutlinedTextBlock.Style>
+                                                                        </controls:OutlinedTextBlock>
                                                                         <ContentControl Style="{StaticResource SignalStrengthIndicatorStyle}" 
                                                                                         Content="{Binding EarningsSignalStrength}" 
                                                                                         Tag="{Binding EarningsFlagColor}"

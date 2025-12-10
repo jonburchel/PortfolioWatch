@@ -202,7 +202,13 @@ namespace PortfolioWatch.Models
         public DateTime? EarningsDate
         {
             get => _earningsDate;
-            set => SetProperty(ref _earningsDate, value);
+            set
+            {
+                if (SetProperty(ref _earningsDate, value))
+                {
+                    OnPropertyChanged(nameof(EarningsDaysRemaining));
+                }
+            }
         }
 
         private string _earningsStatus = "None"; // None, Upcoming, Beat, Miss
@@ -216,6 +222,7 @@ namespace PortfolioWatch.Models
                     OnPropertyChanged(nameof(HasEarningsFlag));
                     OnPropertyChanged(nameof(EarningsFlagColor));
                     OnPropertyChanged(nameof(EarningsEmoji));
+                    OnPropertyChanged(nameof(EarningsDaysRemaining));
                 }
             }
         }
@@ -258,6 +265,22 @@ namespace PortfolioWatch.Models
             "Miss" => "📉",
             _ => string.Empty
         };
+
+        public string EarningsDaysRemaining
+        {
+            get
+            {
+                if (EarningsStatus == "Upcoming" && EarningsDate.HasValue)
+                {
+                    var days = (EarningsDate.Value.Date - DateTime.Now.Date).TotalDays;
+                    if (days >= 0)
+                    {
+                        return $"{(int)Math.Ceiling(days)}d";
+                    }
+                }
+                return string.Empty;
+            }
+        }
 
         public double EarningsSignalStrength
         {

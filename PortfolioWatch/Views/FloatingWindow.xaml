@@ -76,9 +76,9 @@
                     <!-- Background Scrim for Contrast -->
                     <Border Background="#33000000" CornerRadius="30" IsHitTestVisible="False"/>
 
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,0,0,3">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5,5,0,0">
                         <!-- Text Info -->
-                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,2">
+                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,-2">
                             <StackPanel.Resources>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="FontWeight" Value="Bold"/>
@@ -103,7 +103,7 @@
                             <!-- Intraday % -->
                             <controls:OutlinedTextBlock Text="{Binding IntradayPortfolioChangePercent, StringFormat={}{0:P2}}" 
                                        FontSize="12" HorizontalAlignment="Center"
-                                       FontWeight="Bold"
+                                       FontWeight="Bold" Margin="0,0,0,-2"
                                        Stroke="Black" StrokeThickness="2"
                                        Visibility="{Binding ShowFloatingWindowIntradayPercent, Converter={StaticResource BooleanToVisibilityConverter}}">
                                 <controls:OutlinedTextBlock.Style>
@@ -126,13 +126,32 @@
                             </controls:OutlinedTextBlock>
 
                             <!-- Total Value -->
-                            <TextBlock Text="{Binding IntradayPortfolioValue, StringFormat={}{0:C0}}" 
-                                       FontSize="9" HorizontalAlignment="Center" Margin="0,-1,0,0" Opacity="0.9"
-                                       Visibility="{Binding ShowFloatingWindowTotalValue, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                            <controls:OutlinedTextBlock Text="{Binding IntradayPortfolioValue, StringFormat={}{0:C0}}" 
+                                       Stroke="Black" StrokeThickness="2" FontWeight="Bold"
+                                       FontSize="9" HorizontalAlignment="Center" Margin="0,-1,0,-2" Opacity="1.0"
+                                       Visibility="{Binding ShowFloatingWindowTotalValue, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                <controls:OutlinedTextBlock.Style>
+                                    <Style TargetType="controls:OutlinedTextBlock">
+                                        <Setter Property="Effect">
+                                            <Setter.Value>
+                                                <DropShadowEffect BlurRadius="4" ShadowDepth="2" Color="Black" Opacity="1.0"/>
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="True">
+                                                <Setter Property="Fill" Value="{DynamicResource PositiveColorBrush}"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsIntradayPortfolioUp}" Value="False">
+                                                <Setter Property="Fill" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:OutlinedTextBlock.Style>
+                            </controls:OutlinedTextBlock>
                         </StackPanel>
 
                         <!-- Sparkline Graph -->
-                        <Grid Height="20" Width="50" Opacity="0.9"
+                        <Grid Height="20" Width="50" Opacity="1.0"
                               Visibility="{Binding ShowFloatingWindowIntradayGraph, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <Grid.Effect>
                                 <DropShadowEffect BlurRadius="4" ShadowDepth="1" Color="Black" Opacity="1.0"/>

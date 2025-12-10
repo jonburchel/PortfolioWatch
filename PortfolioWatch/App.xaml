@@ -123,6 +123,12 @@
                     </MenuItem.Header>
                 </MenuItem>
 
+                <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding ImportFromScreenshotCommand}">
+                    <MenuItem.Header>
+                        <emoji:TextBlock Text="📸 Import from Screenshot" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    </MenuItem.Header>
+                </MenuItem>
+
                 <MenuItem Style="{StaticResource NoIconMenuItemStyle}" Command="{Binding NormalizeCurrentTabCommand}">
                     <MenuItem.Header>
                         <emoji:TextBlock Text="⚖️ Normalize current tab values" Foreground="{DynamicResource PrimaryForegroundBrush}"/>

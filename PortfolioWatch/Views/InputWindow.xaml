@@ -96,6 +96,49 @@
                         </Style>
                     </CheckBox.Resources>
                 </CheckBox>
+
+                <StackPanel Visibility="{Binding IsRadioOptionsVisible, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="0,15,0,0">
+                    <RadioButton Content="{Binding RadioOption1, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 IsChecked="{Binding IsPrimaryOptionChecked, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 Foreground="White" Margin="0,0,0,8" GroupName="Options">
+                        <RadioButton.Resources>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="18" Height="18" CornerRadius="9" BorderThickness="1" BorderBrush="#606060" Background="#303030">
+                                                    <Ellipse Width="10" Height="10" Fill="#007ACC" Visibility="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                </Border>
+                                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Resources>
+                    </RadioButton>
+                    <RadioButton Content="{Binding RadioOption2, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 IsChecked="{Binding IsCheckBoxChecked, RelativeSource={RelativeSource AncestorType=Window}}"
+                                 Foreground="White" GroupName="Options">
+                        <RadioButton.Resources>
+                            <Style TargetType="RadioButton">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="RadioButton">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Border Width="18" Height="18" CornerRadius="9" BorderThickness="1" BorderBrush="#606060" Background="#303030">
+                                                    <Ellipse Width="10" Height="10" Fill="#007ACC" Visibility="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                </Border>
+                                                <ContentPresenter Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </RadioButton.Resources>
+                    </RadioButton>
+                </StackPanel>
             </StackPanel>
 
             <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
