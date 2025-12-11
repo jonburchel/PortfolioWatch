@@ -10,7 +10,7 @@ namespace PortfolioWatch.Converters
 {
     public abstract class SparklineBaseConverter : IMultiValueConverter
     {
-        protected List<Point> GetPoints(object[] values, out double baselineY)
+        protected List<Point> GetPoints(object[] values, out double baselineY, bool ignorePreviousClose = false)
         {
             baselineY = 0;
             // values[0]: History (List<double>)
@@ -24,8 +24,18 @@ namespace PortfolioWatch.Converters
                 List<DateTime>? timestamps = (values.Length > 3) ? values[3] as List<DateTime> : null;
                 string selectedRange = (values.Length > 4) ? values[4] as string ?? "1d" : "1d";
 
-                double min = Math.Min(history.Min(), previousClose);
-                double max = Math.Max(history.Max(), previousClose);
+                double min, max;
+                if (ignorePreviousClose)
+                {
+                    min = history.Min();
+                    max = history.Max();
+                }
+                else
+                {
+                    min = Math.Min(history.Min(), previousClose);
+                    max = Math.Max(history.Max(), previousClose);
+                }
+
                 double range = max - min;
                 if (range == 0) range = 1;
 
@@ -292,6 +302,53 @@ namespace PortfolioWatch.Converters
                 return geometry;
             }
             return Geometry.Empty;
+        }
+    }
+
+    public class SparklineSimpleConverter : SparklineBaseConverter
+    {
+        public override object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            var points = GetPoints(values, out double baselineY, ignorePreviousClose: true);
+            if (points.Count < 2) return Geometry.Empty;
+
+            string mode = parameter as string ?? "Line"; // "Line" or "Area"
+
+            StreamGeometry geometry = new StreamGeometry();
+            using (StreamGeometryContext ctx = geometry.Open())
+            {
+                // Force bounds
+                ctx.BeginFigure(new Point(0, 0), false, false);
+                ctx.BeginFigure(new Point(60, 20), false, false);
+
+                if (mode == "Area")
+                {
+                    // Start at bottom-left
+                    ctx.BeginFigure(new Point(points[0].X, 20), true, true); // Filled, Closed
+                    ctx.LineTo(points[0], true, true);
+                    
+                    foreach (var p in points.Skip(1))
+                    {
+                        ctx.LineTo(p, true, true);
+                    }
+
+                    // Line to bottom-right
+                    ctx.LineTo(new Point(points.Last().X, 20), true, true);
+                    // Figure closes automatically to start point (bottom-left)
+                }
+                else
+                {
+                    // Line mode
+                    ctx.BeginFigure(points[0], false, false); // Not filled, Not closed
+                    
+                    foreach (var p in points.Skip(1))
+                    {
+                        ctx.LineTo(p, true, true);
+                    }
+                }
+            }
+            geometry.Freeze();
+            return geometry;
         }
     }
 }

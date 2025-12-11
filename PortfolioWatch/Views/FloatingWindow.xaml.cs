@@ -34,6 +34,7 @@ namespace PortfolioWatch.Views
         private DispatcherTimer _hoverTimer;
         private DispatcherTimer _topmostTimer;
         public bool IsUserMoving { get; private set; }
+        public bool IsContextMenuOpen { get; private set; }
 
         public FloatingWindow()
         {
@@ -80,6 +81,8 @@ namespace PortfolioWatch.Views
             if (MainBorder.ContextMenu != null)
             {
                 MainBorder.ContextMenu.DataContext = this.DataContext;
+                MainBorder.ContextMenu.Opened += (s, args) => IsContextMenuOpen = true;
+                MainBorder.ContextMenu.Closed += (s, args) => IsContextMenuOpen = false;
             }
 
             MainBorder.MouseMove += Border_MouseMove;

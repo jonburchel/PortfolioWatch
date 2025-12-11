@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Input;
 using PortfolioWatch.Models;
 using PortfolioWatch.Services;
 using PortfolioWatch.Views;
+using PortfolioWatch.Helpers;
 
 namespace PortfolioWatch.ViewModels
 {
@@ -20,6 +21,7 @@ namespace PortfolioWatch.ViewModels
         private readonly IStockService _stockService;
         private readonly SettingsService _settingsService;
         private readonly UpdateService _updateService;
+        private readonly GeminiService _geminiService;
         private readonly DispatcherTimer _timer;
         private readonly DispatcherTimer _earningsTimer;
         private readonly DispatcherTimer _newsTimer;
@@ -486,20 +488,32 @@ namespace PortfolioWatch.ViewModels
                 var searchResult = await _stockService.SearchStocksAsync(value);
                 if (token.IsCancellationRequested) return;
 
-                if (!searchResult.Success || searchResult.Data == null)
+                var searchResultsList = new System.Collections.Generic.List<StockSearchResult>();
+
+                // Check for CUSIP
+                if (CusipHelper.IsValidCusip(value))
+                {
+                    searchResultsList.Add(new StockSearchResult 
+                    { 
+                        Symbol = value.ToUpper(), 
+                        Name = "Privately tracked CUSIP" 
+                    });
+                }
+
+                if (searchResult.Success && searchResult.Data != null)
+                {
+                    foreach (var result in searchResult.Data)
+                    {
+                        searchResultsList.Add(new StockSearchResult { Symbol = result.Symbol, Name = result.Name });
+                    }
+                }
+                else if (searchResultsList.Count == 0)
                 {
                     StatusMessage = searchResult.ErrorMessage ?? "Search failed";
                     return;
                 }
 
                 SearchResults.Clear();
-                var searchResultsList = new System.Collections.Generic.List<StockSearchResult>();
-
-                foreach (var result in searchResult.Data)
-                {
-                    searchResultsList.Add(new StockSearchResult { Symbol = result.Symbol, Name = result.Name });
-                }
-
                 // Initial display without quotes
                 foreach (var item in searchResultsList)
                 {
@@ -560,6 +574,7 @@ namespace PortfolioWatch.ViewModels
             _stockService = new StockService();
             _settingsService = new SettingsService();
             _updateService = new UpdateService();
+            _geminiService = new GeminiService();
             
             _timer = new DispatcherTimer
             {
@@ -1056,7 +1071,15 @@ namespace PortfolioWatch.ViewModels
         {
             if (result != null)
             {
-                AddStockInternal(result.Symbol, result.Name);
+                if (CusipHelper.IsValidCusip(result.Symbol))
+                {
+                    NewSymbol = result.Symbol;
+                    _ = AddStock();
+                }
+                else
+                {
+                    AddStockInternal(result.Symbol, result.Name);
+                }
             }
         }
 
@@ -1122,7 +1145,117 @@ namespace PortfolioWatch.ViewModels
                 }
                 else
                 {
-                    StatusMessage = result.ErrorMessage ?? "Failed to find stock details";
+                    // Check for CUSIP
+                    if (CusipHelper.IsValidCusip(NewSymbol))
+                    {
+                        if (SelectedTab != null && SelectedTab.Stocks.Any(s => s.Symbol == NewSymbol))
+                        {
+                            StatusMessage = $"{NewSymbol} is already in the list.";
+                            NewSymbol = string.Empty;
+                            IsSearchPopupOpen = false;
+                            return;
+                        }
+
+                        var importWindow = new CusipImportWindow(NewSymbol);
+                        if (ShowDialog(importWindow) == true)
+                        {
+                            // User provided details
+                            string name = importWindow.FundName;
+                            double quantity = importWindow.Quantity;
+                            decimal totalValue = importWindow.TotalValue;
+                            
+                        // Lookup tracking symbol
+                        string? trackingSymbol = null;
+                        
+                        var progressDialog = new ConfirmationWindow("Searching", "Identifying the best public tracking fund...", isAlert: true);
+                        
+                        progressDialog.AutoRunTask = async () =>
+                        {
+                            trackingSymbol = await _geminiService.LookupSymbolAsync(NewSymbol, name);
+                            
+                            if (trackingSymbol != null && trackingSymbol != "Untrackable")
+                                progressDialog.SuccessMessage = "Search complete. The CUSIP will be tracked through public fund " + trackingSymbol + ".";
+                            else
+                                progressDialog.SuccessMessage = "No suitable public tracking fund could be found for this private CUSIP. It is not trackable with Portfolio Watch.";
+                        };
+                        
+                        ShowDialog(progressDialog);
+                        
+                        if (trackingSymbol == "Untrackable") trackingSymbol = null;
+
+                        var stock = new Stock
+                            {
+                                Symbol = NewSymbol,
+                                Name = name,
+                                Shares = quantity,
+                                IsCusip = true,
+                                TrackingFundSymbol = trackingSymbol ?? string.Empty
+                            };
+
+                            if (!string.IsNullOrEmpty(trackingSymbol))
+                            {
+                                // Fetch tracking fund price
+                                var quotes = await _stockService.GetQuotesAsync(new[] { trackingSymbol });
+                                if (quotes.Success && quotes.Data != null && quotes.Data.Count > 0)
+                                {
+                                    var quote = quotes.Data[0];
+                                    if (quote.Price > 0)
+                                    {
+                                        // Calculate TrackingShares
+                                        // TotalValue = TrackingShares * Price
+                                        // TrackingShares = TotalValue / Price
+                                        stock.TrackingShares = (double)(totalValue / (decimal)quote.Price.Value);
+                                        
+                                        // Calculate Conversion Ratio
+                                        // Ratio = TrackingShares / UserShares
+                                        if (quantity > 0)
+                                        {
+                                            stock.CusipConversionRatio = stock.TrackingShares / quantity;
+                                        }
+
+                                        stock.TrackingFundName = quote.Name;
+                                        
+                                        // Set initial price for display (it will be updated by service later)
+                                        stock.Price = (decimal)(quote.Price ?? 0);
+                                        stock.Change = (decimal)(quote.Change ?? 0);
+                                        stock.ChangePercent = quote.ChangePercent ?? 0;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // Untrackable: Just set price manually based on value?
+                                // Price = TotalValue / Quantity
+                                if (quantity > 0)
+                                {
+                                    stock.Price = totalValue / (decimal)quantity;
+                                }
+                            }
+
+                            // Add to list
+                            if (SelectedTab != null && !SelectedTab.IsAddButton)
+                            {
+                                SelectedTab.Stocks.Add(stock);
+                                stock.PropertyChanged += Stock_PropertyChanged;
+                                UpdateServiceStocks();
+                                SaveStocks();
+                                CalculatePortfolioTotals();
+                                ApplySortInternal();
+                            }
+                            
+                            NewSymbol = string.Empty;
+                            IsSearchPopupOpen = false;
+                            StatusMessage = "Fund added.";
+
+                            // Trigger background update to fetch chart data immediately
+                            _ = _stockService.UpdatePricesAsync(SelectedRange);
+                            _ = _stockService.UpdateAuxiliaryDataAsync();
+                        }
+                    }
+                    else
+                    {
+                        StatusMessage = result.ErrorMessage ?? "Failed to find stock details";
+                    }
                 }
             }
         }
@@ -1411,6 +1544,12 @@ namespace PortfolioWatch.ViewModels
                                 // NewShares = TargetStockValue / Price
                                 decimal targetStockValue = targetValue * weight;
                                 newShares = (double)(targetStockValue / stock.Price);
+
+                                // If CUSIP, convert tracking shares back to user shares
+                                if (stock.IsCusip && stock.CusipConversionRatio > 0)
+                                {
+                                    newShares = newShares / stock.CusipConversionRatio;
+                                }
                             }
 
                             // Create a copy with normalized shares (or 0 for watchlist items)
@@ -1484,6 +1623,7 @@ namespace PortfolioWatch.ViewModels
 
                             // Select and scroll to new tab
                             SelectedTab = newTab;
+                            IsMergedView = false;
                             RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
                             RequestShowAndPin?.Invoke(this, EventArgs.Empty);
                             
@@ -1581,36 +1721,76 @@ namespace PortfolioWatch.ViewModels
             await Task.Yield(); // Ensure async execution context
             var importWindow = new ScreenshotImportWindow();
             
-            // The window now handles the AI processing internally and returns true only when done
-            if (ShowDialog(importWindow) == true && importWindow.ParsedHoldings.Count > 0)
+            // Local variables to hold results from the processing action
+            var newTabs = new System.Collections.Generic.List<PortfolioTabViewModel>();
+            var untrackableCusips = new System.Collections.Generic.List<ParsedHolding>();
+            int tabsCreated = 0;
+
+            importWindow.ProcessHoldingsAction = async (parsedHoldings) =>
             {
-                try
+                // Group by AccountName
+                var groupedHoldings = parsedHoldings.GroupBy(h => string.IsNullOrWhiteSpace(h.AccountName) ? $"Imported {DateTime.Now:g}" : h.AccountName);
+
+                foreach (var group in groupedHoldings)
                 {
-                    var parsedHoldings = importWindow.ParsedHoldings;
-                    StatusMessage = $"Importing {parsedHoldings.Count} holdings...";
-
-                    // Group by AccountName
-                    var groupedHoldings = parsedHoldings.GroupBy(h => string.IsNullOrWhiteSpace(h.AccountName) ? $"Imported {DateTime.Now:g}" : h.AccountName);
-                    int tabsCreated = 0;
-                    PortfolioTabViewModel? firstNewTab = null;
-
-                    foreach (var group in groupedHoldings)
+                    var tabName = group.Key;
+                    // Ensure unique name (check against existing Tabs AND newTabs being created)
+                    int counter = 1;
+                    string uniqueName = tabName;
+                    while (Tabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)) || 
+                           newTabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        var tabName = group.Key;
-                        // Ensure unique name
-                        int counter = 1;
-                        string uniqueName = tabName;
-                        while (Tabs.Any(t => t.Name.Equals(uniqueName, StringComparison.OrdinalIgnoreCase)))
+                        uniqueName = $"{tabName} {counter++}";
+                    }
+
+                    var newTab = new PortfolioTabViewModel(new PortfolioTab 
+                    { 
+                        Name = uniqueName
+                    });
+
+                    foreach (var item in group)
+                    {
+                        if (CusipHelper.IsValidCusip(item.Symbol))
                         {
-                            uniqueName = $"{tabName} {counter++}";
+                            string trackingSymbol = await _geminiService.LookupSymbolAsync(item.Symbol, item.Name);
+
+                            if (trackingSymbol != null && trackingSymbol != "Untrackable")
+                            {
+                                var stock = new Stock
+                                {
+                                    Symbol = item.Symbol,
+                                    Name = item.Name,
+                                    Shares = item.Quantity,
+                                    IsCusip = true,
+                                    TrackingFundSymbol = trackingSymbol
+                                };
+
+                                // Fetch tracking fund price
+                                var quotes = await _stockService.GetQuotesAsync(new[] { trackingSymbol });
+                                if (quotes.Success && quotes.Data != null && quotes.Data.Count > 0)
+                                {
+                                    var quote = quotes.Data[0];
+                                    if (quote.Price > 0)
+                                    {
+                                        stock.TrackingShares = (double)(item.Value / quote.Price.Value);
+                                        if (item.Quantity > 0)
+                                        {
+                                            stock.CusipConversionRatio = stock.TrackingShares / item.Quantity;
+                                        }
+                                        stock.TrackingFundName = quote.Name;
+                                        stock.Price = (decimal)(quote.Price ?? 0);
+                                        stock.Change = (decimal)(quote.Change ?? 0);
+                                        stock.ChangePercent = quote.ChangePercent ?? 0;
+                                    }
+                                }
+                                newTab.Stocks.Add(stock);
+                            }
+                            else
+                            {
+                                untrackableCusips.Add(item);
+                            }
                         }
-
-                        var newTab = new PortfolioTabViewModel(new PortfolioTab 
-                        { 
-                            Name = uniqueName
-                        });
-
-                        foreach (var item in group)
+                        else
                         {
                             var stock = new Stock
                             {
@@ -1618,32 +1798,60 @@ namespace PortfolioWatch.ViewModels
                                 Name = item.Name,
                                 Shares = item.Quantity
                             };
-                            
-                            // If we have Value but 0 Shares (e.g. cash or error), try to preserve value?
-                            // But Stock model calculates Value from Shares * Price.
-                            // If we don't have a price yet, Value will be 0.
-                            // We'll rely on the update service to fetch price and calculate value.
-                            // If it's a manual/private asset, it might not work well without a price source.
-                            // But per instructions, we just import what we have.
-
-                            // Fetch initial data
-                            stock.PropertyChanged += Stock_PropertyChanged;
                             newTab.Stocks.Add(stock);
                         }
+                    }
+                    
+                    // Batch fetch prices for regular stocks in this tab
+                    var regularSymbols = newTab.Stocks.Where(s => !s.IsCusip).Select(s => s.Symbol).ToList();
+                    if (regularSymbols.Any())
+                    {
+                         var quotes = await _stockService.GetQuotesAsync(regularSymbols);
+                         if (quotes.Success && quotes.Data != null)
+                         {
+                             foreach(var quote in quotes.Data)
+                             {
+                                 var s = newTab.Stocks.FirstOrDefault(x => x.Symbol == quote.Symbol);
+                                 if (s != null)
+                                 {
+                                     s.Price = (decimal)(quote.Price ?? 0);
+                                     s.Change = (decimal)(quote.Change ?? 0);
+                                     s.ChangePercent = quote.ChangePercent ?? 0;
+                                 }
+                             }
+                         }
+                    }
 
-                        // Add tab
+                    newTabs.Add(newTab);
+                    tabsCreated++;
+                }
+            };
+            
+            if (ShowDialog(importWindow) == true && newTabs.Count > 0)
+            {
+                try
+                {
+                    StatusMessage = $"Importing {newTabs.Count} tabs...";
+                    
+                    PortfolioTabViewModel? firstNewTab = null;
+
+                    foreach (var newTab in newTabs)
+                    {
+                        // Wire up events
                         newTab.PropertyChanged += Tab_PropertyChanged;
                         newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
                         newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
-                        
+                        foreach (var stock in newTab.Stocks)
+                        {
+                            stock.PropertyChanged += Stock_PropertyChanged;
+                        }
+
                         if (Tabs.Count > 0) Tabs.Insert(Tabs.Count - 1, newTab);
                         else Tabs.Add(newTab);
 
                         if (firstNewTab == null) firstNewTab = newTab;
-                        tabsCreated++;
                     }
 
-                    // Select the first of the new tabs and scroll to it
                     if (firstNewTab != null)
                     {
                         SelectedTab = firstNewTab;
@@ -1654,15 +1862,31 @@ namespace PortfolioWatch.ViewModels
                     UpdateServiceStocks();
                     SaveStocks();
                     
-                    // Trigger update
+                    // Trigger background update for history/aux data
                     _ = _stockService.UpdatePricesAsync(SelectedRange);
                     _ = _stockService.UpdateAuxiliaryDataAsync();
                     
-                    StatusMessage = $"Imported {parsedHoldings.Count} holdings into {tabsCreated} tabs.";
+                    StatusMessage = $"Imported {tabsCreated} tabs.";
+
+                    if (untrackableCusips.Count > 0)
+                    {
+                        var sb = new System.Text.StringBuilder();
+                        sb.AppendLine("The following CUSIPs could not be tracked and were excluded from import:");
+                        sb.AppendLine();
+                        foreach (var c in untrackableCusips)
+                        {
+                            sb.AppendLine($"- {c.Symbol} ({c.Name})");
+                            sb.AppendLine($"  Shares: {c.Quantity}, Value: {c.Value:C}");
+                            sb.AppendLine();
+                        }
+                        
+                        var warningDialog = new ConfirmationWindow("Import Warning", sb.ToString(), isAlert: true, icon: "⚠️");
+                        ShowDialog(warningDialog);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    var errorDialog = new ConfirmationWindow("Error", $"Import failed: {ex.Message}", isAlert: true);
+                    var errorDialog = new ConfirmationWindow("Error", $"Import finalization failed: {ex.Message}", isAlert: true);
                     ShowDialog(errorDialog);
                 }
             }
@@ -1700,87 +1924,40 @@ namespace PortfolioWatch.ViewModels
                     return;
                 }
 
-                if (prompt.Result == ImportAction.Replace)
-                {
-                    Tabs.Clear();
-                    WindowTitle = importedSettings.WindowTitle;
-                }
-                else if (prompt.Result == ImportAction.Merge)
-                {
-                    // Merge action - existing tabs will be unchecked by OnSelectedTabChanged when new tab is selected
-                }
-
-                PortfolioTabViewModel? firstImportedTab = null;
-
-                foreach (var tab in importedSettings.Tabs)
-                {
-                    var tabVm = new PortfolioTabViewModel(tab);
-                    
-                    // Uncheck all imported tabs by default
-                    // Wait, requirement says: "uncheck all existing tabs so that only the newly imported tab (which becomes active) is included in the total."
-                    // So imported tabs should probably be checked if they are going to be active?
-                    // But logic below sets SelectedTab = firstImportedTab.
-                    // And OnSelectedTabChanged forces IsIncludedInTotal = true.
-                    // So setting it to false here is fine, as long as we select it later.
-                    tabVm.IsIncludedInTotal = false;
-
-                    if (firstImportedTab == null) firstImportedTab = tabVm;
-
-                    tabVm.PropertyChanged += Tab_PropertyChanged;
-                    tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
-                    tabVm.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
-                    foreach (var stock in tabVm.Stocks)
-                    {
-                        stock.PropertyChanged += Stock_PropertyChanged;
-                    }
-                    
-                    // Insert before the Add Button (last index) if it exists
-                    if (Tabs.Count > 0 && Tabs.Last().IsAddButton)
-                    {
-                        Tabs.Insert(Tabs.Count - 1, tabVm);
-                    }
-                    else
-                    {
-                        Tabs.Add(tabVm);
-                    }
-                }
-
-                // Ensure Add Button exists if we replaced everything
-                if (!Tabs.Any(t => t.IsAddButton))
-                {
-                    Tabs.Add(new PortfolioTabViewModel(true));
-                }
-
-                // Disable Merged View on import
-                IsMergedView = false;
-
-                // Set active tab to the first imported tab
-                if (firstImportedTab != null)
-                {
-                    SelectedTab = firstImportedTab;
-                    RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
-                    RequestShowAndPin?.Invoke(this, EventArgs.Empty);
-                }
-                else if (Tabs.Count > 0)
-                {
-                    SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
-                }
-
-                UpdateServiceStocks();
-                SaveStocks();
-                CalculatePortfolioTotals();
-                ApplySortInternal();
-
                 // Show modal dialog for the async update process
                 var progressDialog = new ConfirmationWindow("Opening", "Opening portfolio...", isAlert: true)
                 {
                     AutoRunTask = async () =>
                     {
+                        StatusMessage = "Preparing portfolio...";
+                        
+                        // Build new tabs list locally
+                        var newTabs = new System.Collections.Generic.List<PortfolioTabViewModel>();
+                        PortfolioTabViewModel? firstImportedTab = null;
+
+                        foreach (var tab in importedSettings.Tabs)
+                        {
+                            var tabVm = new PortfolioTabViewModel(tab);
+                            tabVm.IsIncludedInTotal = false; // Default to unchecked
+
+                            if (firstImportedTab == null) firstImportedTab = tabVm;
+
+                            // Wire up events (can do this here, but adding to Tabs collection must be on UI thread)
+                            tabVm.PropertyChanged += Tab_PropertyChanged;
+                            tabVm.Stocks.CollectionChanged += Stocks_CollectionChanged;
+                            tabVm.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
+                            foreach (var stock in tabVm.Stocks)
+                            {
+                                stock.PropertyChanged += Stock_PropertyChanged;
+                            }
+                            
+                            newTabs.Add(tabVm);
+                        }
+
                         StatusMessage = "Fetching current prices...";
                         
-                        // 1. Fast fetch: Current Quotes only
-                        var allSymbols = Tabs.Where(t => !t.IsAddButton)
-                                             .SelectMany(t => t.Stocks)
+                        // Fast fetch: Current Quotes only
+                        var allSymbols = newTabs.SelectMany(t => t.Stocks)
                                              .Select(s => s.Symbol)
                                              .Distinct()
                                              .ToList();
@@ -1793,7 +1970,7 @@ namespace PortfolioWatch.ViewModels
                             {
                                 foreach (var quote in quotesResult.Data)
                                 {
-                                    foreach (var tab in Tabs)
+                                    foreach (var tab in newTabs)
                                     {
                                         var stocksToUpdate = tab.Stocks.Where(s => s.Symbol == quote.Symbol);
                                         foreach (var stock in stocksToUpdate)
@@ -1807,17 +1984,61 @@ namespace PortfolioWatch.ViewModels
                             }
                         }
 
-                        // 2. Update Totals (so user sees value immediately)
-                        CalculatePortfolioTotals();
-                        ApplySortInternal();
+                        // Update UI on Dispatcher
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                        {
+                            if (prompt.Result == ImportAction.Replace)
+                            {
+                                Tabs.Clear();
+                                WindowTitle = importedSettings.WindowTitle;
+                            }
+                            
+                            // Add new tabs
+                            foreach (var tab in newTabs)
+                            {
+                                if (Tabs.Count > 0 && Tabs.Last().IsAddButton)
+                                {
+                                    Tabs.Insert(Tabs.Count - 1, tab);
+                                }
+                                else
+                                {
+                                    Tabs.Add(tab);
+                                }
+                            }
+
+                            // Ensure Add Button exists
+                            if (!Tabs.Any(t => t.IsAddButton))
+                            {
+                                Tabs.Add(new PortfolioTabViewModel(true));
+                            }
+
+                            IsMergedView = false;
+
+                            if (firstImportedTab != null)
+                            {
+                                SelectedTab = firstImportedTab;
+                                RequestScrollToNewTab?.Invoke(this, EventArgs.Empty);
+                                RequestShowAndPin?.Invoke(this, EventArgs.Empty);
+                            }
+                            else if (Tabs.Count > 0)
+                            {
+                                SelectedTab = Tabs.FirstOrDefault(t => !t.IsAddButton) ?? Tabs[0];
+                            }
+
+                            UpdateServiceStocks();
+                            SaveStocks();
+                            CalculatePortfolioTotals();
+                            ApplySortInternal();
+                        });
                         
                         StatusMessage = "Open complete.";
                     },
                     SuccessMessage = "Open successful!"
                 };
+                
                 ShowDialog(progressDialog);
 
-                // 3. Run heavy updates (History/Graphs/Auxiliary) in background
+                // Run heavy updates (History/Graphs/Auxiliary) in background after dialog closes
                 _ = Task.Run(async () => 
                 {
                     await _stockService.UpdatePricesAsync(SelectedRange);
@@ -2074,7 +2295,8 @@ namespace PortfolioWatch.ViewModels
                                 priceAtTime = (double)stock.Price;
                             }
 
-                            pointValue += priceAtTime * (double)stock.Shares;
+                            double shares = stock.IsCusip ? stock.TrackingShares : stock.Shares;
+                            pointValue += priceAtTime * shares;
                         }
                     }
                     portfolioHistory.Add(pointValue);
@@ -2139,7 +2361,8 @@ namespace PortfolioWatch.ViewModels
                                 priceAtTime = (double)stock.Price;
                             }
 
-                            pointValue += priceAtTime * (double)stock.Shares;
+                            double shares = stock.IsCusip ? stock.TrackingShares : stock.Shares;
+                            pointValue += priceAtTime * shares;
                         }
                     }
                     intradayPortfolioHistory.Add(pointValue);
@@ -2206,6 +2429,12 @@ namespace PortfolioWatch.ViewModels
                 decimal tabValue = tab.Stocks.Sum(s => s.MarketValue);
                 tab.TotalValue = tabValue;
 
+                // Update Tax Allocation Values for this tab
+                foreach (var allocation in tab.TaxAllocations)
+                {
+                    allocation.Value = (double)tabValue * (allocation.Percentage / 100.0);
+                }
+
                 if (tab.IsIncludedInTotal && totalValue > 0)
                 {
                     tab.PortfolioPercentage = (double)(tabValue / totalValue);
@@ -2250,7 +2479,8 @@ namespace PortfolioWatch.ViewModels
                         newAggregateAllocations.Add(new TaxAllocation 
                         { 
                             Type = kvp.Key, 
-                            Percentage = percentage
+                            Percentage = percentage,
+                            Value = kvp.Value
                         });
                     }
                 }
@@ -2260,7 +2490,8 @@ namespace PortfolioWatch.ViewModels
                 newAggregateAllocations.Add(new TaxAllocation 
                 { 
                     Type = TaxStatusType.Unspecified, 
-                    Percentage = 100
+                    Percentage = 100,
+                    Value = 0
                 });
             }
             AggregateTaxAllocations = newAggregateAllocations;
@@ -2289,20 +2520,35 @@ namespace PortfolioWatch.ViewModels
         [RelayCommand]
         private void OpenStock(Stock stock)
         {
-            if (stock != null && !string.IsNullOrWhiteSpace(stock.Symbol))
+            if (stock != null)
             {
-                try
+                string symbolToOpen = stock.Symbol;
+                bool useMorningstar = false;
+
+                if (stock.IsCusip && !string.IsNullOrEmpty(stock.TrackingFundSymbol))
                 {
-                    var url = $"https://finance.yahoo.com/quote/{stock.Symbol}";
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = url,
-                        UseShellExecute = true
-                    });
+                    symbolToOpen = stock.TrackingFundSymbol;
+                    useMorningstar = true;
                 }
-                catch (Exception ex)
+
+                if (!string.IsNullOrWhiteSpace(symbolToOpen))
                 {
-                    StatusMessage = $"Failed to open link: {ex.Message}";
+                    try
+                    {
+                        var url = useMorningstar 
+                            ? $"https://www.morningstar.com/funds/xnas/{symbolToOpen}/quote"
+                            : $"https://finance.yahoo.com/quote/{symbolToOpen}";
+
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = url,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusMessage = $"Failed to open link: {ex.Message}";
+                    }
                 }
             }
         }

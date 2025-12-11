@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
@@ -13,17 +11,12 @@ namespace PortfolioWatch.Services
 {
     public class GeminiService
     {
-        private const string GeminiApiKey = "AIzaSyAgvj5TDE4h6CAhdyjqHEu0oQz-h5vCaxc";
-        private const string GeminiProjectName = "projects/522850341164";
-        private const string GeminiProjectNumber = "522850341164";
-        private const string GeminiApiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+        // TODO: Update this URL if you redeploy to a different address
+        private const string BaseUrl = "https://portfolio-watch-eghnhrb0fgd0gyb3.centralus-01.azurewebsites.net";
 
-        public async Task<string> AnalyzeScreenshotAsync(List<BitmapSource> images, string prompt)
+        public async Task<string> AnalyzeScreenshotAsync(List<BitmapSource> images)
         {
-            var imageParts = new List<object>();
-            
-            // Add prompt first
-            imageParts.Add(new { text = prompt });
+            var base64Images = new List<string>();
 
             foreach (var img in images)
             {
@@ -34,29 +27,19 @@ namespace PortfolioWatch.Services
                     encoder.Save(ms);
                     byte[] bytes = ms.ToArray();
                     string base64 = Convert.ToBase64String(bytes);
-                    
-                    imageParts.Add(new 
-                    { 
-                        inline_data = new 
-                        { 
-                            mime_type = "image/png", 
-                            data = base64 
-                        } 
-                    });
+                    base64Images.Add(base64);
                 }
             }
 
-            return await SendRequestAsync(imageParts);
+            return await SendRequestAsync(base64Images);
         }
 
-        private async Task<string> SendRequestAsync(List<object> parts)
+        public async Task<string> LookupSymbolAsync(string cusip, string companyName)
         {
             var payload = new
             {
-                contents = new[]
-                {
-                    new { parts = parts }
-                }
+                Cusip = cusip,
+                CompanyName = companyName
             };
 
             string jsonPayload = JsonSerializer.Serialize(payload);
@@ -64,27 +47,62 @@ namespace PortfolioWatch.Services
             using (var client = new HttpClient())
             {
                 var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-                var response = await client.PostAsync($"{GeminiApiUrl}?key={GeminiApiKey}", content);
+                var response = await client.PostAsync($"{BaseUrl}/lookup-symbol", content);
                 
                 if (!response.IsSuccessStatusCode)
                 {
-                    string errorBody = await response.Content.ReadAsStringAsync();
-                    throw new Exception($"API Error ({response.StatusCode}): {errorBody}");
+                    return "Untrackable";
                 }
 
                 string responseJson = await response.Content.ReadAsStringAsync();
                 
                 using (JsonDocument doc = JsonDocument.Parse(responseJson))
                 {
-                    if (doc.RootElement.TryGetProperty("candidates", out JsonElement candidates) && candidates.GetArrayLength() > 0)
+                    if (doc.RootElement.TryGetProperty("text", out JsonElement textElem))
                     {
-                        var firstCandidate = candidates[0];
-                        if (firstCandidate.TryGetProperty("content", out JsonElement contentElem) && 
-                            contentElem.TryGetProperty("parts", out JsonElement contentParts) && 
-                            contentParts.GetArrayLength() > 0)
-                        {
-                            return contentParts[0].GetProperty("text").GetString() ?? string.Empty;
-                        }
+                        return textElem.GetString() ?? "Untrackable";
+                    }
+                    if (doc.RootElement.TryGetProperty("Text", out JsonElement textElemUpper))
+                    {
+                        return textElemUpper.GetString() ?? "Untrackable";
+                    }
+                }
+            }
+            return "Untrackable";
+        }
+
+        private async Task<string> SendRequestAsync(List<string> images)
+        {
+            var payload = new
+            {
+                Images = images
+            };
+
+            string jsonPayload = JsonSerializer.Serialize(payload);
+
+            using (var client = new HttpClient())
+            {
+                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                var response = await client.PostAsync($"{BaseUrl}/analyze", content);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorBody = await response.Content.ReadAsStringAsync();
+                    throw new Exception($"Service Error ({response.StatusCode}): {errorBody}");
+                }
+
+                string responseJson = await response.Content.ReadAsStringAsync();
+                
+                using (JsonDocument doc = JsonDocument.Parse(responseJson))
+                {
+                    if (doc.RootElement.TryGetProperty("text", out JsonElement textElem))
+                    {
+                        return textElem.GetString() ?? string.Empty;
+                    }
+                    // Fallback for case-insensitive property matching if needed, though System.Text.Json is case-sensitive by default
+                    if (doc.RootElement.TryGetProperty("Text", out JsonElement textElemUpper))
+                    {
+                        return textElemUpper.GetString() ?? string.Empty;
                     }
                 }
             }

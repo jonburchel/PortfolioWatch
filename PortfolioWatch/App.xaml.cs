@@ -30,6 +30,7 @@ namespace PortfolioWatch
         private bool _currentIsRight;
 
         public static App CurrentApp => (App)Current;
+        public FloatingWindow? FloatingWindow => _floatingWindow;
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]

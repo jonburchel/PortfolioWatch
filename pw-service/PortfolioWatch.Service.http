@@ -1,0 +1,6 @@
+@PortfolioWatch.Service_HostAddress = http://localhost:5198
+
+GET {{PortfolioWatch.Service_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

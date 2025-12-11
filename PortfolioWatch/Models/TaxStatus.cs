@@ -17,6 +17,9 @@ namespace PortfolioWatch.Models
         public double Percentage { get; set; }
 
         [JsonIgnore]
+        public double Value { get; set; }
+
+        [JsonIgnore]
         public string Name => Type switch
         {
             TaxStatusType.Unspecified => "Unspecified",

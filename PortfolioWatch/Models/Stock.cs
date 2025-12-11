@@ -123,10 +123,70 @@ namespace PortfolioWatch.Models
             {
                 if (SetProperty(ref _shares, value))
                 {
+                    if (IsCusip && CusipConversionRatio > 0)
+                    {
+                        TrackingShares = value * CusipConversionRatio;
+                    }
                     OnPropertyChanged(nameof(MarketValue));
                     OnPropertyChanged(nameof(DayChangeValue));
+                    OnPropertyChanged(nameof(IntradayChangeValue));
                 }
             }
+        }
+
+        // --- CUSIP Tracking ---
+        private bool _isCusip;
+        public bool IsCusip
+        {
+            get => _isCusip;
+            set
+            {
+                if (SetProperty(ref _isCusip, value))
+                {
+                    OnPropertyChanged(nameof(MarketValue));
+                    OnPropertyChanged(nameof(DayChangeValue));
+                    OnPropertyChanged(nameof(IntradayChangeValue));
+                    OnPropertyChanged(nameof(CusipEmoji));
+                }
+            }
+        }
+
+        public string CusipEmoji => IsCusip ? "⭐" : string.Empty;
+
+        private string _trackingFundSymbol = string.Empty;
+        public string TrackingFundSymbol
+        {
+            get => _trackingFundSymbol;
+            set => SetProperty(ref _trackingFundSymbol, value);
+        }
+
+        private string _trackingFundName = string.Empty;
+        public string TrackingFundName
+        {
+            get => _trackingFundName;
+            set => SetProperty(ref _trackingFundName, value);
+        }
+
+        private double _trackingShares;
+        public double TrackingShares
+        {
+            get => _trackingShares;
+            set
+            {
+                if (SetProperty(ref _trackingShares, value))
+                {
+                    OnPropertyChanged(nameof(MarketValue));
+                    OnPropertyChanged(nameof(DayChangeValue));
+                    OnPropertyChanged(nameof(IntradayChangeValue));
+                }
+            }
+        }
+
+        private double _cusipConversionRatio;
+        public double CusipConversionRatio
+        {
+            get => _cusipConversionRatio;
+            set => SetProperty(ref _cusipConversionRatio, value);
         }
 
         private decimal _marketCap;
@@ -143,9 +203,9 @@ namespace PortfolioWatch.Models
             }
         }
 
-        public decimal MarketValue => (decimal)Shares * Price;
+        public decimal MarketValue => IsCusip ? (decimal)TrackingShares * Price : (decimal)Shares * Price;
 
-        public decimal DayChangeValue => (decimal)Shares * Change;
+        public decimal DayChangeValue => IsCusip ? (decimal)TrackingShares * Change : (decimal)Shares * Change;
 
         // --- Intraday Specific Properties (Always 1D) ---
 
@@ -186,7 +246,7 @@ namespace PortfolioWatch.Models
             set => SetProperty(ref _intradayTimestamps, value);
         }
 
-        public decimal IntradayChangeValue => (decimal)Shares * IntradayChange;
+        public decimal IntradayChangeValue => IsCusip ? (decimal)TrackingShares * IntradayChange : (decimal)Shares * IntradayChange;
 
         // ------------------------------------------------
 
@@ -798,7 +858,12 @@ namespace PortfolioWatch.Models
                 NetInsiderTransactionValue = this.NetInsiderTransactionValue,
                 InsiderTransactions = new List<InsiderTransaction>(this.InsiderTransactions),
                 CurrentVolume = this.CurrentVolume,
-                AverageVolumeByTimeOfDay = this.AverageVolumeByTimeOfDay
+                AverageVolumeByTimeOfDay = this.AverageVolumeByTimeOfDay,
+                IsCusip = this.IsCusip,
+                TrackingFundSymbol = this.TrackingFundSymbol,
+                TrackingFundName = this.TrackingFundName,
+                TrackingShares = this.TrackingShares,
+                CusipConversionRatio = this.CusipConversionRatio
             };
         }
     }

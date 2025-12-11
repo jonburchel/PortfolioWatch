@@ -87,6 +87,7 @@ namespace PortfolioWatch
 
         private bool _isModalOpen;
         private bool _isFirstLoad = true;
+        private DateTime _lastScrollClickTime = DateTime.MinValue;
         private DispatcherTimer _autoHideTimer;
         private DispatcherTimer _tabScrollTimer;
         private DispatcherTimer _topmostTimer;
@@ -179,6 +180,12 @@ namespace PortfolioWatch
             // Avoid interfering with mouse tracking while the user is interacting with the window
             if (this.IsMouseOver) return;
 
+            // Don't enforce topmost if the floating window context menu is open
+            if (App.CurrentApp.FloatingWindow?.IsContextMenuOpen == true) return;
+
+            // Don't enforce topmost if any popup is open (to prevent z-fighting)
+            if (NewsPopup.IsOpen || EarningsPopup.IsOpen || OptionsPopup.IsOpen || InsiderPopup.IsOpen || RVolPopup.IsOpen) return;
+
             // Only enforce topmost if we are visible and not minimized
             if (this.Visibility == Visibility.Visible && this.WindowState != WindowState.Minimized)
             {
@@ -194,6 +201,52 @@ namespace PortfolioWatch
             AnimateIn();
             Keyboard.ClearFocus();
             _isFirstLoad = false;
+
+            // Configure Scroll Buttons for smooth slide
+            var tabControl = this.FindName("MainTabControl") as TabControl;
+            if (tabControl != null)
+            {
+                tabControl.PreviewMouseWheel += MainTabControl_PreviewMouseWheel;
+                tabControl.ApplyTemplate();
+                if (tabControl.Template.FindName("ScrollLeftButton", tabControl) is RepeatButton leftBtn)
+                {
+                    leftBtn.Interval = 20; // Fast repeat for smooth slide
+                }
+                if (tabControl.Template.FindName("ScrollRightButton", tabControl) is RepeatButton rightBtn)
+                {
+                    rightBtn.Interval = 20;
+                }
+            }
+        }
+
+        private void MainTabControl_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (_headerScrollViewer == null)
+            {
+                var tabControl = sender as TabControl;
+                if (tabControl != null)
+                {
+                    _headerScrollViewer = tabControl.Template.FindName("HeaderScrollViewer", tabControl) as ScrollViewer;
+                }
+            }
+
+            if (_headerScrollViewer != null && _headerScrollViewer.IsMouseOver)
+            {
+                // Smooth scroll: e.Delta is usually 120.
+                // We want a "nice smooth mouse scroll".
+                double scrollAmount = e.Delta * 0.5;
+
+                if (e.Delta > 0) // Wheel Up -> Scroll Left
+                {
+                    _headerScrollViewer.ScrollToHorizontalOffset(_headerScrollViewer.HorizontalOffset - Math.Abs(scrollAmount));
+                }
+                else // Wheel Down -> Scroll Right
+                {
+                    _headerScrollViewer.ScrollToHorizontalOffset(_headerScrollViewer.HorizontalOffset + Math.Abs(scrollAmount));
+                }
+
+                e.Handled = true;
+            }
         }
 
         private void MainWindow_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -1251,25 +1304,86 @@ namespace PortfolioWatch
 
         private void ScrollLeftButton_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is RepeatButton btn && btn.TemplatedParent is TabControl tabControl)
-            {
-                var scrollViewer = tabControl.Template.FindName("HeaderScrollViewer", tabControl) as ScrollViewer;
-                if (scrollViewer != null)
-                {
-                    scrollViewer.ScrollToHorizontalOffset(scrollViewer.HorizontalOffset - 20);
-                }
-            }
+            HandleScrollClick(sender, -1);
         }
 
         private void ScrollRightButton_Click(object sender, RoutedEventArgs e)
+        {
+            HandleScrollClick(sender, 1);
+        }
+
+        private void HandleScrollClick(object sender, int direction)
         {
             if (sender is RepeatButton btn && btn.TemplatedParent is TabControl tabControl)
             {
                 var scrollViewer = tabControl.Template.FindName("HeaderScrollViewer", tabControl) as ScrollViewer;
                 if (scrollViewer != null)
                 {
-                    scrollViewer.ScrollToHorizontalOffset(scrollViewer.HorizontalOffset + 20);
+                    var now = DateTime.Now;
+                    var diff = (now - _lastScrollClickTime).TotalMilliseconds;
+                    _lastScrollClickTime = now;
+
+                    // If time since last click is large (initial click or delayed repeat), Snap.
+                    // If small (interval repeat), Slide.
+                    if (diff > 100)
+                    {
+                        SnapToTab(tabControl, scrollViewer, direction);
+                    }
+                    else
+                    {
+                        scrollViewer.ScrollToHorizontalOffset(scrollViewer.HorizontalOffset + (direction * 15));
+                    }
                 }
+            }
+        }
+
+        private void SnapToTab(TabControl tabControl, ScrollViewer scrollViewer, int direction)
+        {
+            double currentOffset = scrollViewer.HorizontalOffset;
+            double targetOffset = currentOffset;
+            double minDistance = double.MaxValue;
+
+            foreach (var item in tabControl.Items)
+            {
+                if (tabControl.ItemContainerGenerator.ContainerFromItem(item) is TabItem tabItem)
+                {
+                    // Calculate absolute position of the tab
+                    var transform = tabItem.TransformToAncestor(scrollViewer);
+                    var pos = transform.Transform(new Point(0, 0));
+                    double absoluteX = pos.X + currentOffset;
+
+                    if (direction > 0) // Right
+                    {
+                        // Find closest tab starting to the right of current offset
+                        if (absoluteX > currentOffset + 5)
+                        {
+                            double dist = absoluteX - currentOffset;
+                            if (dist < minDistance)
+                            {
+                                minDistance = dist;
+                                targetOffset = absoluteX;
+                            }
+                        }
+                    }
+                    else // Left
+                    {
+                        // Find closest tab starting to the left of current offset
+                        if (absoluteX < currentOffset - 5)
+                        {
+                            double dist = currentOffset - absoluteX;
+                            if (dist < minDistance)
+                            {
+                                minDistance = dist;
+                                targetOffset = absoluteX;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (minDistance != double.MaxValue)
+            {
+                scrollViewer.ScrollToHorizontalOffset(targetOffset);
             }
         }
 

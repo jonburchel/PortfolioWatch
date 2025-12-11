@@ -11,6 +11,9 @@
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+pw-service/publish/
+publish/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

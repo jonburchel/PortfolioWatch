@@ -21,6 +21,7 @@ namespace PortfolioWatch.Views
     {
         public List<BitmapSource> CapturedImages { get; private set; } = new List<BitmapSource>();
         public List<ParsedHolding> ParsedHoldings { get; private set; } = new List<ParsedHolding>();
+        public Func<List<ParsedHolding>, Task>? ProcessHoldingsAction { get; set; }
         private readonly GeminiService _geminiService = new GeminiService();
 
         public ScreenshotImportWindow()
@@ -112,9 +113,7 @@ namespace PortfolioWatch.Views
             {
                 StatusText.Text = "The model is analyzing your portfolio...";
 
-                string prompt = "Please analyze these screenshots of a portfolio. Extract the holdings into a markdown table with columns: Account name (blank if not found anywhere on the page, but if there is an account name above a group of securities, all of them should be listed with that account name even if not explicitly stated beside each security), Company name (use symbol if unknown), Symbol, Quantity, and Total Value. For cash positions, use 'SPAXX' as the symbol and 'Cash' as the company name, and set the share count equal to the dollar value. IMPORTANT: If any of the extracted Account Names appears as a holding in another account (e.g. a 'BrokerageLink' account appearing as a line item), EXCLUDE that holding from the table. Output ONLY the markdown table. If you cannot extract the data at all, output 'ERROR: <reason>'. Do not include any conversational text.";
-
-                string text = await _geminiService.AnalyzeScreenshotAsync(CapturedImages, prompt);
+                string text = await _geminiService.AnalyzeScreenshotAsync(CapturedImages);
 
                 if (string.IsNullOrEmpty(text))
                 {
@@ -128,6 +127,12 @@ namespace PortfolioWatch.Views
                 {
                     string debugMsg = text.Length > 500 ? text.Substring(0, 500) + "..." : text;
                     throw new Exception($"AI did not return any valid holdings. Raw response start: {debugMsg}");
+                }
+
+                if (ProcessHoldingsAction != null)
+                {
+                    StatusText.Text = "Processing holdings details...";
+                    await ProcessHoldingsAction(ParsedHoldings);
                 }
 
                 DialogResult = true;

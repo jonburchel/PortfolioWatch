@@ -242,6 +242,13 @@ namespace PortfolioWatch.Services
             return stock;
         }
 
+        private string GetEffectiveSymbol(Stock stock)
+        {
+            return (stock.IsCusip && !string.IsNullOrEmpty(stock.TrackingFundSymbol)) 
+                ? stock.TrackingFundSymbol 
+                : stock.Symbol;
+        }
+
         private async Task UpdateAllStockDataAsync(Stock stock, string range)
         {
             await EnsureCrumbAsync();
@@ -375,8 +382,9 @@ namespace PortfolioWatch.Services
         {
             try
             {
+                string symbol = GetEffectiveSymbol(stock);
                 // Request more items initially to allow for filtering
-                var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={stock.Symbol}&newsCount=20";
+                var url = $"https://query1.finance.yahoo.com/v1/finance/search?q={symbol}&newsCount=20";
                 var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
@@ -489,7 +497,7 @@ namespace PortfolioWatch.Services
                                 // Avoid matching very short common words if they happen to be the name (unlikely for major stocks but safe to check)
                                 if (simpleName.Length < 3 && stock.Name.Contains(" ")) simpleName = stock.Name;
 
-                                bool containsSymbol = title.IndexOf(stock.Symbol, StringComparison.OrdinalIgnoreCase) >= 0;
+                                bool containsSymbol = title.IndexOf(symbol, StringComparison.OrdinalIgnoreCase) >= 0;
                                 bool containsName = title.IndexOf(simpleName, StringComparison.OrdinalIgnoreCase) >= 0;
 
                                 if (!containsSymbol && !containsName) continue;
@@ -579,6 +587,8 @@ namespace PortfolioWatch.Services
         {
             try
             {
+                string symbol = GetEffectiveSymbol(stock);
+
                 double ParseDouble(JsonElement element, string propName)
                 {
                     if (element.TryGetProperty(propName, out var prop))
@@ -590,7 +600,7 @@ namespace PortfolioWatch.Services
                 }
 
                 // 1. Check for recent earnings (Beat/Miss)
-                var surpriseUrl = $"https://api.nasdaq.com/api/company/{stock.Symbol}/earnings-surprise";
+                var surpriseUrl = $"https://api.nasdaq.com/api/company/{symbol}/earnings-surprise";
                 var surpriseResponse = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(surpriseUrl));
                 
                 using var surpriseDoc = JsonDocument.Parse(surpriseResponse);
@@ -640,7 +650,7 @@ namespace PortfolioWatch.Services
 
                 // 2. Check for upcoming earnings
                 // Use analyst endpoint as company endpoint often returns 404
-                var dateUrl = $"https://api.nasdaq.com/api/analyst/{stock.Symbol}/earnings-date";
+                var dateUrl = $"https://api.nasdaq.com/api/analyst/{symbol}/earnings-date";
                 var dateResponse = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(dateUrl));
                 
                 using var dateDoc = JsonDocument.Parse(dateResponse);
@@ -693,7 +703,8 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                var url = $"https://query2.finance.yahoo.com/v7/finance/options/{stock.Symbol}?crumb={_crumb}";
+                string symbol = GetEffectiveSymbol(stock);
+                var url = $"https://query2.finance.yahoo.com/v7/finance/options/{symbol}?crumb={_crumb}";
                 var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
@@ -805,7 +816,8 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{stock.Symbol}?modules=insiderTransactions,netSharePurchaseActivity,institutionOwnership&crumb={_crumb}";
+                string symbol = GetEffectiveSymbol(stock);
+                var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=insiderTransactions,netSharePurchaseActivity,institutionOwnership&crumb={_crumb}";
                 var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
@@ -877,7 +889,8 @@ namespace PortfolioWatch.Services
         {
             try
             {
-                var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{stock.Symbol}?modules=summaryDetail,price&crumb={_crumb}";
+                string symbol = GetEffectiveSymbol(stock);
+                var url = $"https://query2.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=summaryDetail,price&crumb={_crumb}";
                 var response = await ExecuteWithRetryAsync(() => _httpClient.GetStringAsync(url));
                 
                 using var doc = JsonDocument.Parse(response);
@@ -1026,8 +1039,10 @@ namespace PortfolioWatch.Services
         {
             try
             {
+                string symbol = GetEffectiveSymbol(stock);
+
                 // 1. Fetch Main Range Data
-                var mainData = await FetchChartDataAsync(stock.Symbol, range);
+                var mainData = await FetchChartDataAsync(symbol, range);
                 if (mainData == null) return;
 
                 // Update Stock Price immediately
@@ -1122,7 +1137,7 @@ namespace PortfolioWatch.Services
                     }
 
                     // Fetch Intraday Data Separately for Floating Window
-                    var intradayData = await FetchChartDataAsync(stock.Symbol, "1d");
+                    var intradayData = await FetchChartDataAsync(symbol, "1d");
                     if (intradayData != null)
                     {
                         if (intradayData.PreviousClose > 0)

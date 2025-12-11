@@ -188,6 +188,15 @@ The application uses a system of emoji-based flags to alert the user to signific
     *   **Read-Only**: Share counts in this view are read-only. To modify holdings, users must switch back to the specific tab where the stock resides.
     *   **Import Behavior**: Importing data while in Merged View automatically disables the view and switches to the imported tab (or the first valid tab) to prevent confusion.
 
+### 3.9. CUSIP Support
+*   **Overview**: The application supports tracking private CUSIPs (often used for private equity or specific fund classes) by mapping them to public equivalent funds.
+*   **Mechanism**:
+    *   **AI Resolution**: When a CUSIP is encountered, the system uses Gemini AI to identify a publicly traded fund that tracks the same underlying assets or index.
+    *   **Conversion Ratio**: The system calculates a "Tracking Ratio" to equate the private CUSIP's value to the public fund's share price. This ensures the portfolio value remains accurate even though the tracking symbol differs.
+*   **Entry Points**:
+    *   **Manual Search**: Entering a valid 9-character CUSIP in the main search bar triggers the resolution process. Users are prompted to confirm the fund name and quantity/value to establish the tracking baseline.
+    *   **Screenshot Import**: The screenshot import tool automatically detects CUSIPs in the image text. It attempts to resolve them in bulk during the import process, flagging any that cannot be tracked.
+
 ## 4. Data Persistence & Settings
 
 ### 4.1. Settings File
