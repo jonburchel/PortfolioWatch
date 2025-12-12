@@ -656,12 +656,12 @@ namespace PortfolioWatch.ViewModels
             SaveStocks();
         }
 
-        public void Initialize()
+        public void Initialize(AppSettings? preloadedSettings = null)
         {
-            LoadData();
+            LoadData(preloadedSettings);
         }
 
-        private async void LoadData()
+        private async void LoadData(AppSettings? preloadedSettings)
         {
             try
             {
@@ -672,7 +672,7 @@ namespace PortfolioWatch.ViewModels
                 IsBusy = true;
                 StatusMessage = "Loading data...";
                 
-                var settings = _settingsService.LoadSettings();
+                var settings = preloadedSettings ?? _settingsService.LoadSettings();
             
             // Restore sort settings
             SortProperty = settings.SortColumn;

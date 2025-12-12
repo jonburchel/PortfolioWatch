@@ -100,9 +100,6 @@ namespace PortfolioWatch
 
             base.OnStartup(e);
 
-            // Register file association
-            RegisterFileAssociation();
-
             // Check for startup file argument
             string? startupFile = null;
             if (e.Args.Length > 0 && System.IO.File.Exists(e.Args[0]))
@@ -113,22 +110,6 @@ namespace PortfolioWatch
             // System Theme Change Listener
             SystemEvents.UserPreferenceChanged += SystemEvents_UserPreferenceChanged;
             SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
-
-            try
-            {
-                // Initialize Tray Icon
-                _notifyIcon = new TaskbarIcon
-                {
-                    ToolTipText = "Portfolio Watch",
-                    IconSource = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/pyramid.png"))
-                };
-            }
-            catch (Exception ex)
-            {
-                new ConfirmationWindow("Error", $"Error initializing tray icon: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
-                // Fallback or continue
-                _notifyIcon = new TaskbarIcon { ToolTipText = "Portfolio Watch" };
-            }
 
             // Load Settings
             var settings = _settingsService.LoadSettings();
@@ -227,6 +208,25 @@ namespace PortfolioWatch
             // Defer MainWindow creation and heavy initialization
             Dispatcher.InvokeAsync(() => 
             {
+                // Register file association
+                RegisterFileAssociation();
+
+                try
+                {
+                    // Initialize Tray Icon
+                    _notifyIcon = new TaskbarIcon
+                    {
+                        ToolTipText = "Portfolio Watch",
+                        IconSource = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/pyramid.png"))
+                    };
+                }
+                catch (Exception ex)
+                {
+                    new ConfirmationWindow("Error", $"Error initializing tray icon: {ex.Message}", isAlert: true, icon: "❌").ShowDialog();
+                    // Fallback or continue
+                    _notifyIcon = new TaskbarIcon { ToolTipText = "Portfolio Watch" };
+                }
+
                 InitializeMainWindow(settings, vm);
                 
                 if (!string.IsNullOrEmpty(startupFile))
@@ -389,7 +389,7 @@ namespace PortfolioWatch
             };
 
             // Initialize VM data
-            vm.Initialize();
+            vm.Initialize(settings);
 
             // Ensure Start with Windows
             if (settings.StartWithWindows)
