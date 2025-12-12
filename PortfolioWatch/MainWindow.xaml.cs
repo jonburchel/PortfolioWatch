@@ -206,6 +206,7 @@ namespace PortfolioWatch
             var tabControl = this.FindName("MainTabControl") as TabControl;
             if (tabControl != null)
             {
+                tabControl.SelectionChanged += MainTabControl_SelectionChanged;
                 tabControl.PreviewMouseWheel += MainTabControl_PreviewMouseWheel;
                 tabControl.ApplyTemplate();
                 if (tabControl.Template.FindName("ScrollLeftButton", tabControl) is RepeatButton leftBtn)
@@ -246,6 +247,60 @@ namespace PortfolioWatch
                 }
 
                 e.Handled = true;
+            }
+        }
+
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.OriginalSource is TabControl tabControl)
+            {
+                var item = tabControl.SelectedItem;
+                if (item != null)
+                {
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        var tabItem = tabControl.ItemContainerGenerator.ContainerFromItem(item) as TabItem;
+                        if (tabItem == null) return;
+
+                        if (_headerScrollViewer == null)
+                        {
+                            tabControl.ApplyTemplate();
+                            _headerScrollViewer = tabControl.Template.FindName("HeaderScrollViewer", tabControl) as ScrollViewer;
+                        }
+
+                        if (_headerScrollViewer != null)
+                        {
+                            try
+                            {
+                                var transform = tabItem.TransformToAncestor(_headerScrollViewer);
+                                var rect = transform.TransformBounds(new Rect(0, 0, tabItem.ActualWidth, tabItem.ActualHeight));
+
+                                double newOffset = _headerScrollViewer.HorizontalOffset;
+                                double padding = 5.0;
+
+                                if (rect.Left < 0)
+                                {
+                                    newOffset += rect.Left - padding;
+                                }
+                                else if (rect.Right > _headerScrollViewer.ViewportWidth)
+                                {
+                                    newOffset += (rect.Right - _headerScrollViewer.ViewportWidth) + padding;
+                                }
+
+                                newOffset = Math.Max(0, Math.Min(newOffset, _headerScrollViewer.ScrollableWidth));
+
+                                if (Math.Abs(newOffset - _headerScrollViewer.HorizontalOffset) > 1.0)
+                                {
+                                    _headerScrollViewer.ScrollToHorizontalOffset(newOffset);
+                                }
+                            }
+                            catch (InvalidOperationException)
+                            {
+                                // Can happen if visual is not connected to source
+                            }
+                        }
+                    }), DispatcherPriority.ContextIdle);
+                }
             }
         }
 
