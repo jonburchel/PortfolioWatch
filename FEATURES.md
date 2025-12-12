@@ -197,6 +197,20 @@ The application uses a system of emoji-based flags to alert the user to signific
     *   **Manual Search**: Entering a valid 9-character CUSIP in the main search bar triggers the resolution process. Users are prompted to confirm the fund name and quantity/value to establish the tracking baseline.
     *   **Screenshot Import**: The screenshot import tool automatically detects CUSIPs in the image text. It attempts to resolve them in bulk during the import process, flagging any that cannot be tracked.
 
+### 3.10. Screenshot Import
+*   **Overview**: Allows users to bulk import holdings by pasting screenshots of their brokerage accounts.
+*   **Workflow**:
+    *   **Input**: Users paste images (Ctrl+V) into the import window.
+    *   **Processing**: Images are sent to a secure, stateless Azure service powered by Gemini AI.
+    *   **Extraction**: The AI identifies Account Names, Symbols/Fund Names, Share Counts, and Values.
+*   **Capabilities**:
+    *   **Multi-Account Support**: Automatically detects different accounts in the screenshots and creates separate portfolio tabs for each (e.g., "Fidelity - Individual", "Vanguard - Roth IRA").
+    *   **CUSIP Detection**: Identifies private CUSIPs and attempts to resolve them to public equivalents (see Section 3.9).
+    *   **Privacy**: The processing is anonymous and stateless; no images or data are logged or stored on the server.
+*   **Limitations**:
+    *   **Duplicates**: Does not automatically deduplicate holdings if the same position is pasted multiple times.
+    *   **Accuracy**: Relies on OCR and AI interpretation; results should be verified by the user.
+
 ## 4. Data Persistence & Settings
 
 ### 4.1. Settings File
