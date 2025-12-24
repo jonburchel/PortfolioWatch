@@ -138,10 +138,10 @@ namespace PortfolioWatch
                 
                 // Ensure Height is valid
                 double fwHeight = _floatingWindow.Height;
-                if (double.IsNaN(fwHeight)) fwHeight = 100; // Default from XAML
+                MessageBox.Show(fwHeight.ToString());
 
-                // Lower edge 50px BELOW top of taskbar (WorkArea.Bottom)
-                _floatingWindow.Top = desktopWorkingArea.Bottom + 50 - fwHeight;
+                // Sit -25px from the TOP of the taskbar
+                _floatingWindow.Top = desktopWorkingArea.Bottom - 87;
             }
 
             _intendedLeft = _floatingWindow.Left;
@@ -335,20 +335,20 @@ namespace PortfolioWatch
                     // Move FloatingWindow based on current relative orientation
                     if (_currentIsBelow)
                     {
-                        _floatingWindow.Top = _mainWindow.Top - _floatingWindow.ActualHeight + 20;
+                        _floatingWindow.Top = _mainWindow.Top - _floatingWindow.ActualHeight + 35;
                     }
                     else
                     {
-                        _floatingWindow.Top = _mainWindow.Top - 20 + _mainWindow.Height;
+                        _floatingWindow.Top = _mainWindow.Top - 35 + _mainWindow.Height;
                     }
 
                     if (_currentIsRight)
                     {
-                        _floatingWindow.Left = _mainWindow.Left - 20;
+                        _floatingWindow.Left = _mainWindow.Left - 35;
                     }
                     else
                     {
-                        _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 20 - _floatingWindow.ActualWidth;
+                        _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 35 - _floatingWindow.ActualWidth;
                     }
 
                     _intendedLeft = _floatingWindow.Left;
@@ -366,20 +366,20 @@ namespace PortfolioWatch
                 
                 if (_currentIsBelow)
                 {
-                    _floatingWindow.Top = _mainWindow.Top + 20 - _floatingWindow.ActualHeight;
+                    _floatingWindow.Top = _mainWindow.Top + 35 - _floatingWindow.ActualHeight;
                 }
                 else
                 {
-                    _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height - 20;
+                    _floatingWindow.Top = _mainWindow.Top + _mainWindow.Height - 35;
                 }
 
                 if (_currentIsRight)
                 {
-                    _floatingWindow.Left = _mainWindow.Left - 20;
+                    _floatingWindow.Left = _mainWindow.Left - 35;
                 }
                 else
                 {
-                    _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 20 - _floatingWindow.ActualWidth;
+                    _floatingWindow.Left = _mainWindow.Left + _mainWindow.Width + 35 - _floatingWindow.ActualWidth;
                 }
 
                 _intendedLeft = _floatingWindow.Left;
@@ -440,11 +440,11 @@ namespace PortfolioWatch
 
             if (isBelow)
             {
-                _dragPreviewWindow.Top = fwTop + fwHeight - 20;
+                _dragPreviewWindow.Top = fwTop + fwHeight - 35;
             }
             else
             {
-                _dragPreviewWindow.Top = fwTop + 20 - _mainWindow.Height;
+                _dragPreviewWindow.Top = fwTop + 35 - _mainWindow.Height;
             }
 
             // Horizontal
@@ -455,11 +455,11 @@ namespace PortfolioWatch
 
             if (isRight)
             {
-                _dragPreviewWindow.Left = fwLeft + 20;
+                _dragPreviewWindow.Left = fwLeft + 35;
             }
             else
             {
-                _dragPreviewWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 20;
+                _dragPreviewWindow.Left = fwLeft + fwWidth - _mainWindow.Width - 35;
             }
         }
 
@@ -547,12 +547,12 @@ namespace PortfolioWatch
             _mainWindow.UpdateLayout();
 
             // Reset Floating Window Position
-            // Lower left corner, -10px from left edge.
-            // Lower edge of button 50px BELOW top of taskbar.
+            // Lower left corner, -40px from left edge.
+            // Sit -25px from the TOP of the taskbar.
             var workArea = SystemParameters.WorkArea;
             
-            _floatingWindow.Left = -9;
-            _floatingWindow.Top = workArea.Bottom + 34 - _floatingWindow.ActualHeight;
+            _floatingWindow.Left = -40;
+            _floatingWindow.Top = workArea.Bottom - 87;
 
             // Update intended position to prevent reversion
             _intendedLeft = _floatingWindow.Left;
@@ -595,12 +595,12 @@ namespace PortfolioWatch
                 if (_currentIsBelow)
                 {
                     // Position Below
-                    _mainWindow.Top = fwTop + fwHeight - 20;
+                    _mainWindow.Top = fwTop + fwHeight - 35;
                 }
                 else
                 {
                     // Position Above
-                    _mainWindow.Top = fwTop + 20 - mwHeight;
+                    _mainWindow.Top = fwTop + 35 - mwHeight;
                 }
 
                 // Horizontal
@@ -616,12 +616,12 @@ namespace PortfolioWatch
                 if (_currentIsRight)
                 {
                     // Align Left edges (Window extends right)
-                    _mainWindow.Left = fwLeft + 20;
+                    _mainWindow.Left = fwLeft + 35;
                 }
                 else
                 {
                     // Align Right edges (Window extends left)
-                    _mainWindow.Left = fwLeft + fwWidth - mwWidth - 20;
+                    _mainWindow.Left = fwLeft + fwWidth - mwWidth - 35;
                 }
             }
             catch (Exception ex)

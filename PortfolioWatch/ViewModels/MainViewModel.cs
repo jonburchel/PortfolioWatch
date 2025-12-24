@@ -89,6 +89,9 @@ namespace PortfolioWatch.ViewModels
         private bool _isPortfolioUp;
 
         [ObservableProperty]
+        private bool _hasPortfolioData;
+
+        [ObservableProperty]
         private System.Collections.Generic.List<double> _portfolioHistory = new();
 
         [ObservableProperty]
@@ -202,6 +205,8 @@ namespace PortfolioWatch.ViewModels
 
         [ObservableProperty]
         private ObservableCollection<TaxAllocation> _aggregateTaxAllocations = new();
+
+        public List<TaxCategory> TaxCategories => _settingsService.CurrentSettings.TaxCategories;
 
         public event EventHandler? RequestSearchFocus;
         public event EventHandler<PortfolioTabViewModel>? RequestTaxStatusEdit;
@@ -632,6 +637,8 @@ namespace PortfolioWatch.ViewModels
                 TaxAllocations = new System.Collections.Generic.List<TaxAllocation>(tab.TaxAllocations.Select(t => new TaxAllocation { Type = t.Type, Percentage = t.Percentage }))
             });
 
+            EnsureTaxAllocations(newTab);
+
             // Subscribe to events
             newTab.PropertyChanged += Tab_PropertyChanged;
             newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
@@ -712,6 +719,7 @@ namespace PortfolioWatch.ViewModels
                     {
                         stock.PropertyChanged += Stock_PropertyChanged;
                     }
+                    EnsureTaxAllocations(tabVm);
                     Tabs.Add(tabVm);
                 }
             }
@@ -741,6 +749,7 @@ namespace PortfolioWatch.ViewModels
                 {
                     stock.PropertyChanged += Stock_PropertyChanged;
                 }
+                EnsureTaxAllocations(defaultTab);
                 Tabs.Add(defaultTab);
             }
 
@@ -904,13 +913,121 @@ namespace PortfolioWatch.ViewModels
             }
         }
 
-        public void UpdateTabTaxAllocations(PortfolioTabViewModel tabVm, IEnumerable<TaxAllocation> allocations)
+        public void UpdateTabTaxAllocations(PortfolioTabViewModel sourceTab, IEnumerable<TaxAllocation> allocations)
         {
-            // Replace the collection instance to trigger binding updates (e.g. Pie Chart)
-            tabVm.TaxAllocations = new ObservableCollection<TaxAllocation>(allocations);
+            // 1. Update the source tab with new percentages
+            sourceTab.TaxAllocations = new ObservableCollection<TaxAllocation>(allocations);
+
+            // 2. Sync definitions on ALL tabs (including source, to ensure structure matches global TaxCategories)
+            // This handles renaming, adding, or removing categories globally.
+            foreach (var tab in Tabs.Where(t => !t.IsAddButton))
+            {
+                EnsureTaxAllocations(tab);
+            }
 
             SaveStocks();
             CalculatePortfolioTotals(); // Re-calculate aggregate
+        }
+
+        private void EnsureTaxAllocations(PortfolioTabViewModel tab)
+        {
+            // This method ensures the tab's allocations match the global TaxCategories
+            var newAllocations = new List<TaxAllocation>();
+            var oldAllocations = tab.TaxAllocations.ToList();
+            var categories = TaxCategories;
+
+            foreach (var category in categories)
+            {
+                // Try to find match in target
+                // Match by CategoryId first
+                var match = oldAllocations.FirstOrDefault(a => a.CategoryId == category.Id);
+                
+                // If not found, try to match by ID (legacy behavior where ID might have been used as CategoryId?)
+                // Or match by Type/Name for migration
+                if (match == null)
+                {
+                    if (category.Type != TaxStatusType.Custom)
+                    {
+                        match = oldAllocations.FirstOrDefault(a => a.Type == category.Type);
+                    }
+                    else
+                    {
+                        match = oldAllocations.FirstOrDefault(a => a.Name == category.Name);
+                    }
+                }
+
+                if (match != null)
+                {
+                    // Update definition to match global category
+                    match.CategoryId = category.Id;
+                    match.Name = category.Name;
+                    match.ColorHex = category.ColorHex;
+                    match.Type = category.Type;
+                    
+                    newAllocations.Add(match);
+                    oldAllocations.Remove(match);
+                }
+                else
+                {
+                    // New category from global list
+                    var newAlloc = new TaxAllocation
+                    {
+                        Id = Guid.NewGuid(),
+                        CategoryId = category.Id,
+                        Type = category.Type,
+                        Name = category.Name,
+                        ColorHex = category.ColorHex,
+                        Percentage = 0
+                    };
+                    newAllocations.Add(newAlloc);
+                }
+            }
+
+            // Handle orphaned percentages from deleted/unmatched categories
+            double orphanedPercentage = oldAllocations.Sum(a => a.Percentage);
+            
+            // If this is a fresh tab (all 0s or just created), ensure Unspecified is 100%
+            if (newAllocations.All(a => a.Percentage == 0) && orphanedPercentage == 0)
+            {
+                var unspecified = newAllocations.FirstOrDefault(a => a.Type == TaxStatusType.Unspecified);
+                if (unspecified != null) 
+                {
+                    unspecified.Percentage = 100;
+                }
+                else 
+                {
+                    // Create Unspecified if it doesn't exist
+                    newAllocations.Add(new TaxAllocation 
+                    { 
+                        Type = TaxStatusType.Unspecified, 
+                        Name = "Unspecified", 
+                        ColorHex = "#808080", 
+                        Percentage = 100 
+                    });
+                }
+            }
+            else if (orphanedPercentage > 0)
+            {
+                // Redistribute orphaned percentage to Unspecified
+                var unspecified = newAllocations.FirstOrDefault(a => a.Type == TaxStatusType.Unspecified);
+                if (unspecified != null)
+                {
+                    unspecified.Percentage += orphanedPercentage;
+                }
+                else
+                {
+                    // Create Unspecified if it doesn't exist
+                    newAllocations.Add(new TaxAllocation 
+                    { 
+                        Type = TaxStatusType.Unspecified, 
+                        Name = "Unspecified", 
+                        ColorHex = "#808080", 
+                        Percentage = orphanedPercentage 
+                    });
+                }
+            }
+
+            tab.TaxAllocations = new ObservableCollection<TaxAllocation>(newAllocations);
         }
 
         private void Tab_RequestEditTaxStatus(object? sender, EventArgs e)
@@ -1128,6 +1245,9 @@ namespace PortfolioWatch.ViewModels
                 await _stockService.UpdateAuxiliaryDataAsync();
             }
             
+            // Fetch chart data
+            _ = _stockService.UpdatePricesAsync(SelectedRange);
+
             ApplySortInternal();
         }
 
@@ -1280,7 +1400,7 @@ namespace PortfolioWatch.ViewModels
             if (confirmationWindow.ResetSettings)
             {
                 // Clear settings
-                var settings = new AppSettings(); // Default settings
+                var settings = _settingsService.GetDefaultSettings();
                 _settingsService.SaveSettings(settings);
 
                 // Reset properties
@@ -1560,7 +1680,7 @@ namespace PortfolioWatch.ViewModels
 
                         string originalName = IsMergedView ? "Merged View" : (SelectedTab?.Name ?? "Portfolio");
                         string dateStr = DateTime.Now.ToString("M-d-yy");
-                        string newTabName = $"{originalName} (Normalized to {targetValue:C0} on {dateStr})";
+                        string newTabName = $"{originalName} (x̂ → {targetValue:C0} on {dateStr})";
 
                         if (inputWindow.IsCheckBoxChecked) // Export to File (IsCheckBoxChecked is true when RadioOption2 is selected)
                         {
@@ -1601,6 +1721,8 @@ namespace PortfolioWatch.ViewModels
                                 // Copy tax allocations from current view
                                 TaxAllocations = IsMergedView ? AggregateTaxAllocations.ToList() : SelectedTab?.TaxAllocations.ToList() ?? new List<TaxAllocation>()
                             });
+
+                            EnsureTaxAllocations(newTab);
 
                             // Subscribe to events
                             newTab.PropertyChanged += Tab_PropertyChanged;
@@ -1747,6 +1869,8 @@ namespace PortfolioWatch.ViewModels
                     { 
                         Name = uniqueName
                     });
+
+                    EnsureTaxAllocations(newTab);
 
                     foreach (var item in group)
                     {
@@ -1937,7 +2061,45 @@ namespace PortfolioWatch.ViewModels
 
                         foreach (var tab in importedSettings.Tabs)
                         {
+                            // Merge Tax Categories
+                            if (tab.TaxAllocations != null)
+                            {
+                                foreach (var alloc in tab.TaxAllocations)
+                                {
+                                    if (alloc.Type == TaxStatusType.Unspecified) continue;
+
+                                    // Check if category exists in global list
+                                    // Match by ID first, then Name
+                                    var existing = TaxCategories.FirstOrDefault(c => c.Id == alloc.CategoryId);
+                                    if (existing == null)
+                                    {
+                                        existing = TaxCategories.FirstOrDefault(c => c.Name == alloc.Name);
+                                    }
+
+                                    if (existing == null)
+                                    {
+                                        // New category found in import
+                                        existing = new TaxCategory
+                                        {
+                                            Id = alloc.CategoryId != Guid.Empty ? alloc.CategoryId : Guid.NewGuid(),
+                                            Name = alloc.Name,
+                                            ColorHex = alloc.ColorHex,
+                                            Type = alloc.Type
+                                        };
+                                        TaxCategories.Add(existing);
+                                    }
+
+                                    // Link allocation to the global category (ensure ID matches)
+                                    alloc.CategoryId = existing.Id;
+                                    // Update properties to match global (in case of name match but different color/ID)
+                                    alloc.Name = existing.Name;
+                                    alloc.ColorHex = existing.ColorHex;
+                                    alloc.Type = existing.Type;
+                                }
+                            }
+
                             var tabVm = new PortfolioTabViewModel(tab);
+                            EnsureTaxAllocations(tabVm);
                             tabVm.IsIncludedInTotal = false; // Default to unchecked
 
                             if (firstImportedTab == null) firstImportedTab = tabVm;
@@ -2012,6 +2174,12 @@ namespace PortfolioWatch.ViewModels
                                 Tabs.Add(new PortfolioTabViewModel(true));
                             }
 
+                            // Sync tax allocations for ALL tabs (existing + new) to ensure they match the merged categories
+                            foreach (var tab in Tabs.Where(t => !t.IsAddButton))
+                            {
+                                EnsureTaxAllocations(tab);
+                            }
+
                             IsMergedView = false;
 
                             if (firstImportedTab != null)
@@ -2072,6 +2240,8 @@ namespace PortfolioWatch.ViewModels
             newTab.Stocks.CollectionChanged += Stocks_CollectionChanged;
             newTab.RequestEditTaxStatus += Tab_RequestEditTaxStatus;
             
+            EnsureTaxAllocations(newTab);
+
             // Insert before the Add Button (last index)
             if (Tabs.Count > 0)
             {
@@ -2192,6 +2362,23 @@ namespace PortfolioWatch.ViewModels
             }
         }
 
+        public void MoveStockToTab(Stock stock, PortfolioTabViewModel targetTab)
+        {
+            if (stock == null || targetTab == null || targetTab.IsAddButton) return;
+            if (SelectedTab == null || SelectedTab.IsAddButton) return;
+            if (SelectedTab == targetTab) return;
+
+            // Remove from current tab
+            SelectedTab.Stocks.Remove(stock);
+
+            // Add to target tab
+            targetTab.Stocks.Add(stock);
+            
+            UpdateServiceStocks();
+            SaveStocks();
+            CalculatePortfolioTotals();
+        }
+
         private void CalculatePortfolioTotals()
         {
             // If in Merged View, regenerate the merged list to reflect any price/share changes
@@ -2223,6 +2410,8 @@ namespace PortfolioWatch.ViewModels
             var includedStocks = Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal)
                                      .SelectMany(t => t.Stocks)
                                      .ToList();
+
+            HasPortfolioData = includedStocks.Any(s => s.Shares > 0);
 
             foreach (var stock in includedStocks)
             {
@@ -2446,7 +2635,7 @@ namespace PortfolioWatch.ViewModels
             }
 
             // Calculate Aggregate Tax Allocations
-            var taxAllocations = new Dictionary<TaxStatusType, double>();
+            var categoryTotals = new Dictionary<Guid, double>();
             decimal totalIncludedValue = 0;
 
             foreach (var tab in Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal))
@@ -2458,12 +2647,42 @@ namespace PortfolioWatch.ViewModels
                 {
                     if (allocation.Percentage > 0)
                     {
-                        if (!taxAllocations.ContainsKey(allocation.Type))
+                        var catId = allocation.CategoryId;
+                        
+                        // Fallback for legacy/unlinked allocations
+                        if (catId == Guid.Empty)
                         {
-                            taxAllocations[allocation.Type] = 0;
+                            // Try to find matching global category
+                            var match = TaxCategories.FirstOrDefault(c => c.Name == allocation.Name || (c.Type == allocation.Type && c.Type != TaxStatusType.Custom));
+                            if (match != null) catId = match.Id;
                         }
-                        // Contribution = TabValue * (Allocation% / 100)
-                        taxAllocations[allocation.Type] += (double)tabValue * (allocation.Percentage / 100.0);
+
+                        // If we have a valid ID (or found one), aggregate by it
+                        if (catId != Guid.Empty)
+                        {
+                            if (!categoryTotals.ContainsKey(catId))
+                            {
+                                categoryTotals[catId] = 0;
+                            }
+                            categoryTotals[catId] += (double)tabValue * (allocation.Percentage / 100.0);
+                        }
+                        else
+                        {
+                            // If still no ID, group by Type as a last resort (legacy behavior)
+                            // We'll use a temporary GUID based on Type to store in the dictionary
+                            // This is a bit hacky but handles the edge case of unmigrated data
+                            // However, since we can't easily map Type back to a Guid consistently without a lookup,
+                            // we might lose color info if we don't look it up.
+                            // Let's just skip unlinked custom categories or group them into "Unspecified"?
+                            // Actually, let's try to find ANY category with that Type.
+                            var match = TaxCategories.FirstOrDefault(c => c.Type == allocation.Type);
+                            if (match != null)
+                            {
+                                catId = match.Id;
+                                if (!categoryTotals.ContainsKey(catId)) categoryTotals[catId] = 0;
+                                categoryTotals[catId] += (double)tabValue * (allocation.Percentage / 100.0);
+                            }
+                        }
                     }
                 }
             }
@@ -2471,18 +2690,51 @@ namespace PortfolioWatch.ViewModels
             var newAggregateAllocations = new ObservableCollection<TaxAllocation>();
             if (totalIncludedValue > 0)
             {
-                foreach (var kvp in taxAllocations)
+                double totalAllocatedValue = 0;
+
+                foreach (var kvp in categoryTotals)
                 {
-                    double percentage = (kvp.Value / (double)totalIncludedValue) * 100.0;
+                    var catId = kvp.Key;
+                    var totalVal = kvp.Value;
+                    totalAllocatedValue += totalVal;
+
+                    double percentage = (totalVal / (double)totalIncludedValue) * 100.0;
+                    
                     if (percentage > 0)
                     {
+                        // Look up category details
+                        var category = TaxCategories.FirstOrDefault(c => c.Id == catId);
+                        
+                        string name = category?.Name ?? "Unknown";
+                        string color = category?.ColorHex ?? "#888888";
+                        TaxStatusType type = category?.Type ?? TaxStatusType.Custom;
+
                         newAggregateAllocations.Add(new TaxAllocation 
                         { 
-                            Type = kvp.Key, 
+                            Id = Guid.NewGuid(), // New ID for this aggregate view item
+                            CategoryId = catId,
+                            Type = type, 
+                            Name = name,
+                            ColorHex = color,
                             Percentage = percentage,
-                            Value = kvp.Value
+                            Value = totalVal
                         });
                     }
+                }
+
+                // Add Unspecified portion if any
+                double unspecifiedValue = (double)totalIncludedValue - totalAllocatedValue;
+                if (unspecifiedValue > 0.01)
+                {
+                    double percentage = (unspecifiedValue / (double)totalIncludedValue) * 100.0;
+                    newAggregateAllocations.Add(new TaxAllocation 
+                    { 
+                        Type = TaxStatusType.Unspecified, 
+                        Name = "Unspecified",
+                        ColorHex = "#808080",
+                        Percentage = percentage,
+                        Value = unspecifiedValue
+                    });
                 }
             }
             else
@@ -2490,6 +2742,8 @@ namespace PortfolioWatch.ViewModels
                 newAggregateAllocations.Add(new TaxAllocation 
                 { 
                     Type = TaxStatusType.Unspecified, 
+                    Name = "Unspecified",
+                    ColorHex = "#808080",
                     Percentage = 100,
                     Value = 0
                 });

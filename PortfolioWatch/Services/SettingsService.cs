@@ -28,6 +28,21 @@ namespace PortfolioWatch.Services
             _currentSettings = new AppSettings();
         }
 
+        public AppSettings GetDefaultSettings()
+        {
+            var settings = new AppSettings();
+            
+            // Ensure default categories exist
+            settings.TaxCategories.Add(new TaxCategory { Name = "Non-Taxable Roth", Type = TaxStatusType.NonTaxableRoth, ColorHex = "#228833" });
+            settings.TaxCategories.Add(new TaxCategory { Name = "Taxable Pre-Tax IRA", Type = TaxStatusType.TaxablePreTaxIRA, ColorHex = "#EE6677" });
+            settings.TaxCategories.Add(new TaxCategory { Name = "Taxable Capital Gains", Type = TaxStatusType.TaxableCapitalGains, ColorHex = "#0077BB" });
+
+            // Ensure default tab
+            settings.Tabs.Add(new PortfolioTab { Name = "Portfolio" });
+
+            return settings;
+        }
+
         public AppSettings LoadSettings()
         {
             try
@@ -64,12 +79,54 @@ namespace PortfolioWatch.Services
             // Ensure Tabs collection exists
             if (_currentSettings.Tabs == null) _currentSettings.Tabs = new List<PortfolioTab>();
 
+            // Ensure TaxCategories collection exists
+            if (_currentSettings.TaxCategories == null) _currentSettings.TaxCategories = new List<TaxCategory>();
+
+            // Migration: Populate TaxCategories from existing allocations if empty
+            if (_currentSettings.TaxCategories.Count == 0)
+            {
+                foreach (var tab in _currentSettings.Tabs)
+                {
+                    if (tab.TaxAllocations != null)
+                    {
+                        foreach (var alloc in tab.TaxAllocations)
+                        {
+                            if (alloc.Type == TaxStatusType.Unspecified) continue;
+
+                            // Check if category exists
+                            var existing = _currentSettings.TaxCategories.FirstOrDefault(c => c.Name == alloc.Name);
+                            if (existing == null)
+                            {
+                                existing = new TaxCategory
+                                {
+                                    Name = alloc.Name,
+                                    ColorHex = alloc.ColorHex,
+                                    Type = alloc.Type
+                                };
+                                _currentSettings.TaxCategories.Add(existing);
+                            }
+
+                            // Link allocation to category
+                            alloc.CategoryId = existing.Id;
+                        }
+                    }
+                }
+
+            }
+
+            // Ensure default categories exist (restore if missing) - Run this ALWAYS, not just on migration
+            EnsureDefaultCategory("Non-Taxable Roth", TaxStatusType.NonTaxableRoth, "#228833");
+            EnsureDefaultCategory("Taxable Pre-Tax IRA", TaxStatusType.TaxablePreTaxIRA, "#EE6677");
+            EnsureDefaultCategory("Taxable Capital Gains", TaxStatusType.TaxableCapitalGains, "#0077BB");
+
             // Sanitize: Remove null tabs and ensure non-null Stocks collections
             _currentSettings.Tabs.RemoveAll(t => t == null);
             foreach (var tab in _currentSettings.Tabs)
             {
                 if (tab.Stocks == null) tab.Stocks = new List<Stock>();
                 else tab.Stocks.RemoveAll(s => s == null || string.IsNullOrWhiteSpace(s.Symbol));
+                
+                if (tab.TaxAllocations == null) tab.TaxAllocations = new List<TaxAllocation>();
             }
 
             // Also sanitize legacy Stocks list if present
@@ -450,6 +507,31 @@ namespace PortfolioWatch.Services
             using (var sha256 = SHA256.Create())
             {
                 return sha256.ComputeHash(bytes);
+            }
+        }
+
+        private void EnsureDefaultCategory(string name, TaxStatusType type, string color)
+        {
+            // Check by Type first (for strict defaults) or Name (if user renamed but kept type?)
+            // Actually, we want to ensure these specific defaults exist.
+            // If a category with the same Type exists, we assume it's the default (even if renamed).
+            // If a category with the same Name exists, we assume it's the default.
+            
+            var existing = _currentSettings.TaxCategories.FirstOrDefault(c => c.Type == type);
+            if (existing == null)
+            {
+                // Try by name
+                existing = _currentSettings.TaxCategories.FirstOrDefault(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (existing == null)
+            {
+                _currentSettings.TaxCategories.Add(new TaxCategory 
+                { 
+                    Name = name, 
+                    Type = type, 
+                    ColorHex = color 
+                });
             }
         }
     }

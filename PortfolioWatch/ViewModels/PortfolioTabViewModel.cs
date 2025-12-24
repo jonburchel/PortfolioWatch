@@ -66,7 +66,10 @@ namespace PortfolioWatch.ViewModels
             {
                 TaxAllocations = new ObservableCollection<TaxAllocation>
                 {
-                    new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = 100 }
+                    new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = 100 },
+                    new TaxAllocation { Type = TaxStatusType.NonTaxableRoth, Percentage = 0 },
+                    new TaxAllocation { Type = TaxStatusType.TaxablePreTaxIRA, Percentage = 0 },
+                    new TaxAllocation { Type = TaxStatusType.TaxableCapitalGains, Percentage = 0 }
                 };
             }
 

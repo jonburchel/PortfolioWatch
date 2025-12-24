@@ -127,4 +127,39 @@ namespace PortfolioWatch.Converters
             throw new NotImplementedException();
         }
     }
+
+    public class TaxPieVisibilityConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            // Expected values:
+            // 0: IsEditing (bool)
+            // 1: IsPortfolioMode (bool)
+            // 2: TotalValue (decimal or double)
+
+            if (values.Length >= 3 &&
+                values[0] is bool isEditing &&
+                values[1] is bool isPortfolioMode)
+            {
+                double totalValue = 0;
+                if (values[2] is decimal d) totalValue = (double)d;
+                else if (values[2] is double db) totalValue = db;
+                else if (values[2] is float f) totalValue = (double)f;
+                else if (values[2] is int i) totalValue = (double)i;
+
+                if (isEditing) return Visibility.Collapsed;
+                if (!isPortfolioMode) return Visibility.Collapsed;
+                if (totalValue <= 0) return Visibility.Collapsed;
+
+                return Visibility.Visible;
+            }
+
+            return Visibility.Collapsed;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

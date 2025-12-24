@@ -7,7 +7,7 @@
         xmlns:converters="clr-namespace:PortfolioWatch.Converters"
         xmlns:controls="clr-namespace:PortfolioWatch.Controls"
         mc:Ignorable="d"
-        Title="PortfolioWatch" Height="100" Width="100"
+        Title="PortfolioWatch" Height="140" Width="140"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
         Topmost="True" ShowInTaskbar="False" ResizeMode="NoResize">
     
@@ -19,14 +19,18 @@
         <converters:SparklineNegativeConverter x:Key="SparklineNegativeConverter"/>
         <converters:SparklineBaselineConverter x:Key="SparklineBaselineConverter"/>
         <converters:SparklineSimpleConverter x:Key="SparklineSimpleConverter"/>
+        <converters:MultiIndexGraphConverter x:Key="MultiIndexGraphConverter"/>
+        <converters:IsNegativeConverter x:Key="IsNegativeConverter"/>
     </Window.Resources>
 
     <Grid>
         <Border x:Name="MainBorder" AutomationProperties.AutomationId="MainBorder" Width="60" Height="60" CornerRadius="30" Background="#01000000" BorderBrush="Transparent" BorderThickness="0"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
                 MouseEnter="Border_MouseEnter" MouseLeave="Border_MouseLeave"
                 MouseLeftButtonDown="Border_MouseLeftButtonDown"
                 MouseRightButtonDown="Border_MouseRightButtonDown"
-                ContextMenu="{StaticResource SharedContextMenu}">
+                ContextMenu="{StaticResource SharedContextMenu}"
+                ClipToBounds="False">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Opacity" Value="{Binding WindowOpacity, Converter={StaticResource FloatingWindowOpacityConverter}}"/>
@@ -50,16 +54,161 @@
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <Grid>
+            <Grid ClipToBounds="False">
                 <Image Source="/pyramid.png" Stretch="Uniform" Margin="0"/>
 
+                <!-- Market Overview (Empty Portfolio or Portfolio Mode Disabled) -->
+                <Grid ClipToBounds="False">
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <!-- Hide if Portfolio Mode is ON and we HAVE data (show portfolio instead) -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding IsPortfolioMode}" Value="True"/>
+                                        <Condition Binding="{Binding HasPortfolioData}" Value="True"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </MultiDataTrigger>
+                                <!-- Hide if all decorations are disabled -->
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding ShowFloatingWindowIntradayPercent}" Value="False"/>
+                                        <Condition Binding="{Binding ShowFloatingWindowTotalValue}" Value="False"/>
+                                        <Condition Binding="{Binding ShowFloatingWindowIntradayGraph}" Value="False"/>
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
+
+                    <!-- Background Scrim -->
+                    <Border Background="#55000000" CornerRadius="30" IsHitTestVisible="False"/>
+
+                    <!-- Content -->
+                    <Grid ClipToBounds="False">
+                        <!-- Graphs (Constrained) -->
+                        <Grid Margin="12,15,12,15" Opacity="0.7" ClipToBounds="False">
+                            <!-- Dow Jones -->
+                            <Path StrokeThickness="1.5" Stretch="Fill"
+                                  Data="{Binding Indexes, Converter={StaticResource MultiIndexGraphConverter}, ConverterParameter=^DJI}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Indexes[0].ChangePercent, Converter={StaticResource IsNegativeConverter}}" Value="True">
+                                                <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                                <Path.Effect><DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/></Path.Effect>
+                            </Path>
+                            <!-- Nasdaq -->
+                            <Path StrokeThickness="1.5" Stretch="Fill"
+                                  Data="{Binding Indexes, Converter={StaticResource MultiIndexGraphConverter}, ConverterParameter=^IXIC}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Indexes[1].ChangePercent, Converter={StaticResource IsNegativeConverter}}" Value="True">
+                                                <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                                <Path.Effect><DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/></Path.Effect>
+                            </Path>
+                            <!-- S&P 500 -->
+                            <Path StrokeThickness="1.5" Stretch="Fill"
+                                  Data="{Binding Indexes, Converter={StaticResource MultiIndexGraphConverter}, ConverterParameter=^GSPC}">
+                                <Path.Style>
+                                    <Style TargetType="Path">
+                                        <Setter Property="Stroke" Value="{DynamicResource PositiveColorBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Indexes[2].ChangePercent, Converter={StaticResource IsNegativeConverter}}" Value="True">
+                                                <Setter Property="Stroke" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Path.Style>
+                                <Path.Effect><DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black"/></Path.Effect>
+                            </Path>
+                        </Grid>
+
+                        <!-- Text Info (Unconstrained) -->
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" ClipToBounds="False" Margin="0,0,0,0">
+                            <StackPanel.Resources>
+                                <Style TargetType="controls:OutlinedTextBlock">
+                                    <Setter Property="FontSize" Value="9"/>
+                                    <Setter Property="FontWeight" Value="Bold"/>
+                                    <Setter Property="Stroke" Value="Black"/>
+                                    <Setter Property="StrokeThickness" Value="2"/>
+                                    <Setter Property="HorizontalAlignment" Value="Center"/>
+                                    <Setter Property="Margin" Value="0,-1,0,-1"/>
+                                    <Setter Property="Effect">
+                                        <Setter.Value>
+                                            <DropShadowEffect BlurRadius="2" ShadowDepth="1" Color="Black" Opacity="1"/>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </StackPanel.Resources>
+
+                            <!-- Dow -->
+                            <controls:OutlinedTextBlock Text="{Binding Indexes[0].ChangePercent, StringFormat=DJI {0:F2}%}">
+                                <controls:OutlinedTextBlock.Style>
+                                    <Style TargetType="controls:OutlinedTextBlock" BasedOn="{StaticResource {x:Type controls:OutlinedTextBlock}}">
+                                        <Setter Property="Fill" Value="{DynamicResource PositiveColorBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Indexes[0].ChangePercent, Converter={StaticResource IsNegativeConverter}}" Value="True">
+                                                <Setter Property="Fill" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:OutlinedTextBlock.Style>
+                            </controls:OutlinedTextBlock>
+                            <!-- Nasdaq -->
+                            <controls:OutlinedTextBlock Text="{Binding Indexes[1].ChangePercent, StringFormat=IXIC {0:F2}%}">
+                                <controls:OutlinedTextBlock.Style>
+                                    <Style TargetType="controls:OutlinedTextBlock" BasedOn="{StaticResource {x:Type controls:OutlinedTextBlock}}">
+                                        <Setter Property="Fill" Value="{DynamicResource PositiveColorBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Indexes[1].ChangePercent, Converter={StaticResource IsNegativeConverter}}" Value="True">
+                                                <Setter Property="Fill" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:OutlinedTextBlock.Style>
+                            </controls:OutlinedTextBlock>
+                            <!-- S&P -->
+                            <controls:OutlinedTextBlock Text="{Binding Indexes[2].ChangePercent, StringFormat=INX {0:F2}%}">
+                                <controls:OutlinedTextBlock.Style>
+                                    <Style TargetType="controls:OutlinedTextBlock" BasedOn="{StaticResource {x:Type controls:OutlinedTextBlock}}">
+                                        <Setter Property="Fill" Value="{DynamicResource PositiveColorBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Indexes[2].ChangePercent, Converter={StaticResource IsNegativeConverter}}" Value="True">
+                                                <Setter Property="Fill" Value="{DynamicResource NegativeColorBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </controls:OutlinedTextBlock.Style>
+                            </controls:OutlinedTextBlock>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
                 <!-- Portfolio Decorations -->
-                <Grid>
+                <Grid ClipToBounds="False">
                     <Grid.Style>
                         <Style TargetType="Grid">
                             <Setter Property="Visibility" Value="Visible"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsPortfolioMode}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding HasPortfolioData}" Value="False">
                                     <Setter Property="Visibility" Value="Collapsed"/>
                                 </DataTrigger>
                                 <MultiDataTrigger>
@@ -77,9 +226,9 @@
                     <!-- Background Scrim for Contrast -->
                     <Border Background="#33000000" CornerRadius="30" IsHitTestVisible="False"/>
 
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5,5,0,0">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="5,5,0,0" ClipToBounds="False">
                         <!-- Text Info -->
-                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,-2">
+                        <StackPanel HorizontalAlignment="Center" Margin="0,0,0,-2" ClipToBounds="False">
                             <StackPanel.Resources>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="FontWeight" Value="Bold"/>

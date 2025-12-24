@@ -5,7 +5,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using PortfolioWatch.Models;
 
 namespace PortfolioWatch.Views
@@ -14,11 +16,12 @@ namespace PortfolioWatch.Views
     {
         public TaxStatusEditViewModel ViewModel { get; }
         public bool IsSaved { get; private set; }
+        public bool IsShowingDialog { get; set; }
 
-        public TaxStatusEditWindow(ObservableCollection<TaxAllocation> currentAllocations)
+        public TaxStatusEditWindow(List<TaxCategory> globalCategories, ObservableCollection<TaxAllocation> currentAllocations)
         {
             InitializeComponent();
-            ViewModel = new TaxStatusEditViewModel(currentAllocations);
+            ViewModel = new TaxStatusEditViewModel(globalCategories, currentAllocations, this);
             DataContext = ViewModel;
             
             this.KeyDown += Window_KeyDown;
@@ -33,21 +36,27 @@ namespace PortfolioWatch.Views
             }
             else if (e.Key == Key.Enter)
             {
-                IsSaved = true;
-                Close();
+                // Only close if not editing a text box
+                if (!(Keyboard.FocusedElement is System.Windows.Controls.TextBox))
+                {
+                    IsSaved = true;
+                    Close();
+                }
             }
         }
 
         private void Window_Deactivated(object? sender, EventArgs e)
         {
+            if (IsShowingDialog) return;
+
             // Implicit cancel on lost focus
             try
             {
-                Close();
+                Close(); 
             }
             catch
             {
-                // Ignore if already closing
+                // Ignore
             }
         }
 
@@ -70,132 +79,271 @@ namespace PortfolioWatch.Views
         }
     }
 
-    public partial class TaxStatusEditViewModel : ObservableObject
+    public partial class TaxAllocationViewModel : ObservableObject
     {
-        private double _nonTaxableRothPercentage;
-        private double _taxablePreTaxIRAPercentage;
-        private double _taxableCapitalGainsPercentage;
+        private readonly TaxStatusEditViewModel _parent;
+        private readonly TaxCategory _category;
+        
+        public Guid CategoryId => _category.Id;
 
-        public double UnspecifiedPercentage => Math.Max(0, 100 - (NonTaxableRothPercentage + TaxablePreTaxIRAPercentage + TaxableCapitalGainsPercentage));
-
-        public double NonTaxableRothPercentage
+        public string Name
         {
-            get => _nonTaxableRothPercentage;
-            set => UpdateAllocation(TaxStatusType.NonTaxableRoth, value);
-        }
-
-        public double TaxablePreTaxIRAPercentage
-        {
-            get => _taxablePreTaxIRAPercentage;
-            set => UpdateAllocation(TaxStatusType.TaxablePreTaxIRA, value);
-        }
-
-        public double TaxableCapitalGainsPercentage
-        {
-            get => _taxableCapitalGainsPercentage;
-            set => UpdateAllocation(TaxStatusType.TaxableCapitalGains, value);
-        }
-
-        public TaxStatusEditViewModel(ObservableCollection<TaxAllocation> currentAllocations)
-        {
-            // Initialize from existing allocations
-            var roth = currentAllocations.FirstOrDefault(a => a.Type == TaxStatusType.NonTaxableRoth);
-            var ira = currentAllocations.FirstOrDefault(a => a.Type == TaxStatusType.TaxablePreTaxIRA);
-            var gains = currentAllocations.FirstOrDefault(a => a.Type == TaxStatusType.TaxableCapitalGains);
-
-            _nonTaxableRothPercentage = roth?.Percentage ?? 0;
-            _taxablePreTaxIRAPercentage = ira?.Percentage ?? 0;
-            _taxableCapitalGainsPercentage = gains?.Percentage ?? 0;
-            
-            // Ensure we don't exceed 100 initially (sanity check)
-            double total = _nonTaxableRothPercentage + _taxablePreTaxIRAPercentage + _taxableCapitalGainsPercentage;
-            if (total > 100)
+            get => _category.Name;
+            set
             {
-                double factor = 100.0 / total;
-                _nonTaxableRothPercentage *= factor;
-                _taxablePreTaxIRAPercentage *= factor;
-                _taxableCapitalGainsPercentage *= factor;
+                if (_category.Name != value)
+                {
+                    _category.Name = value;
+                    OnPropertyChanged();
+                }
             }
         }
 
-        private void UpdateAllocation(TaxStatusType type, double newValue)
+        public string ColorHex
         {
-            // Clamp new value between 0 and 100
-            newValue = Math.Max(0, Math.Min(100, newValue));
-
-            double oldValue = type switch
+            get => _category.ColorHex;
+            set
             {
-                TaxStatusType.NonTaxableRoth => _nonTaxableRothPercentage,
-                TaxStatusType.TaxablePreTaxIRA => _taxablePreTaxIRAPercentage,
-                TaxStatusType.TaxableCapitalGains => _taxableCapitalGainsPercentage,
-                _ => 0
+                if (_category.ColorHex != value)
+                {
+                    _category.ColorHex = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(Brush));
+                }
+            }
+        }
+
+        [ObservableProperty]
+        private bool _isEditingName;
+
+        private double _percentage;
+        public double Percentage
+        {
+            get => _percentage;
+            set
+            {
+                if (Math.Abs(_percentage - value) > 0.001)
+                {
+                    _parent.RequestUpdateAllocation(this, value);
+                }
+            }
+        }
+
+        // Method for parent to update backing field without triggering loop
+        public void SetPercentageSilent(double value)
+        {
+            if (Math.Abs(_percentage - value) > 0.001)
+            {
+                SetProperty(ref _percentage, value, nameof(Percentage));
+            }
+        }
+
+        public Brush Brush 
+        {
+            get
+            {
+                try
+                {
+                    return new SolidColorBrush((Color)ColorConverter.ConvertFromString(ColorHex));
+                }
+                catch
+                {
+                    return Brushes.Gray;
+                }
+            }
+        }
+
+        public TaxAllocationViewModel(TaxCategory category, double percentage, TaxStatusEditViewModel parent)
+        {
+            _parent = parent;
+            _category = category;
+            _percentage = percentage;
+        }
+
+        public TaxAllocation ToModel()
+        {
+            return new TaxAllocation
+            {
+                Id = Guid.NewGuid(), // New allocation ID
+                CategoryId = _category.Id,
+                Name = _category.Name,
+                ColorHex = _category.ColorHex,
+                Percentage = Percentage,
+                Type = _category.Type
             };
+        }
 
-            if (Math.Abs(newValue - oldValue) < 0.001) return;
+        public TaxCategory GetCategory() => _category;
 
+        [RelayCommand]
+        private void StartEditing()
+        {
+            IsEditingName = true;
+        }
+
+        [RelayCommand]
+        private void StopEditing()
+        {
+            IsEditingName = false;
+        }
+        
+        [RelayCommand]
+        private void Remove()
+        {
+            _parent.RemoveAllocation(this);
+        }
+    }
+
+    public partial class TaxStatusEditViewModel : ObservableObject
+    {
+        [ObservableProperty]
+        private ObservableCollection<TaxAllocationViewModel> _allocations = new();
+
+        private readonly List<TaxCategory> _globalCategories;
+        private readonly TaxStatusEditWindow _window;
+
+        public double UnspecifiedPercentage => Math.Max(0, 100 - Allocations.Sum(a => a.Percentage));
+
+        public TaxStatusEditViewModel(List<TaxCategory> globalCategories, ObservableCollection<TaxAllocation> currentAllocations, TaxStatusEditWindow window)
+        {
+            _globalCategories = globalCategories;
+            _window = window;
+
+            // Populate from global categories
+            foreach (var category in globalCategories)
+            {
+                // Find existing percentage
+                // Match by CategoryId first, then Name/Type for legacy
+                var existing = currentAllocations.FirstOrDefault(a => a.CategoryId == category.Id);
+                if (existing == null)
+                {
+                    existing = currentAllocations.FirstOrDefault(a => a.Name == category.Name && a.Type == category.Type);
+                }
+
+                double percentage = existing?.Percentage ?? 0;
+                Allocations.Add(new TaxAllocationViewModel(category, percentage, this));
+            }
+            
+            // Ensure we don't exceed 100 initially
+            ValidateTotal();
+        }
+
+        private void ValidateTotal()
+        {
+            double total = Allocations.Sum(a => a.Percentage);
+            if (total > 100)
+            {
+                double factor = 100.0 / total;
+                foreach (var alloc in Allocations)
+                {
+                    alloc.SetPercentageSilent(alloc.Percentage * factor);
+                }
+            }
+            OnPropertyChanged(nameof(UnspecifiedPercentage));
+        }
+
+        public void RequestUpdateAllocation(TaxAllocationViewModel target, double newValue)
+        {
+            // Clamp new value
+            newValue = Math.Max(0, Math.Min(100, newValue));
+            
+            double oldValue = target.Percentage;
             double delta = newValue - oldValue;
+            
+            if (Math.Abs(delta) < 0.001) return;
+
             double currentUnspecified = UnspecifiedPercentage;
 
             if (delta < 0)
             {
-                // Sliding left (or typing lower value): simply reduce the value, Unspecified increases automatically
-                SetBackingField(type, newValue);
+                // Decreasing: Easy, just decrease. Unspecified grows.
+                target.SetPercentageSilent(newValue);
             }
             else
             {
-                // Sliding right (or typing higher value)
-                if (delta <= currentUnspecified + 0.001) // Tolerance for float math
+                // Increasing
+                if (delta <= currentUnspecified + 0.001)
                 {
                     // Enough unspecified space
-                    SetBackingField(type, newValue);
+                    target.SetPercentageSilent(newValue);
                 }
                 else
                 {
-                    // Not enough unspecified space, need to take from others
+                    // Not enough space, need to take from others
                     double neededFromOthers = delta - currentUnspecified;
                     
-                    // Identify others
-                    var others = new List<(TaxStatusType Type, double Value)>();
-                    if (type != TaxStatusType.NonTaxableRoth) others.Add((TaxStatusType.NonTaxableRoth, _nonTaxableRothPercentage));
-                    if (type != TaxStatusType.TaxablePreTaxIRA) others.Add((TaxStatusType.TaxablePreTaxIRA, _taxablePreTaxIRAPercentage));
-                    if (type != TaxStatusType.TaxableCapitalGains) others.Add((TaxStatusType.TaxableCapitalGains, _taxableCapitalGainsPercentage));
-
-                    double othersSum = others.Sum(o => o.Value);
+                    var others = Allocations.Where(a => a != target && a.Percentage > 0).ToList();
+                    double othersSum = others.Sum(a => a.Percentage);
 
                     if (othersSum > 0.001)
                     {
                         // Reduce others proportionally
                         foreach (var other in others)
                         {
-                            double reduction = neededFromOthers * (other.Value / othersSum);
-                            double newOtherValue = Math.Max(0, other.Value - reduction);
-                            SetBackingField(other.Type, newOtherValue);
+                            double reduction = neededFromOthers * (other.Percentage / othersSum);
+                            double newOtherValue = Math.Max(0, other.Percentage - reduction);
+                            other.SetPercentageSilent(newOtherValue);
                         }
-                        // Set the target value
-                        SetBackingField(type, newValue);
+                        // Set target
+                        target.SetPercentageSilent(newValue);
                     }
                     else
                     {
-                        // Cannot increase further because others are 0 and unspecified is 0
-                        // Cap the increase to available unspecified
-                        SetBackingField(type, oldValue + currentUnspecified);
+                        // Cannot increase further
+                        target.SetPercentageSilent(oldValue + currentUnspecified);
                     }
                 }
             }
 
             OnPropertyChanged(nameof(UnspecifiedPercentage));
-            OnPropertyChanged(nameof(NonTaxableRothPercentage));
-            OnPropertyChanged(nameof(TaxablePreTaxIRAPercentage));
-            OnPropertyChanged(nameof(TaxableCapitalGainsPercentage));
         }
 
-        private void SetBackingField(TaxStatusType type, double value)
+        [RelayCommand]
+        private void AddCategory()
         {
-            switch (type)
+            // Generate a random color
+            var random = new Random();
+            var color = Color.FromRgb((byte)random.Next(50, 200), (byte)random.Next(50, 200), (byte)random.Next(50, 200));
+            string hex = $"#{color.R:X2}{color.G:X2}{color.B:X2}";
+
+            var newCategory = new TaxCategory
             {
-                case TaxStatusType.NonTaxableRoth: _nonTaxableRothPercentage = value; break;
-                case TaxStatusType.TaxablePreTaxIRA: _taxablePreTaxIRAPercentage = value; break;
-                case TaxStatusType.TaxableCapitalGains: _taxableCapitalGainsPercentage = value; break;
+                Name = "New Category",
+                ColorHex = hex,
+                Type = TaxStatusType.Custom
+            };
+
+            // Add to global list
+            _globalCategories.Add(newCategory);
+
+            var vm = new TaxAllocationViewModel(newCategory, 0, this);
+            vm.IsEditingName = true; // Start editing immediately
+            Allocations.Add(vm);
+            OnPropertyChanged(nameof(UnspecifiedPercentage));
+        }
+
+        public void RemoveAllocation(TaxAllocationViewModel item)
+        {
+            if (Allocations.Contains(item))
+            {
+                // Confirmation
+                var confirm = new ConfirmationWindow("Delete Category", 
+                    $"Are you sure you want to delete '{item.Name}'? This will remove it from ALL tabs.", 
+                    isAlert: false);
+                
+                confirm.Owner = _window;
+                confirm.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+
+                _window.IsShowingDialog = true;
+                var result = confirm.ShowDialog();
+                _window.IsShowingDialog = false;
+
+                if (result == true)
+                {
+                    Allocations.Remove(item);
+                    _globalCategories.Remove(item.GetCategory());
+                    OnPropertyChanged(nameof(UnspecifiedPercentage));
+                }
             }
         }
 
@@ -203,17 +351,23 @@ namespace PortfolioWatch.Views
         {
             var list = new List<TaxAllocation>();
             
+            // Add Unspecified if needed
             if (UnspecifiedPercentage > 0.001) 
-                list.Add(new TaxAllocation { Type = TaxStatusType.Unspecified, Percentage = UnspecifiedPercentage });
+            {
+                list.Add(new TaxAllocation 
+                { 
+                    Type = TaxStatusType.Unspecified, 
+                    Percentage = UnspecifiedPercentage,
+                    Name = "Unspecified",
+                    ColorHex = "#808080"
+                });
+            }
             
-            if (NonTaxableRothPercentage > 0.001)
-                list.Add(new TaxAllocation { Type = TaxStatusType.NonTaxableRoth, Percentage = NonTaxableRothPercentage });
-                
-            if (TaxablePreTaxIRAPercentage > 0.001)
-                list.Add(new TaxAllocation { Type = TaxStatusType.TaxablePreTaxIRA, Percentage = TaxablePreTaxIRAPercentage });
-                
-            if (TaxableCapitalGainsPercentage > 0.001)
-                list.Add(new TaxAllocation { Type = TaxStatusType.TaxableCapitalGains, Percentage = TaxableCapitalGainsPercentage });
+            foreach (var vm in Allocations)
+            {
+                // Return ALL allocations, even 0%, to ensure they are not deleted from other tabs during sync
+                list.Add(vm.ToModel());
+            }
 
             return list;
         }

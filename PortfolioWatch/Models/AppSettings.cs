@@ -21,6 +21,7 @@ namespace PortfolioWatch.Models
 
     public class AppSettings
     {
+        public List<TaxCategory> TaxCategories { get; set; } = new List<TaxCategory>();
         public List<PortfolioTab> Tabs { get; set; } = new List<PortfolioTab>();
         public List<Stock> Stocks { get; set; } = new List<Stock>(); // Kept for backward compatibility
         public double WindowLeft { get; set; } = -9;

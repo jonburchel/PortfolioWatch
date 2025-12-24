@@ -341,7 +341,10 @@ namespace PortfolioWatch
 
         private void ViewModel_RequestTaxStatusEdit(object? sender, ViewModels.PortfolioTabViewModel tabVm)
         {
-            var dialog = new Views.TaxStatusEditWindow(tabVm.TaxAllocations);
+            var vm = sender as ViewModels.MainViewModel ?? DataContext as ViewModels.MainViewModel;
+            if (vm == null) return;
+
+            var dialog = new Views.TaxStatusEditWindow(vm.TaxCategories, tabVm.TaxAllocations);
             dialog.Owner = this;
             dialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
@@ -386,6 +389,45 @@ namespace PortfolioWatch
                 if (vm.NewSymbol == "Dow Jones")
                 {
                     vm.NewSymbol = string.Empty;
+                }
+            }
+        }
+
+        private void SearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (DataContext is ViewModels.MainViewModel vm && !vm.IsSearchPopupOpen) return;
+            if (SearchResultsList.Items.Count == 0) return;
+
+            if (e.Key == Key.Down)
+            {
+                if (SearchResultsList.SelectedIndex < SearchResultsList.Items.Count - 1)
+                {
+                    SearchResultsList.SelectedIndex++;
+                    SearchResultsList.ScrollIntoView(SearchResultsList.SelectedItem);
+                }
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Up)
+            {
+                if (SearchResultsList.SelectedIndex > 0)
+                {
+                    SearchResultsList.SelectedIndex--;
+                    SearchResultsList.ScrollIntoView(SearchResultsList.SelectedItem);
+                }
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter)
+            {
+                var selectedItem = SearchResultsList.SelectedItem;
+                if (selectedItem == null && SearchResultsList.Items.Count > 0)
+                {
+                    selectedItem = SearchResultsList.Items[0];
+                }
+
+                if (selectedItem is Models.StockSearchResult result && DataContext is ViewModels.MainViewModel mainVm)
+                {
+                    mainVm.SelectSearchResultCommand.Execute(result);
+                    e.Handled = true;
                 }
             }
         }
@@ -560,6 +602,7 @@ namespace PortfolioWatch
         private bool _wasSelectedOnDown;
         private ViewModels.PortfolioTabViewModel? _draggedTab;
         private Helpers.DragAdorner? _dragAdorner;
+        private Helpers.DragAdorner? _stockDragAdorner;
         private bool _isDragging;
 
         private void TabItem_PreviewMouseMove(object sender, MouseEventArgs e)
@@ -1135,9 +1178,10 @@ namespace PortfolioWatch
         private void TaxPie_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
             if (sender is FrameworkElement element && 
-                element.DataContext is ViewModels.PortfolioTabViewModel tabVm)
+                element.DataContext is ViewModels.PortfolioTabViewModel tabVm &&
+                DataContext is ViewModels.MainViewModel vm)
             {
-                var dialog = new Views.TaxStatusEditWindow(tabVm.TaxAllocations);
+                var dialog = new Views.TaxStatusEditWindow(vm.TaxCategories, tabVm.TaxAllocations);
 
                 // Calculate position in logical units
                 var source = PresentationSource.FromVisual(element);
@@ -1459,6 +1503,121 @@ namespace PortfolioWatch
                     rightBtn.Visibility = sv.HorizontalOffset < (sv.ScrollableWidth - 0.5) ? Visibility.Visible : Visibility.Collapsed;
                 }
             }
+        }
+
+        private void StockItem_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _startPoint = e.GetPosition(null);
+        }
+
+        private void StockItem_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (e.LeftButton == MouseButtonState.Pressed && sender is ListViewItem listViewItem)
+            {
+                Point position = e.GetPosition(null);
+                if (Math.Abs(position.X - _startPoint.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(position.Y - _startPoint.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    if (listViewItem.DataContext is Models.Stock stock)
+                    {
+                        // Create Adorner
+                        var adornerLayer = AdornerLayer.GetAdornerLayer(listViewItem);
+                        if (adornerLayer != null)
+                        {
+                            _stockDragAdorner = new Helpers.DragAdorner(listViewItem, listViewItem, 0.7);
+                            adornerLayer.Add(_stockDragAdorner);
+                        }
+
+                        try
+                        {
+                            DragDrop.DoDragDrop(listViewItem, stock, DragDropEffects.Move);
+                        }
+                        finally
+                        {
+                            // Cleanup Adorner
+                            if (_stockDragAdorner != null)
+                            {
+                                adornerLayer?.Remove(_stockDragAdorner);
+                                _stockDragAdorner = null;
+                            }
+                        }
+                        e.Handled = true;
+                    }
+                }
+            }
+        }
+
+        private void Window_DragOver(object sender, DragEventArgs e)
+        {
+            if (_stockDragAdorner != null)
+            {
+                Point position = e.GetPosition(this);
+                // We need to calculate offset relative to where the drag started, 
+                // but since we don't have the original element position easily accessible here without more state,
+                // we'll just position it at the mouse cursor for now.
+                // Ideally DragAdorner.UpdatePosition takes an offset.
+                // Let's assume UpdatePosition expects translation from original position.
+                
+                // Actually, DragAdorner usually updates RenderTransform.
+                // If we want it to follow the mouse, we need to know the initial mouse position relative to the element.
+                // But for simplicity, let's just try to update it based on current mouse position relative to start point.
+                
+                // _startPoint is captured in StockItem_PreviewMouseLeftButtonDown (Window coordinates)
+                // position is current Window coordinates.
+                
+                double offsetX = position.X - _startPoint.X;
+                double offsetY = position.Y - _startPoint.Y;
+                
+                _stockDragAdorner.UpdatePosition(offsetX, offsetY);
+            }
+        }
+
+        private void ScrollLeftButton_DragOver(object sender, DragEventArgs e)
+        {
+            if (_headerScrollViewer != null)
+            {
+                _headerScrollViewer.ScrollToHorizontalOffset(_headerScrollViewer.HorizontalOffset - 5);
+            }
+        }
+
+        private void ScrollRightButton_DragOver(object sender, DragEventArgs e)
+        {
+            if (_headerScrollViewer != null)
+            {
+                _headerScrollViewer.ScrollToHorizontalOffset(_headerScrollViewer.HorizontalOffset + 5);
+            }
+        }
+
+        private void TabItem_DragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(Models.Stock)) &&
+                sender is System.Windows.Controls.TabItem tabItem &&
+                tabItem.DataContext is ViewModels.PortfolioTabViewModel targetTab &&
+                !targetTab.IsAddButton)
+            {
+                e.Effects = DragDropEffects.Move;
+            }
+            else
+            {
+                e.Effects = DragDropEffects.None;
+            }
+            e.Handled = true;
+        }
+
+        private void TabItem_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(Models.Stock)) &&
+                sender is System.Windows.Controls.TabItem tabItem &&
+                tabItem.DataContext is ViewModels.PortfolioTabViewModel targetTab &&
+                !targetTab.IsAddButton)
+            {
+                var stock = e.Data.GetData(typeof(Models.Stock)) as Models.Stock;
+                if (stock != null && DataContext is ViewModels.MainViewModel vm)
+                {
+                    vm.MoveStockToTab(stock, targetTab);
+                }
+            }
+            e.Handled = true;
         }
     }
 }

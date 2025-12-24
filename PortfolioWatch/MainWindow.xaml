@@ -17,7 +17,9 @@
         Topmost="True" ShowInTaskbar="False" ResizeMode="CanResize"
         Icon="/pyramid.png"
         PreviewMouseWheel="Window_PreviewMouseWheel"
-        PreviewKeyDown="Window_PreviewKeyDown">
+        PreviewKeyDown="Window_PreviewKeyDown"
+        AllowDrop="True"
+        DragOver="Window_DragOver">
     
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="0" ResizeBorderThickness="5" GlassFrameThickness="0" CornerRadius="0"/>
@@ -106,6 +108,7 @@
         <converters:NewsItemSpacingConverter x:Key="NewsItemSpacingConverter"/>
         <converters:SignalStrengthToOpacityConverter x:Key="SignalStrengthToOpacityConverter"/>
         <converters:PieChartVisibilityConverter x:Key="PieChartVisibilityConverter"/>
+        <converters:TaxPieVisibilityConverter x:Key="TaxPieVisibilityConverter"/>
 
         <Style x:Key="NarrowScrollBarStyle" TargetType="{x:Type ScrollBar}">
             <Setter Property="Stylus.IsPressAndHoldEnabled" Value="false"/>
@@ -156,10 +159,33 @@
             </Setter>
         </Style>
 
+        <Style x:Key="StockItemStyle" TargetType="ListViewItem">
+            <Setter Property="Background" Value="{DynamicResource StockItemBackgroundBrush}"/>
+            <EventSetter Event="PreviewMouseLeftButtonDown" Handler="StockItem_PreviewMouseLeftButtonDown" />
+            <EventSetter Event="PreviewMouseMove" Handler="StockItem_PreviewMouseMove" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListViewItem">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Margin="0,2" Padding="8,4">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource StockItemMouseOverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="PortfolioTabItemStyle" TargetType="TabItem">
             <EventSetter Event="PreviewMouseMove" Handler="TabItem_PreviewMouseMove" />
             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="TabItem_PreviewMouseLeftButtonDown" />
             <EventSetter Event="PreviewMouseLeftButtonUp" Handler="TabItem_PreviewMouseLeftButtonUp" />
+            <Setter Property="AllowDrop" Value="True" />
+            <EventSetter Event="DragOver" Handler="TabItem_DragOver" />
+            <EventSetter Event="Drop" Handler="TabItem_Drop" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TabItem">
@@ -239,7 +265,15 @@
                                           MouseLeftButtonDown="TaxPie_MouseLeftButtonDown">
                                         <Grid.Style>
                                             <Style TargetType="Grid">
-                                                <Setter Property="Visibility" Value="{Binding IsEditing, Converter={StaticResource InverseBoolToVis}}"/>
+                                                <Setter Property="Visibility">
+                                                    <Setter.Value>
+                                                        <MultiBinding Converter="{StaticResource TaxPieVisibilityConverter}">
+                                                            <Binding Path="IsEditing"/>
+                                                            <Binding Path="DataContext.IsPortfolioMode" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                            <Binding Path="TotalValue"/>
+                                                        </MultiBinding>
+                                                    </Setter.Value>
+                                                </Setter>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding IsEditingTaxStatus}" Value="True">
                                                         <Setter Property="Effect">
@@ -465,7 +499,8 @@
                                               Width="20" Height="20" Margin="0,0,5,0" 
                                               Click="ScrollLeftButton_Click" Visibility="Collapsed"
                                               Background="Transparent" BorderThickness="0" 
-                                              Cursor="Hand" ToolTip="Scroll Left">
+                                              Cursor="Hand" ToolTip="Scroll Left"
+                                              AllowDrop="True" DragOver="ScrollLeftButton_DragOver">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
                                             <Border x:Name="Border" Background="{TemplateBinding Background}" CornerRadius="3">
@@ -495,7 +530,8 @@
                                               Width="20" Height="20" Margin="5,0,0,0" 
                                               Click="ScrollRightButton_Click" Visibility="Collapsed"
                                               Background="Transparent" BorderThickness="0" 
-                                              Cursor="Hand" ToolTip="Scroll Right">
+                                              Cursor="Hand" ToolTip="Scroll Right"
+                                              AllowDrop="True" DragOver="ScrollRightButton_DragOver">
                                     <RepeatButton.Template>
                                         <ControlTemplate TargetType="RepeatButton">
                                             <Border x:Name="Border" Background="{TemplateBinding Background}" CornerRadius="3">
@@ -571,6 +607,15 @@
                 </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="LinkTextBlockStyle" TargetType="TextBlock">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="TextDecorations" Value="Underline"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -1179,9 +1224,6 @@
 
                                                     <!-- Clickable Content Container -->
                                                     <Grid Grid.Column="1" Background="Transparent">
-                                                        <Grid.InputBindings>
-                                                            <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
-                                                        </Grid.InputBindings>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="Auto" SharedSizeGroup="SymbolColumn"/>
                                                             <ColumnDefinition Width="*"/>
@@ -1195,7 +1237,11 @@
                                                             </Grid.ColumnDefinitions>
                                                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
                                                                 <StackPanel Orientation="Horizontal">
-                                                                    <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14"/>
+                                                                    <TextBlock Text="{Binding Symbol}" FontWeight="Bold" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="14" Style="{StaticResource LinkTextBlockStyle}">
+                                                                        <TextBlock.InputBindings>
+                                                                            <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                                                        </TextBlock.InputBindings>
+                                                                    </TextBlock>
                                                                     
                                                                     <!-- CUSIP Indicator -->
                                                                     <TextBlock Text="★" Margin="3,0,0,0" 
@@ -1321,7 +1367,11 @@
                                                                                         HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="3,0,0,0"/>
                                                                     </Grid>
                                                                 </StackPanel>
-                                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left"/>
+                                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="9" TextTrimming="CharacterEllipsis" MaxWidth="120" Margin="0" Padding="0" HorizontalAlignment="Left" Style="{StaticResource LinkTextBlockStyle}">
+                                                                    <TextBlock.InputBindings>
+                                                                        <MouseBinding Gesture="LeftClick" Command="{Binding DataContext.OpenStockCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
+                                                                    </TextBlock.InputBindings>
+                                                                </TextBlock>
                                                             </StackPanel>
                                                             
                                                             <!-- Pie Chart -->
@@ -1393,7 +1443,7 @@
                                                                 <!-- Shares Input -->
                                                                 <Grid Grid.Column="0" Width="60" Margin="10,0,0,0">
                                                                     <TextBox x:Name="SharesBox"
-                                                                             Text="{Binding Shares, Converter={StaticResource ZeroToEmptyStringConverter}, ConverterParameter='#,##0.###', UpdateSourceTrigger=LostFocus}"
+                                                                             Text="{Binding SharesDisplay, UpdateSourceTrigger=LostFocus}"
                                                                              Background="{DynamicResource ControlBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0"
                                                                              HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
                                                                              Padding="2"
@@ -1796,12 +1846,13 @@
                         <TextBox x:Name="SearchBox" Text="{Binding NewSymbol, UpdateSourceTrigger=PropertyChanged}" 
                                  Background="{DynamicResource SearchBoxBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderThickness="0" Padding="5" 
                                  VerticalContentAlignment="Center" Tag="Add Symbol..."
-                                 LostFocus="SearchBox_LostFocus"/>
+                                 LostFocus="SearchBox_LostFocus"
+                                 PreviewKeyDown="SearchBox_PreviewKeyDown"/>
                         
                         <Popup IsOpen="{Binding IsSearchPopupOpen}" PlacementTarget="{Binding ElementName=SearchBox}" 
                                StaysOpen="False" AllowsTransparency="True" PopupAnimation="Slide">
                             <Border Background="{DynamicResource SearchPopupBackgroundBrush}" BorderBrush="{DynamicResource SearchPopupBorderBrush}" BorderThickness="1" CornerRadius="4" MaxHeight="200" Width="{Binding ElementName=SearchBox, Path=ActualWidth}">
-                                <ListView ItemsSource="{Binding SearchResults}" Background="Transparent" BorderThickness="0">
+                                <ListView x:Name="SearchResultsList" ItemsSource="{Binding SearchResults}" Background="Transparent" BorderThickness="0" SelectionMode="Single">
                                     <ListView.Resources>
                                         <Style TargetType="{x:Type ScrollViewer}">
                                             <Setter Property="Template">
@@ -1864,11 +1915,14 @@
                                                         <Border Background="{TemplateBinding Background}" Padding="2">
                                                             <ContentPresenter/>
                                                         </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter Property="Background" Value="{DynamicResource ControlMouseOverBrush}"/>
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource ControlMouseOverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource ControlMouseOverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                                                     </ControlTemplate>
                                                 </Setter.Value>
                                             </Setter>

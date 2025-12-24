@@ -64,6 +64,7 @@ namespace PortfolioWatch.Models
                     OnPropertyChanged(nameof(IsUp));
                     OnPropertyChanged(nameof(MarketValue));
                     OnPropertyChanged(nameof(DayChangeValue));
+                    OnPropertyChanged(nameof(SharesDisplay));
                     RefreshDirectionalConfidence();
                 }
             }
@@ -130,6 +131,46 @@ namespace PortfolioWatch.Models
                     OnPropertyChanged(nameof(MarketValue));
                     OnPropertyChanged(nameof(DayChangeValue));
                     OnPropertyChanged(nameof(IntradayChangeValue));
+                    OnPropertyChanged(nameof(SharesDisplay));
+                }
+            }
+        }
+
+        public string SharesDisplay
+        {
+            get
+            {
+                if (Shares == 0) return string.Empty;
+
+                // Calculate needed precision to affect a penny
+                // 10^-N * Price < 0.01 => 10^N > 100 * Price => N > Log10(100 * Price)
+                int decimals = 0;
+                if (Price > 0)
+                {
+                    decimals = (int)Math.Ceiling(Math.Log10((double)Price * 100));
+                }
+                
+                decimals = Math.Max(0, decimals);
+                if (decimals > 8) decimals = 8; // Cap at reasonable max
+
+                // Create format string like "0.#####"
+                string format = "0";
+                if (decimals > 0)
+                {
+                    format += "." + new string('#', decimals);
+                }
+
+                return Shares.ToString(format);
+            }
+            set
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    Shares = 0;
+                }
+                else if (double.TryParse(value, out double result))
+                {
+                    Shares = result;
                 }
             }
         }

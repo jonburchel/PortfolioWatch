@@ -1,3 +1,4 @@
+using System;
 using System.Text.Json.Serialization;
 using System.Windows.Media;
 
@@ -8,38 +9,104 @@ namespace PortfolioWatch.Models
         Unspecified,
         NonTaxableRoth,
         TaxablePreTaxIRA,
-        TaxableCapitalGains
+        TaxableCapitalGains,
+        Custom // Added for dynamic categories
+    }
+
+    public class TaxCategory
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Name { get; set; } = string.Empty;
+        public string ColorHex { get; set; } = "#888888";
+        public TaxStatusType Type { get; set; } = TaxStatusType.Custom;
     }
 
     public class TaxAllocation
     {
-        public TaxStatusType Type { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public Guid CategoryId { get; set; } // Link to TaxCategory
+
+        // Deprecated but kept for migration/compatibility
+        public TaxStatusType Type { get; set; } = TaxStatusType.Custom;
+        
+        private string _name = string.Empty;
+        public string Name 
+        { 
+            get
+            {
+                // Fallback for legacy data
+                if (string.IsNullOrEmpty(_name))
+                {
+                    return Type switch
+                    {
+                        TaxStatusType.Unspecified => "Unspecified",
+                        TaxStatusType.NonTaxableRoth => "Non-Taxable Roth",
+                        TaxStatusType.TaxablePreTaxIRA => "Taxable Pre-Tax IRA",
+                        TaxStatusType.TaxableCapitalGains => "Taxable Capital Gains",
+                        _ => "Custom Category"
+                    };
+                }
+                return _name;
+            }
+            set => _name = value;
+        }
+
         public double Percentage { get; set; }
 
         [JsonIgnore]
         public double Value { get; set; }
 
-        [JsonIgnore]
-        public string Name => Type switch
+        private string _colorHex = string.Empty;
+        public string ColorHex
         {
-            TaxStatusType.Unspecified => "Unspecified",
-            TaxStatusType.NonTaxableRoth => "Non-Taxable Roth",
-            TaxStatusType.TaxablePreTaxIRA => "Taxable Pre-Tax IRA",
-            TaxStatusType.TaxableCapitalGains => "Taxable Capital Gains",
-            _ => "Unknown"
-        };
+            get
+            {
+                if (string.IsNullOrEmpty(_colorHex))
+                {
+                    return Type switch
+                    {
+                        TaxStatusType.Unspecified => "#808080", // Gray
+                        TaxStatusType.NonTaxableRoth => "#228833", // Green
+                        TaxStatusType.TaxablePreTaxIRA => "#EE6677", // Red
+                        TaxStatusType.TaxableCapitalGains => "#0077BB", // Blue
+                        _ => "#888888" // Default gray
+                    };
+                }
+                return _colorHex;
+            }
+            set => _colorHex = value;
+        }
 
         [JsonIgnore]
-        public Color Color => Type switch
+        public Color Color 
         {
-            TaxStatusType.Unspecified => Colors.Gray,
-            TaxStatusType.NonTaxableRoth => Color.FromRgb(34, 136, 51), // Accessible Green (#228833)
-            TaxStatusType.TaxablePreTaxIRA => Color.FromRgb(238, 102, 119), // Accessible Soft Red (#EE6677)
-            TaxStatusType.TaxableCapitalGains => Color.FromRgb(0, 119, 187), // Accessible Blue (#0077BB)
-            _ => Colors.Transparent
-        };
+            get
+            {
+                try
+                {
+                    return (Color)ColorConverter.ConvertFromString(ColorHex);
+                }
+                catch
+                {
+                    return Colors.Gray;
+                }
+            }
+        }
         
         [JsonIgnore]
         public Brush Brush => new SolidColorBrush(Color);
+
+        public TaxAllocation Clone()
+        {
+            return new TaxAllocation
+            {
+                Id = Guid.NewGuid(), // New ID for clone
+                CategoryId = this.CategoryId,
+                Type = this.Type,
+                Name = this.Name,
+                Percentage = this.Percentage,
+                ColorHex = this.ColorHex
+            };
+        }
     }
 }
