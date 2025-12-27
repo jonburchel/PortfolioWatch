@@ -2407,9 +2407,12 @@ namespace PortfolioWatch.ViewModels
             double maxDayProgress = 0;
             Stock? stockWithMaxHistory = null;
 
-            var includedStocks = Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal)
-                                     .SelectMany(t => t.Stocks)
-                                     .ToList();
+            // Use MergedStocks when in merged view to avoid counting duplicates
+            var includedStocks = IsMergedView 
+                ? MergedStocks.ToList()
+                : Tabs.Where(t => !t.IsAddButton && t.IsIncludedInTotal)
+                      .SelectMany(t => t.Stocks)
+                      .ToList();
 
             HasPortfolioData = includedStocks.Any(s => s.Shares > 0);
 
