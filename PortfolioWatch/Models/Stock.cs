@@ -880,6 +880,13 @@ namespace PortfolioWatch.Models
                 Shares = this.Shares,
                 MarketCap = this.MarketCap,
                 PortfolioPercentage = this.PortfolioPercentage,
+
+                // Preserve intraday fields so merged/normalized clones don't zero out widget totals.
+                IntradayChange = this.IntradayChange,
+                IntradayChangePercent = this.IntradayChangePercent,
+                IntradayHistory = new List<double>(this.IntradayHistory),
+                IntradayTimestamps = new List<DateTime>(this.IntradayTimestamps),
+
                 EarningsDate = this.EarningsDate,
                 EarningsStatus = this.EarningsStatus,
                 EarningsMessage = this.EarningsMessage,
